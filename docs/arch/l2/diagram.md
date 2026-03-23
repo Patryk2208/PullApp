@@ -1,107 +1,103 @@
 ```mermaid
 ---
-title: PullApp Container Architecture
+title: PullApp - Container Architecture
 ---
 graph TB
     subgraph Clients["Client Layer | React Native"]
-        direction TB
-        Driver["<b>Driver Interface</b>"]
-        Passenger["<b>Passenger Interface</b>"]
+        direction LR
+        Driver["<b>Driver App</b><br/>GPS Tracking<br/>Route Display"]
+        Passenger["<b>Passenger App</b><br/>Ride Request<br/>Real-time Updates"]
     end
 
     subgraph Gateway["API Gateway"]
-        API["<br/>Authentication<br/>Rate Limiting<br/>Load Balancing"]
+        API["<b>Entry Point</b><br/>Authentication<br/>Rate Limiting<br/>Load Balancing<br/>SSL Termination"]
     end
 
-    subgraph Core["Core Flow"]
+    subgraph Core["Core Services"]
         direction TB
         
-        TripPlanner["<b>Trip Planner</b><br/>"]
-        TripPlannerDb[("<b>Trip Planner Database</b></br>PostGis")]
+        TripPlanner["<b>Trip Planner</b><br/>.NET<br/>Ride Orchestration<br/>State Management<br/>Route Registration"]
+        TripPlannerDb[("<b>Trip Store</b><br/>PostgreSQL + PostGIS<br/><br/>Routes · Rides<br/>Driver States<br/>Spatial Indexes")]
         
-        RabbitMQ[(<b>RabbitMQ</b><br/>──────────<br/>Exchange: ride-matches<br/>Queue: match-requests<br/>Priority: premium-first<br/>TTL: 30 seconds<br/>Dead Letter: failed)]
+        RabbitMQ[("<b>Match Queue</b><br/>RabbitMQ<br/><br/>Exchange: ride-matches<br/>Queue: match-requests<br/>Priority: premium-first<br/>TTL: 30s<br/>Dead Letter: failed")]
         
-        subgraph Compute["Compute Services"]
-            RouteCalcN["<b>Route-Calc</b><br/>Auto-scaled by KEDA<br/>───────<br/>Queue Consumer<br/>gRPC Server<br/>Embedded OSRM"]
+        subgraph Compute["Compute Cluster | Auto-scaled"]
+            RouteCalcN["<b>Route-Calc</b><br/>C++20 + OSRM<br/><br/>Queue Consumer<br/>Distance Matrix<br/>Driver Scoring<br/>Embedded Routing"]
         end
     end
 
     subgraph AccountService["Account Service"]
         direction LR
-        Accounts["<b>Accounts</b><br/>Auth | Users<br/>Verification<br/>Rating"]
-        AccountsDb[(<b>Account Database</b><br/>Postgres)]
+        Accounts["<b>Accounts</b><br/>.NET<br/>User Registration<br/>Authentication<br/>Document Verification<br/>Rating Management"]
+        AccountsDb[(<b>User Store</b><br/>PostgreSQL<br/><br/>Users · Profiles<br/>Credentials<br/>Verification Docs)]
     end
 
     subgraph PaymentService["Payment Service"]
         direction LR
-        Payments["<b>Payments</b><br/>Transactions<br/>Wallet"]
-        PaymentsDb[(<b>Payments Database</b><br/>Postgres)]
+        Payments["<b>Payments</b><br/>.NET<br/>Transaction Processing<br/>Wallet Management<br/>Invoicing<br/>Settlement"]
+        PaymentsDb[(<b>Ledger</b><br/>PostgreSQL<br/><br/>Transactions<br/>Wallets · Invoices<br/>Audit Logs)]
     end
 
     subgraph ChatService["Chat Service"]
         direction LR
-        Chat["<b>Chat</b><br/>WebSocket<br/>Real-time"]
-        ChatDb[(<b>Chat History</b><br/>!!! no e2e encryption for now<br/>MongoDB)]
+        Chat["<b>Chat</b><br/>Go<br/>WebSocket Hub<br/>Room-based Routing<br/>Message Delivery<br/>Offline Queue"]
+        ChatDb[(<b>Message Store</b><br/>MongoDB<br/><br/>Messages · Rooms<br/>Retention: 30d<br/>No E2E Encryption)]
     end
 
-    subgraph TileService["Tile Service"]
+    subgraph TileService["Map Tile Service"]
         direction LR   
-        TileServer["<b>Tile Server</b><br/>TileServer GL<br/>MBTiles<br/>Poland Maps"]
+        TileServer["<b>Tile Server</b><br/>TileServer GL(Node.js)<br/><br/>Vector Tiles<br/>MBTiles<br/>Style.json"]
     end
 
-    subgraph Events["Events"]
-        EventQueue["<b>Event Queue</b><br/>Kafka"]
+    subgraph Events["Event Bus"]
+        EventQueue["<b>Event Stream</b><br/>Kafka<br/>ride-completions<br/>user-actions<br/>notification-triggers<br/>analytics-events"]
     end
 
-    subgraph NotificationService["Notification Services"]
-        Notifications["<b>Notifications</b><br/>Push | SMS | Email"]
+    subgraph NotificationService["Notification Service"]
+        Notifications["<b>Notifications</b><br/>Go<br/>Push (FCM)<br/>SMS Gateway<br/>Email Service<br/>Template Management"]
     end
 
-    subgraph Cache["Cache"]
+    subgraph Cache["Cache Layer"]
         direction LR
-        Redis[(<b>Redis)]
+        Redis[(<b>Redis</b><br/>Active Drivers<br/>Ride Sessions<br/>Rate Limits<br/>Route Cache)]
     end
 
-    subgraph External["External Services"]
+    subgraph External["External Systems"]
         direction LR
-        PaymentGateway[("Payment Gateway")]
-        OSM[("OSM Data<br/>Poland Extract<br/>500MB PBF")]
+        PaymentGateway[("Payment Gateway<br/>Stripe/Przelewy24")]
+        OSM[("OSM Data<br/>Poland Extract")]
     end
 
     %% Connections
     Clients --> API
     API --> TripPlanner
-    
     API --> Accounts
-    Accounts --> AccountsDb
-
     API --> Payments
-    Payments --> PaymentsDb
-    Payments --> PaymentGateway
-
     API --> Chat
-    Chat --> ChatDb
-    
     API --> TileServer
     
     TripPlanner --> TripPlannerDb
+    TripPlanner --> Redis
     TripPlanner --> RabbitMQ
+    
     RabbitMQ --> RouteCalcN
     RouteCalcN --> TripPlannerDb
-    Compute --> OSM
-
+    RouteCalcN --> Redis
+    RouteCalcN --> OSM
+    
+    Accounts --> AccountsDb
+    Accounts --> Redis
+    
+    Payments --> PaymentsDb
+    Payments --> PaymentGateway
+    
+    Chat --> ChatDb
+    Chat --> Redis
+    
     TripPlanner --> EventQueue
     Accounts --> EventQueue
     Payments --> EventQueue
-
+    Chat --> EventQueue
+    
     EventQueue --> Notifications
     Notifications --> Clients
-    
-    
-    %%style TripPlanner fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    %%style RouteCalc1 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    %%style RouteCalc2 fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    %%style RouteCalcN fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    %%style PostGIS fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    %%style Redis fill:#ffebee,stroke:#b71c1c,stroke-width:2px
-    %%style RabbitMQ fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
