@@ -5,8 +5,8 @@ title: PullApp - Container Architecture
 graph TB
     subgraph Clients["Client Layer | React Native"]
         direction LR
-        Driver["<b>Driver App</b><br/>GPS Tracking<br/>Route Display"]
-        Passenger["<b>Passenger App</b><br/>Ride Request<br/>Real-time Updates"]
+        Driver["<b>Driver Interface</b><br/>GPS Tracking<br/>Route Display"]
+        Passenger["<b>Passenger Interface</b><br/>Ride Request<br/>Real-time Updates"]
     end
 
     subgraph Gateway["API Gateway"]
@@ -19,10 +19,12 @@ graph TB
         TripPlanner["<b>Trip Planner</b><br/>.NET<br/>Ride Orchestration<br/>State Management<br/>Route Registration"]
         TripPlannerDb[("<b>Trip Store</b><br/>PostgreSQL + PostGIS<br/><br/>Routes · Rides<br/>Driver States<br/>Spatial Indexes")]
         
-        RabbitMQ[("<b>Match Queue</b><br/>RabbitMQ<br/><br/>Exchange: ride-matches<br/>Queue: match-requests<br/>Priority: premium-first<br/>TTL: 30s<br/>Dead Letter: failed")]
+        ComputeQueue[("<b>Compute Queue</b><br/>RabbitMQ<br/>")]
+
+        ResultsQueue[("<b>Results Queue</b><br/>RabbitMQ<br/>")]
         
         subgraph Compute["Compute Cluster | Auto-scaled"]
-            RouteCalcN["<b>Route-Calc</b><br/>C++20 + OSRM<br/><br/>Queue Consumer<br/>Distance Matrix<br/>Driver Scoring<br/>Embedded Routing"]
+            RouteCalc["<b>Route-Calc</b><br/>C++20 + OSRM<br/><br/>Queue Consumer<br/>Distance Matrix<br/>Driver Scoring<br/>Embedded Routing"]
         end
     end
 
@@ -78,12 +80,14 @@ graph TB
     
     TripPlanner --> TripPlannerDb
     TripPlanner --> Redis
-    TripPlanner --> RabbitMQ
+    TripPlanner --> ComputeQueue
     
-    RabbitMQ --> RouteCalcN
-    RouteCalcN --> TripPlannerDb
-    RouteCalcN --> Redis
-    RouteCalcN --> OSM
+    ComputeQueue --> RouteCalc
+    RouteCalc --> TripPlannerDb
+    RouteCalc --> Redis
+    RouteCalc --> OSM
+    RouteCalc --> ResultsQueue
+    ResultsQueue --> TripPlanner
     
     Accounts --> AccountsDb
     Accounts --> Redis
