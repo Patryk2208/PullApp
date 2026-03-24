@@ -3,6 +3,7 @@
 ## Service breakdown
 
 ## TODO reference UC folders
+## TODO maybe a driver-tracker service that receives webSocket updates from each driver and shows nearby drivers to client???
 
 ### 1. Trip Planner
 

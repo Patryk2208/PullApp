@@ -2,25 +2,25 @@ Actors: Driver
 Preconditions: Driver has verified account, logged in
 
 Happy Path:
-1. Driver interface → API Gateway → Trip-planner
+1. Driver interface → API Gateway → Trip Planner
    POST /api/driver/route
    {start, end}
 
 2. Trip Planner validates:
    - Driver status is offline (Accounts via gRPC)
-   - Destination is in service area (PostGIS query)
+   - In service area (PostGIS query)
    - ...
 
-3. Trip-Planner pushes event to ComputeQueue "find route" and stores id to cache
+3. Trip Planner pushes event to ComputeQueue "find route" and stores id to cache
 
-4. Route-Calc computes route with Geometry (polyline)
+4. Route-Calc computes best route
 
 5. Route-Calc pushes results to ResultsQueue
 
-6. Trip-Planner reads and metches from cache and stores in PostGIS:
+6. Trip Planner reads and metches from cache and stores in PostGIS:
    - driver_route record with LINESTRING
 
-7. Trip-Planner → API Gateway → Driver app
+7. Trip Planner → API Gateway → Driver app
    Response: { route_id, eta_to_destination }
 
 Cross-Context Interactions:
