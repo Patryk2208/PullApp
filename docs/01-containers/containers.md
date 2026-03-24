@@ -2,9 +2,6 @@
 
 ## Service breakdown
 
-## TODO reference UC folders
-## TODO maybe a driver-tracker service that receives webSocket updates from each driver and shows nearby drivers to client???
-
 ### 1. Trip Planner
 
 | Attribute | Description |
@@ -14,6 +11,7 @@
 | **Communication** | HTTP/WebSocket (clients), gRPC (services), AMQP (RabbitMQ) |
 | **Scaling** | Horizontal, stateless |
 | **Data** | Writes to PostGIS, reads/writes Redis |
+| **Bounded-Context** | [../02-bounded-contexts/trip-planner] |
 
 ---
 
@@ -26,6 +24,7 @@
 | **Communication** | AMQP (RabbitMQ consumer), gRPC (results), HTTP (OSRM internal) |
 | **Scaling** | KEDA auto-scaling based on queue depth |
 | **Data** | Reads PostGIS (candidate drivers), reads OSM data (in-memory), writes Redis cache |
+| **Bounded-Context** | [../02-bounded-contexts/route-calc] |
 
 **Resource Requirements !!!important, dependant on the region size(Poland here):**
 - 8GB RAM per instance (OSRM routing graph)
@@ -42,6 +41,7 @@
 | **Communication** | gRPC (internal), HTTP (admin) |
 | **Scaling** | Horizontal, stateless |
 | **Data** | Owns PostgreSQL database |
+| **Bounded-Context** | [../02-bounded-contexts/account-service] |
 
 ---
 
@@ -54,6 +54,7 @@
 | **Communication** | gRPC (internal), HTTP (payment gateways) |
 | **Scaling** | Horizontal, stateless |
 | **Data** | Owns PostgreSQL database |
+| **Bounded-Context** | [../02-bounded-contexts/payment-service] |
 
 ---
 
@@ -66,6 +67,7 @@
 | **Communication** | WebSocket (clients), Redis Pub/Sub (cross-pod) |
 | **Scaling** | Horizontal with sticky sessions |
 | **Data** | Owns MongoDB database |
+| **Bounded-Context** | [../02-bounded-contexts/chat-service] |
 
 **Constraints:**
 - No end-to-end encryption (future enhancement)
@@ -83,6 +85,7 @@
 | **Communication** | Kafka (consumer), HTTP (external providers) |
 | **Scaling** | Horizontal, stateless |
 | **Data** | Owns PostgreSQL database (delivery logs) |
+| **Bounded-Context** | [../02-bounded-contexts/notification-service] |
 
 ---
 
@@ -95,6 +98,7 @@
 | **Communication** | HTTPS (mobile apps) |
 | **Scaling** | Horizontal with CDN(tbd here) |
 | **Data** | MBTiles file (10-20GB), Cloudflare R2 |
+| **Bounded-Context** | [../02-bounded-contexts/tile-server] |
 
 **Key Responsibilities:**
 - Serve vector tiles at zooms 0-14
@@ -127,6 +131,19 @@
 
 ---
 
+### 9. Driver Tracker
+
+| Attribute | Description |
+|-----------|-------------|
+| **Purpose** | Real-time GPS ingestion, position caching, and broadcast to active rides |
+| **Technology** | Go |
+| **Communication** | WebSocket (driver apps), Redis (position cache), Kafka (analytics) |
+| **Scaling** | Horizontal with sticky sessions |
+| **Data** | Writes Redis (positions), reads PostGIS (ride assignments), writes Kafka (events) |
+| **Bounded-Context** | [../02-bounded-contexts/driver-tracker] |
+
+---
+
 ## Data Stores
 
 | Store | Technology | Purpose | Owned By |
@@ -139,7 +156,7 @@
 | **Cache** | Redis | Active drivers, ride sessions, rate limits | Shared (all services) |
 | **Tile Storage** | MBTiles + R2 | Map tiles | Tile Server |
 
----
+<!-- ---
 
 ## Communication Matrix
 
@@ -174,4 +191,4 @@
 | Payment processing | Sync (with retry) | User expects immediate confirmation |
 | Chat messages | Async (WebSocket) | Real-time but doesn't block other operations |
 | Notifications | Async (Kafka) | Fire-and-forget, delivery not critical to flow |
-| Route registration | Sync | Immediate acknowledgment needed |
+| Route registration | Sync | Immediate acknowledgment needed | -->

@@ -28,6 +28,11 @@ graph TB
         end
     end
 
+    subgraph RealTime["Real-Time Services"]
+        direction LR
+        DriverTracker["<b>Driver Tracker</b><br/>Go<br/><br/>WebSocket Hub<br/>GPS Ingestion<br/>Geospatial Index"]
+    end
+
     subgraph AccountService["Account Service"]
         direction LR
         Accounts["<b>Accounts</b><br/>.NET<br/>User Registration<br/>Authentication<br/>Document Verification<br/>Rating Management"]
@@ -52,7 +57,7 @@ graph TB
     end
 
     subgraph Events["Event Bus"]
-        EventQueue["<b>Event Stream</b><br/>Kafka<br/>ride-completions<br/>user-actions<br/>notification-triggers<br/>analytics-events"]
+        EventQueue["<b>Event Queue</b><br/>Kafka<br/>ride-completions<br/>user-actions<br/>notification-triggers<br/>analytics-events"]
     end
 
     subgraph NotificationService["Notification Service"]
@@ -75,8 +80,9 @@ graph TB
     API --> TripPlanner
     API --> Accounts
     API --> Payments
-    API --> Chat
+    API <--> Chat
     API --> TileServer
+    API <---> DriverTracker
     
     TripPlanner --> TripPlannerDb
     TripPlanner --> Redis
@@ -105,3 +111,7 @@ graph TB
     
     EventQueue --> Notifications
     Notifications --> Clients
+
+    DriverTracker --> Redis
+    DriverTracker --> TripPlannerDb
+    DriverTracker --> EventQueue
