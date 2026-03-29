@@ -65,11 +65,9 @@ jobs:
   dockerize:
     needs: build-and-test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/trip-planner
     steps:
-      - run: docker build -f infra/docker/Dockerfile -t ${{ env.COMMIT_SHA }} .
+      - name: Docker build
+        run: docker build -f src/trip-planner/infra/docker/Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} .
       
         
       
