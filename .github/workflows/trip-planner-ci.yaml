@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Docker build
-        run: docker build -f src/trip-planner/infra/docker/Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} .
+        run: docker build -f src/trip-planner/infra/docker/Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} src/trip-planner
       
         
       
