@@ -1,0 +1,14 @@
+# Build
+**/bin/
+**/obj/
+
+# IDE
+**/.idea/
+**/*.sln.DotSettings.user
+**/.vs/
+
+# Docker local overrides
+**/docker-compose.override.yml
+
+# TestResults
+**/test-results/
