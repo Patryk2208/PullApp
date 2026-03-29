@@ -4,9 +4,9 @@ name: CI pipeline for trip-planner service
 on:
   push:
     branches: [ master ]
-    paths:
-      - 'src/trip-planner/**'
-      - '.github/workflows/trip-planner/**'
+    #paths:
+      #- 'src/trip-planner/**'
+      #- '.github/workflows/trip-planner/**'
   pull_request:
     paths:
       - src/trip-planner/**'
