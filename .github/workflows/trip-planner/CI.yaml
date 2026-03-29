@@ -3,7 +3,7 @@ name: CI pipeline for trip-planner service
 # We only want to run this CI pipeline for changes to the trip-planner service
 on:
   push:
-    branches: [ master, dev ]
+    branches: [ master ]
     paths:
       - 'src/trip-planner/**'
       - '.github/workflows/trip-planner/**'
