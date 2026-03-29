@@ -14,4 +14,17 @@ public class HelloWorldTest
         //Assert
         Assert.Equal("Hello World!", msg);
     }
+    
+    [Fact]
+    public void HelloTest_ShouldFail()
+    {
+        // Arrange
+        var hw = new HelloWorld();
+        
+        //Act
+        var msg = hw.Hello();
+        
+        //Assert
+        Assert.Equal("Bye, World!", msg);
+    }
 }
