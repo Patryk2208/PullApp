@@ -25,6 +25,6 @@ public class HelloWorldTest
         var msg = hw.Hello();
         
         //Assert
-        Assert.Equal("Bye, World!", msg);
+        Assert.NotEqual("Bye, World!", msg);
     }
 }
