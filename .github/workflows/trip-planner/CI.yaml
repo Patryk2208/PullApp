@@ -6,7 +6,7 @@ on:
     branches: [ master, dev ]
     paths:
       - 'src/trip-planner/**'
-      - '.github/workflows/trip-planner/CI.yaml'
+      - '.github/workflows/trip-planner/**'
   pull_request:
     paths:
       - src/trip-planner/**'
