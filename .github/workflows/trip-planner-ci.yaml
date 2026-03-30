@@ -5,7 +5,7 @@ on:
   push:
     branches: [ master ]
     paths:
-      - 'src/trip-planner/**'
+      - 'src/services/trip-planner/**'
       - '.github/workflows/trip-planner-ci.yaml'
   pull_request:
     paths:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/trip-planner
+        working-directory: src/services/trip-planner
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/trip-planner
+        working-directory: src/services/trip-planner
     steps:
       - run: docker build -f infra/docker/Dockerfile -t ${{ env.COMMIT_SHA }} .
       

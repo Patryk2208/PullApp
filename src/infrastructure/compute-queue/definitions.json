@@ -1,0 +1,70 @@
+{
+  "queues": [
+    {
+      "name": "trip-planner-compute-queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-max-length": 1000,
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "failed-jobs.dlq"
+      }
+    },
+    {
+      "name": "trip-planner-result-queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-max-length": 1000
+      }
+    },
+    {
+      "name": "failed-jobs.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "amq.default",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false
+    },
+    {
+      "name": "dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+    "bindings": [
+    {
+      "source": "amq.default",
+      "vhost": "/",
+      "destination": "trip-planner-compute-queue",
+      "destination_type": "queue",
+      "routing_key": "trip-planner-compute-queue"
+    },
+    {
+      "source": "amq.default",
+      "vhost": "/",
+      "destination": "trip-planner-result-queue",
+      "destination_type": "queue",
+      "routing_key": "trip-planner-result-queue"
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "failed-jobs.dlq",
+      "destination_type": "queue",
+      "routing_key": "failed-jobs.dlq"
+    }
+  ]
+}
