@@ -1,0 +1,78 @@
+{
+  "service": {
+    "name": "route-calc",
+    "version": "1.0.0",
+    "description": "Routing service with C++ core and Python I/O layer"
+  },
+  "rabbitmq": {
+    "host": "localhost",
+    "port": 5672,
+    "vhost": "/",
+    "username": "TODO",
+    "password": "TODO",
+    "queues": {
+      "compute": "compute-queue",
+      "results": "results-queue"
+    }
+  },
+  "postgres": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "routing",
+    "username": "postgres",
+    "password": "postgres",
+    "ssl_mode": "disable",
+    "pool": {
+      "min_connections": 2,
+      "max_connections": 20
+    }
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0,
+    "ttl_seconds": 3600,
+    "max_memory_mb": 512
+  },
+  "routing": {
+    "osm_data_path": "/data/osm.pbf",
+    "graph_cache_size_mb": 1024,
+    "algorithms": {
+      "best_route": {
+        "default_cost_type": "distance",
+        "max_alternatives": 3,
+        "timeout_ms": 5000
+      },
+      "closest_routes": {
+        "default_k": 10,
+        "max_k": 100,
+        "default_radius_meters": 5000
+      },
+      "covering_route": {
+        "default_detour_penalty": 1.5,
+        "max_detour_meters": 1000,
+        "timeout_ms": 10000
+      },
+      "optimal_set": {
+        "default_pareto_size": 5,
+        "max_iterations": 1000,
+        "timeout_ms": 30000
+      }
+    }
+  },
+  "worker": {
+    "thread_pool_size": 4,
+    "graceful_shutdown_timeout_seconds": 30
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "json",
+    "output": "stdout"
+  },
+  "metrics": {
+    "enabled": true,
+    "port": 9090,
+    "path": "/metrics"
+  }
+}

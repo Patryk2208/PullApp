@@ -26,7 +26,7 @@ For a given geographic point, return the K nearest routes. Considers both:
 - Straight-line proximity to route geometry
 - Road-network access cost to reach the route
 
-### 3. Detour Optimization (Uber-like)
+### 3. Detour Optimization
 Given a driver's existing route and a rider's desired start/end points, find the route that best covers the rider's trip while minimizing deviation from the driver's original path. The driver's route is prioritized rather than dictated.
 
 ### 4. Multi-Route Pareto Optimization

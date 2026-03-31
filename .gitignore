@@ -12,3 +12,8 @@
 
 # TestResults
 **/test-results/
+
+# Python
+**/.venv/
+**/__pycache__/
+**/*.pyc
