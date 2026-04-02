@@ -10,4 +10,10 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\TripPlanner.Application\TripPlanner.Application.csproj" />
+      <ProjectReference Include="..\TripPlanner.Domain\TripPlanner.Domain.csproj" />
+      <ProjectReference Include="..\TripPlanner.Infrastructure\TripPlanner.Infrastructure.csproj" />
+    </ItemGroup>
+
 </Project>
