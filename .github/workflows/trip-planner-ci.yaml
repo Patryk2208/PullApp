@@ -69,7 +69,10 @@ jobs:
       run:
         working-directory: src/services/trip-planner
     steps:
-      - run: docker build -f infra/docker/Dockerfile -t ${{ env.COMMIT_SHA }} .
+      - uses: actions/checkout@v6.0.2
+      
+      - name: Docker build
+        run: docker build -f src/trip-planner/infra/docker/Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} src/trip-planner
       
         
       
