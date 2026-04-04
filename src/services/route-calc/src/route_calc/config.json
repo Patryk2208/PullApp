@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "description": "Routing service with C++ core and Python I/O layer"
   },
-  "rabbitmq": {
+  "queue": {
     "host": "localhost",
     "port": 5672,
     "vhost": "/",
@@ -61,9 +61,9 @@
       }
     }
   },
-  "worker": {
+  "thread_pool": {
     "thread_pool_size": 4,
-    "graceful_shutdown_timeout_seconds": 30
+    "graceful_shutdown_timeout_seconds": 5
   },
   "logging": {
     "level": "INFO",
