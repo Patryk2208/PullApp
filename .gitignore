@@ -19,6 +19,4 @@
 **/*.pyc
 
 # Generated code
-/src/generated/
-!/src/generated/
-!/src/generated/.gitkeep
+**/generated/
