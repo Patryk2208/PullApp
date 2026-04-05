@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package core.v1;
+
+//todo options for c# and python
+
+
+//todo message structure
+message ComputeMessage {
+  
+}
+
+message ResultMessage {
+  
+}
