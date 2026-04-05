@@ -3,7 +3,8 @@ import signal
 from concurrent.futures.thread import ThreadPoolExecutor
 
 from route_calc.algorithms.mock_algorithm import mock_algorithm
-from route_calc.infra.queue.queue import ComputeQueue
+from route_calc.infra.queue import ComputeQueue, BaseQueueException, RequeueException, NonRequeueException
+
 
 class JobFutureWithContext:
     def __init__(self, future: asyncio.Future, queue_msg, job_id: int, callback):
@@ -42,9 +43,9 @@ class Consumer:
                 completed, waiting = await asyncio.wait([
                     self.consume_task, self.shutdown_task
                 ], return_when=asyncio.FIRST_COMPLETED)
-            except Exception as e:
-                #todo handle exceptions
-                break
+            except BaseQueueException as e:
+                print(f"Queue connection error: {e}")
+                continue
 
             if self.should_stop:
                 await self.shutdown()
@@ -62,8 +63,6 @@ class Consumer:
                     f"Total jobs: {len(self.jobs)}"
                 )
                 self.job_key += 1
-                await self.check_load() #todo backpressure handling
-
 
     @staticmethod
     def process_job(msg):
@@ -75,20 +74,21 @@ class Consumer:
     async def job_done(self, jf: JobFutureWithContext):
         try:
             result = jf.future.result()
-            await jf.msg.ack()
             await self.queue.publish_result(result)
+            await self.queue.ack(jf.msg)
             _ = self.jobs.pop(jf.job_id)
             print(f"Job {jf.job_id} completed. Total jobs: {len(self.jobs)}")
-        except Exception as e:
-            # todo handle multiple types of exceptions
-            await jf.msg.nack() # requeue modes
+
+            # todo handle multiple types of exceptions for algorithms
+        except RequeueException as e:
+            await self.queue.nack(jf.msg, requeue=True)
             _ = self.jobs.pop(jf.job_id)
-            print(f"Job {jf.job_id} failed: {e}")
+            print(f"Job {jf.job_id} failed: {e}, requeued")
+        except NonRequeueException as e:
+            await self.queue.nack(jf.msg, requeue=False)
+            _ = self.jobs.pop(jf.job_id)
+            print(f"Job {jf.job_id} failed: {e}, not requeued")
 
-
-    async def check_load(self):
-        # todo
-        pass
 
     async def wait_for_shutdown(self):
         signal.sigwait([signal.SIGINT, signal.SIGTERM])

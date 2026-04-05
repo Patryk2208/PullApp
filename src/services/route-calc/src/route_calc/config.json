@@ -13,7 +13,9 @@
     "queues": {
       "compute": "compute-queue",
       "results": "results-queue"
-    }
+    },
+    "max_retries": 3,
+    "prefetch_count": 10
   },
   "postgres": {
     "host": "localhost",
