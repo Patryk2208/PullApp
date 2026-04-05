@@ -23,9 +23,6 @@ geoalchemy2 = ">=0.18.4,<0.19"
 # --- messaging (RabbitMQ) ---
 aio-pika = ">=9.6.2,<9.7"
 
-# --- cache ---
-redis = ">=7.4,<8"
-
 # --- algorithms in c++ ---
 pybind11 = ">=3.0.2,<3.1"
 
