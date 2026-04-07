@@ -1,15 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Optional, Union
 from datetime import datetime
-from algorithms import (
-    BestRouteParams,
-    ClosestRoutesParams,
-    # CoveringRouteParams,
-    # OptimalSetParams,
-    AlgorithmUnion
-)
-from results import AlgorithmResult
-from common import AlgorithmType, JobStatus
+from route_calc.model.algorithms import AlgorithmUnion
+from route_calc.model.results import AlgorithmResult
+from route_calc.model.common import AlgorithmType, JobStatus
+from route_calc.generated.queue_pb2 import ComputeMessage
 
 
 @dataclass
@@ -26,6 +21,14 @@ class ComputeMessage:
         if self.deadline:
             return datetime.now() > self.deadline
         return False
+
+    @classmethod
+    def from_proto(cls, dto: ComputeMessage) -> 'ComputeMessage':
+        return cls(
+            job_id=dto.job_id,
+            algorithm=AlgorithmType(dto.algorithm),
+            params=dto.params
+        )
 
 
 @dataclass
@@ -53,5 +56,6 @@ class ResultMessage:
         return cls(
             job_id=job_id,
             status=status,
+            result=None,
             error=error
         )

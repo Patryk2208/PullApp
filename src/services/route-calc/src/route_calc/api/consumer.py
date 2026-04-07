@@ -1,45 +1,49 @@
 import asyncio
 import signal
+from asyncio import CancelledError
 from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Optional
 
-from route_calc.algorithms.mock_algorithm import mock_algorithm
+from route_calc.algorithms.algorithms_orchestrator import AlgorithmsOrchestrator
+from route_calc.model.messages import ComputeMessage
 from route_calc.infra.queue import ComputeQueue, BaseQueueException, RequeueException, NonRequeueException
 
 
-class JobFutureWithContext:
-    def __init__(self, future: asyncio.Future, queue_msg, job_id: int, callback):
-        self.future = future
+class JobContext:
+    def __init__(self, queue_msg, job_id: int, loop: asyncio.AbstractEventLoop):
         self.msg = queue_msg
         self.job_id = job_id
-        self.callback = callback
-        self.future.add_done_callback(self._on_complete)
-
-    async def _on_complete(self, future):
-        if self.callback:
-            self.callback(self)
+        self.loop = loop
+        self.result = None
+        self.future = None
+        self.callback_task = None
 
 class Consumer:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, queue: Optional[ComputeQueue], alg_orchestrator: Optional[AlgorithmsOrchestrator]):
         self.config = config
-        self.executor = ThreadPoolExecutor(self.config["thread_pool"])
-        self.queue = ComputeQueue(self.config["queue"])
+        self.executor = ThreadPoolExecutor(max_workers=self.config["thread_pool"]["max_workers"], thread_name_prefix="route-calc-worker-")
+        self.queue = ComputeQueue(self.config["queue"]) if queue is None else queue
+        self.algorithms_orchestrator = AlgorithmsOrchestrator(self.config["algorithms"]) if alg_orchestrator is None else alg_orchestrator
+        self.loop = asyncio.get_running_loop()
 
         self.consume_task = None
         self.shutdown_task = None
 
+        self.shutdown_event = asyncio.Event()
         self.should_stop = False
         self.shutdown_timeout = self.config["thread_pool"]["shutdown_timeout_seconds"]
 
         self.job_key = 0
-        self.jobs : dict[int, JobFutureWithContext] = {}
-        #todo configure db and cache
+        self.jobs : dict[int, JobContext] = {}
+        #todo configure db
 
     async def run(self):
+        self._setup_signal_handlers()
         await self.queue.start()
+        self.shutdown_task = asyncio.create_task(self._wait_for_shutdown())
         while True:
             try:
                 self.consume_task = asyncio.create_task(self.queue.consume_job())
-                self.shutdown_task = asyncio.create_task(self.wait_for_shutdown())
                 completed, waiting = await asyncio.wait([
                     self.consume_task, self.shutdown_task
                 ], return_when=asyncio.FIRST_COMPLETED)
@@ -48,60 +52,86 @@ class Consumer:
                 continue
 
             if self.should_stop:
-                await self.shutdown()
+                await self._shutdown()
                 break
-            else:
-                compute_msg = completed.pop().result()
-                self.jobs[self.job_key] = JobFutureWithContext(
-                    self.executor.submit(self.process_job(msg=compute_msg)),
-                    queue_msg=compute_msg,
-                    job_id=self.job_key,
-                    callback=self.job_done
-                )
-                print(
-                    f"Job {self.job_key} submitted for processing."
-                    f"Total jobs: {len(self.jobs)}"
-                )
-                self.job_key += 1
+            compute_msg = completed.pop().result()
+            ctx = JobContext(compute_msg, self.job_key, self.loop)
+            self.jobs[self.job_key] = ctx
+            ctx.future = asyncio.wrap_future(self.executor.submit(self._process_job, ctx), loop=self.loop)
+            print(
+                f"Job {self.job_key} submitted for processing."
+                f"Total jobs: {len(self.jobs)}"
+            )
+            self.job_key += 1
 
-    @staticmethod
-    def process_job(msg):
-        # todo full algorithm mechanics here maybe extract this elsewhere
-        payload = msg.body
-        result = mock_algorithm(payload)
-        return result
+    def _process_job(self, ctx: JobContext):
+        dtoPayload = ctx.msg.body
+        payload = ComputeMessage.from_proto(dtoPayload)
+        result = self.algorithms_orchestrator.compute(payload)
+        ctx.result = result
 
-    async def job_done(self, jf: JobFutureWithContext):
+        asyncio.run_coroutine_threadsafe(self._job_done(ctx), self.loop)
+
+    async def _job_done(self, ctx: JobContext):
+        ctx.callback_task = asyncio.current_task()
         try:
-            result = jf.future.result()
+            result = ctx.result
             await self.queue.publish_result(result)
-            await self.queue.ack(jf.msg)
-            _ = self.jobs.pop(jf.job_id)
-            print(f"Job {jf.job_id} completed. Total jobs: {len(self.jobs)}")
-
+            await self.queue.ack(ctx.msg)
+            _ = self.jobs.pop(ctx.job_id)
+            print(f"Job {ctx.job_id} completed. Total jobs: {len(self.jobs)}")
             # todo handle multiple types of exceptions for algorithms
         except RequeueException as e:
-            await self.queue.nack(jf.msg, requeue=True)
-            _ = self.jobs.pop(jf.job_id)
-            print(f"Job {jf.job_id} failed: {e}, requeued")
+            await self.queue.nack(ctx.msg, requeue=True)
+            _ = self.jobs.pop(ctx.job_id)
+            print(f"Job {ctx.job_id} failed: {e}, requeued")
         except NonRequeueException as e:
-            await self.queue.nack(jf.msg, requeue=False)
-            _ = self.jobs.pop(jf.job_id)
-            print(f"Job {jf.job_id} failed: {e}, not requeued")
+            await self.queue.nack(ctx.msg, requeue=False)
+            _ = self.jobs.pop(ctx.job_id)
+            print(f"Job {ctx.job_id} failed: {e}, not requeued")
 
+    def _setup_signal_handlers(self):
+        self.loop.add_signal_handler(signal.SIGINT, self.shutdown_event.set)
+        self.loop.add_signal_handler(signal.SIGTERM, self.shutdown_event.set)
 
-    async def wait_for_shutdown(self):
-        signal.sigwait([signal.SIGINT, signal.SIGTERM])
+    async def _wait_for_shutdown(self):
+        await self.shutdown_event.wait()
         self.should_stop = True
 
-    async def shutdown(self):
-        self.consume_task.cancel()
-        pending_jobs = [f.future for f in self.jobs.values()]
-        await asyncio.wait(pending_jobs, timeout=self.shutdown_timeout, return_when=asyncio.ALL_COMPLETED)
-        for f in self.jobs.values():
-            if not f.future.done():
-                f.future.cancel()
-                await f.msg.nack(requeue=True)
+    async def _shutdown(self):
+        if not self.shutdown_task.done():
+            self.shutdown_task.cancel()
+
+        # todo shutdown c++ threads correctly from inside them, not from here, for now we wait until they compute
+        self.executor.shutdown(wait=True, cancel_futures=True)
+
+        pending_jobs = [f.callback_task for f in self.jobs.values() if f.callback_task]
+        pending_jobs.append(self.consume_task)
+        await asyncio.wait(pending_jobs, return_when=asyncio.ALL_COMPLETED)
+
+
+        # handling the fresh consumed message, we have to nack it
+        if not self.consume_task.done():
+            self.consume_task.cancel()
+        freshly_consumed_msg = None
+        try:
+            freshly_consumed_msg = await self.consume_task
+            await self.queue.nack(freshly_consumed_msg, requeue=True)
+        except CancelledError:
+            if freshly_consumed_msg:
+                await self.queue.nack(freshly_consumed_msg, requeue=True)
+        except Exception:
+            pass
+
+        # handling the pending callbacks for jobs, we have to nack them
+        while self.jobs:
+            try:
+                f = self.jobs.popitem()[1] # jobs are popped by the callbacks on the event loop, so no race here
+                if not f.callback_task.done():
+                    f.callback_task.cancel()
+                    await self.queue.nack(f.msg, requeue=True)
+                    print(f"Callback for job {f.job_id} cancelled")
+            except Exception:
+                continue
         self.jobs.clear()
-        self.executor.shutdown(wait=False)
         await self.queue.stop()

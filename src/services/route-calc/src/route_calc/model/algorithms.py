@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from common import Point, CostType
+from route_calc.model.common import Point, CostType
 
 class BestRouteParams(BaseModel):
     start: Point

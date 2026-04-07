@@ -59,17 +59,20 @@ class ComputeQueue:
         try:
             await msg.ack()
         except aio_pika.exceptions.AMQPError:
-            pass
+            pass # already [n]acked or channel closed
 
     async def nack(self, msg, requeue):
         try:
             await msg.nack(requeue=requeue)
         except aio_pika.exceptions.AMQPError:
-            pass
+            pass # already [n]acked or channel closed
 
     async def publish_result(self, result: Any):
-        queue = await self.channel.declare_queue(self.result_queue)
-        await queue.publish(result)
+        try:
+            queue = await self.channel.declare_queue(self.result_queue)
+            await queue.publish(result)
+        except Exception as e:
+            raise RequeueException(e)
 
     async def stop(self):
         await self.connection.close()
