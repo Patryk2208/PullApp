@@ -10,4 +10,21 @@
       <ProjectReference Include="..\TripPlanner.Domain\TripPlanner.Domain.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Google.Protobuf" Version="3.34.1" />
+      <PackageReference Include="Grpc.Tools" Version="2.80.0">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <Protobuf Include="../../../../schemas/pullapp/core/v1/queue.proto" />
+    </ItemGroup>
+    
+    <ItemGroup>
+      <Folder Include="Cache\" />
+    </ItemGroup>
+
 </Project>

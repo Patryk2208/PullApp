@@ -1,12 +1,6 @@
+using TripPlanner.Domain;
+
 namespace TripPlanner.Application;
-
-public class ComputePayload
-{
-}
-
-public class ComputeResult
-{
-}
 
 public interface IRouteCalculator
 {
