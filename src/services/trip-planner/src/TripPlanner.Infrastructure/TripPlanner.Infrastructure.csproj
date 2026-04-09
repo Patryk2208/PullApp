@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\TripPlanner.Application\TripPlanner.Application.csproj" />
       <ProjectReference Include="..\TripPlanner.Domain\TripPlanner.Domain.csproj" />
     </ItemGroup>
 
@@ -17,14 +18,11 @@
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
       <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
+      <PackageReference Include="StackExchange.Redis" Version="2.12.14" />
     </ItemGroup>
     
     <ItemGroup>
         <Protobuf Include="../../../../schemas/pullapp/core/v1/queue.proto" />
-    </ItemGroup>
-    
-    <ItemGroup>
-      <Folder Include="Cache\" />
     </ItemGroup>
 
 </Project>
