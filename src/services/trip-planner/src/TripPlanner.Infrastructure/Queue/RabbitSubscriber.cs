@@ -5,8 +5,8 @@ using TripPlanner.Application.RouteCalculator;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactory factory, IQueueDomainMapper<T> mapper)
-    : IQueueSubscriber<T>
+internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactory factory, 
+    IQueueDomainMapper<T> mapper, RabbitMqOptions options) : IQueueSubscriber<T>
 {
     private IConnection? _connection;
     private IChannel? _channel;
@@ -40,7 +40,7 @@ internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactor
             }
         };
         
-        await _channel.BasicConsumeAsync(queue: "_queueName", autoAck: false, consumer: consumer, cancellationToken: ct);
+        await _channel.BasicConsumeAsync(queue: options.ResultQueueName, false, consumer, ct);
     }
 
     public void Dispose()

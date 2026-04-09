@@ -1,6 +1,15 @@
 namespace TripPlanner.Infrastructure.Queue;
 
-public class Options
+public class RabbitMqOptions
 {
-    
+    public required string HostName { get; set; }
+    public required int Port { get; set; }
+
+    public required string UserName { get; set; }
+    public required string Password { get; set; }
+
+    public required string ComputeQueueName { get; set; }
+    public required string ResultQueueName { get; set; }
+
+    public bool Durable { get; set; } = true;
 }

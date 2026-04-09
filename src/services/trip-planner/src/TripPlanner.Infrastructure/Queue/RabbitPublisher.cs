@@ -4,7 +4,8 @@ using TripPlanner.Domain;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T> mapper) : IQueuePublisher<T>
+internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T> mapper, RabbitMqOptions options) 
+    : IQueuePublisher<T>
 {
     public async Task PublishAsync(T payload, CancellationToken ct)
     {
@@ -14,6 +15,6 @@ internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T>
 
         var msg = mapper.ToDto(payload);
         
-        await channel.BasicPublishAsync(exchange: "", routingKey: "queue_name", mandatory: true, msg, ct);
+        await channel.BasicPublishAsync(exchange: "", routingKey: options.ComputeQueueName, true, msg, ct);
     }
 }
