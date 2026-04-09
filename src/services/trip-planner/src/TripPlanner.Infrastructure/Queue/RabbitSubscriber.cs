@@ -5,36 +5,28 @@ using TripPlanner.Application.RouteCalculator;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitSubscriber<T> : IQueueSubscriber<T>
+internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactory factory, IQueueDomainMapper<T> mapper)
+    : IQueueSubscriber<T>
 {
-    private readonly IConnectionFactory _factory;
     private IConnection? _connection;
     private IChannel? _channel;
-    
-    private readonly IMessageHandler<T> _handler;
-    
-    public RabbitSubscriber(IMessageHandler<T> handler, IConnectionFactory factory)
-    {
-        _handler = handler;
-        _factory = factory;
-    }
-    
+
     public async Task StartAsync(CancellationToken ct)
     {
-        _connection = await _factory.CreateConnectionAsync(ct);
+        _connection = await factory.CreateConnectionAsync(ct);
         _channel = await _connection.CreateChannelAsync(null, ct);
         var consumer = new AsyncEventingBasicConsumer(_channel);
         consumer.ReceivedAsync += async (model, ea) =>
         {
-            var payload = JsonSerializer.Deserialize<T>(ea.Body.Span);
+            var domainModel = mapper.ToDomain(ea.Body);
             try
             {
-                if (payload == null)
+                if (domainModel == null)
                 {
                     throw new NullReferenceException("Payload is null");
                 }
                 
-                await _handler.HandleAsync(payload, ct);
+                await handler.HandleAsync(domainModel, ct);
                 
                 await _channel.BasicAckAsync(ea.DeliveryTag, false, ct);
             }

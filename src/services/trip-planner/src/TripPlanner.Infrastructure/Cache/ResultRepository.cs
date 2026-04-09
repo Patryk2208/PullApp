@@ -5,15 +5,10 @@ using TripPlanner.Domain;
 
 namespace TripPlanner.Infrastructure.Cache;
 
-internal class RedisResultRepository : IResultRepository
+internal class RedisResultRepository(IConnectionMultiplexer connectionMultiplexer, Options options)
+    : IResultRepository
 {
-    private readonly IDatabase _db;
-    private readonly Options _options;
-
-    public RedisResultRepository(IConnectionMultiplexer connectionMultiplexer)
-    {
-        _db = connectionMultiplexer.GetDatabase();
-    }
+    private readonly IDatabase _db = connectionMultiplexer.GetDatabase();
 
     public async Task StoreResultAsync(ComputeResult result, CancellationToken ct)
     {
