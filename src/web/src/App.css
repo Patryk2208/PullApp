@@ -1,0 +1,156 @@
+.app-container {
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+/* Controls Panel */
+.controls-panel {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  z-index: 1000;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+  width: 380px;
+  color: #000000;
+  max-height: calc(100vh - 30px);
+  overflow-y: auto;
+}
+
+.controls-panel h2 {
+  margin: 0 0 20px 0;
+  color: #000000;
+  font-size: 22px;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group.via-points {
+  margin-bottom: 15px;
+}
+
+.form-group.destination {
+  margin-bottom: 20px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: bold;
+  text-align: left;
+}
+
+.label.via-points-label {
+  margin-bottom: 8px;
+}
+
+/* Input Fields */
+.input-field {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+/* Via Points */
+.via-point-item {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.via-point-item input {
+  flex: 1;
+}
+
+.remove-button {
+  padding: 0 12px;
+  color: red;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.remove-button:hover {
+  color: darkred;
+}
+
+/* Buttons */
+.button-group {
+  display: flex;
+  gap: 12px;
+}
+
+.button-add {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #f0f0f0;
+  color: #000000;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.button-add:hover {
+  background: #e0e0e0;
+}
+
+.button-primary {
+  flex: 1;
+  padding: 12px;
+  font-size: 16px;
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.button-primary:hover {
+  background: #0051d5;
+}
+
+.button-success {
+  flex: 1;
+  padding: 12px;
+  font-size: 16px;
+  background: #34c759;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.button-success:hover {
+  background: #248a3d;
+}
+
+/* Map Container */
+.map-container {
+  height: 100%;
+  width: 100%;
+}
