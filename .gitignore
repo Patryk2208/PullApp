@@ -17,3 +17,6 @@
 **/.venv/
 **/__pycache__/
 **/*.pyc
+
+# secret environment variables
+.env
