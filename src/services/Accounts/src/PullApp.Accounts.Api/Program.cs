@@ -1,8 +1,14 @@
+using Microsoft.EntityFrameworkCore; // TODO: Violates Clean Architecture (I think). For development only.
+using PullApp.Accounts.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddDbContext<AccountsDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
@@ -32,6 +38,15 @@ app.MapGet("/weatherforecast", () =>
     return forecast;
 })
 .WithName("GetWeatherForecast");
+
+Console.WriteLine("Hello, world!"); // TODO
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AccountsDbContext>();
+    Console.WriteLine("db.Database.Migrate();"); // TODO
+    db.Database.Migrate(); 
+}
 
 app.Run();
 

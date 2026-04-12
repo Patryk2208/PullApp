@@ -6,20 +6,28 @@ services:
       dockerfile: infra/docker/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development # TODO
-      - ConnectionStrings__DefaultConnection=Host=accounts-db;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__DefaultConnection=Host=accounts-db;Database=${ACCOUNTS_POSTGRES_DB};Username=${ACCOUNTS_POSTGRES_USER};Password=${ACCOUNTS_POSTGRES_PASSWORD};GSS Encryption Mode=Disable
     depends_on:
-      - accounts-db
+      accounts-db:
+        condition: service_healthy
     networks:
       - pullapp-net
 
   accounts-db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${ACCOUNTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ACCOUNTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ACCOUNTS_POSTGRES_DB}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ACCOUNTS_POSTGRES_USER} -d ${ACCOUNTS_POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - pullapp-net
+    ports:
+      - "5432:5432" # TODO development only
 
 networks:
   pullapp-net:
