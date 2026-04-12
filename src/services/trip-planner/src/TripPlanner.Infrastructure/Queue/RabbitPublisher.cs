@@ -11,7 +11,7 @@ internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T>
     {
         var connection = await factory.CreateConnectionAsync(ct);
         var channel = await connection.CreateChannelAsync(null, ct);
-        await channel.QueueDeclareAsync(queue: "queueName", durable: true, exclusive: false, autoDelete: false, cancellationToken: ct);
+        await channel.QueueDeclareAsync(options.ComputeQueueName, true, false, false, cancellationToken: ct);
 
         var msg = mapper.ToDto(payload);
         
