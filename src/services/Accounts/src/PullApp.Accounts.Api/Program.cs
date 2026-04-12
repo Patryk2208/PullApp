@@ -1,5 +1,8 @@
-using Microsoft.EntityFrameworkCore; // TODO: Violates Clean Architecture (I think). For development only.
-using PullApp.Accounts.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using PullApp.Accounts.Domain; // TODO: Violates Clean Architecture (I think). For development only.
+using PullApp.Accounts.Infrastructure.Persistence;
+using PullApp.Accounts.Infrastructure.Persistence.Repositories;
+using PullApp.Accounts.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +12,13 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<AccountsDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Szuka Command i Handlerów w warstwie Application.
+builder.Services.AddMediatR(cfg => 
+    cfg.RegisterServicesFromAssembly(typeof(PullApp.Accounts.Application.AssemblyReference).Assembly));
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
 var app = builder.Build();
 

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PullApp.Accounts.Domain;
 
-namespace PullApp.Accounts.Infrastructure;
+namespace PullApp.Accounts.Infrastructure.Persistence.Repositories;
 
 public class UserRepository : IUserRepository
 {
@@ -16,8 +16,9 @@ public class UserRepository : IUserRepository
 		await _context.SaveChangesAsync(ct);
 	}
 
-	public async Task<User?> GetByEmailAsync(string email, CancellationToken ct)
-	{
-		return await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
-	}
+	public async Task<bool> IsEmailUniqueAsync(string email, CancellationToken ct) =>
+		await _context.Users.AnyAsync(u => u.Email == email, ct);
+
+	public async Task<User?> GetByEmailAsync(string email, CancellationToken ct) =>
+		await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
 }

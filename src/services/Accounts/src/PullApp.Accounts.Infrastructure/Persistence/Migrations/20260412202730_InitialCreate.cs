@@ -4,7 +4,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace PullApp.Accounts.Infrastructure.Migrations
+namespace PullApp.Accounts.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -21,7 +21,7 @@ namespace PullApp.Accounts.Infrastructure.Migrations
                     Name = table.Column<string>(type: "text", nullable: false),
                     Surname = table.Column<string>(type: "text", nullable: false),
                     Email = table.Column<string>(type: "text", nullable: false),
-                    PasswordHash = table.Column<byte[]>(type: "bytea", nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: false),
                     ProfilePicture = table.Column<string>(type: "text", nullable: true),
                     BirthDate = table.Column<DateOnly>(type: "date", nullable: false),
                     Bio = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false, defaultValue: ""),

@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using PullApp.Accounts.Infrastructure;
+using PullApp.Accounts.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace PullApp.Accounts.Infrastructure.Migrations
+namespace PullApp.Accounts.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AccountsDbContext))]
     partial class AccountsDbContextModelSnapshot : ModelSnapshot
@@ -48,9 +48,9 @@ namespace PullApp.Accounts.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<byte[]>("PasswordHash")
+                    b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("bytea");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProfilePicture")
                         .HasColumnType("text");

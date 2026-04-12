@@ -5,14 +5,14 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using PullApp.Accounts.Infrastructure;
+using PullApp.Accounts.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace PullApp.Accounts.Infrastructure.Migrations
+namespace PullApp.Accounts.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AccountsDbContext))]
-    [Migration("20260412152452_InitialCreate")]
+    [Migration("20260412202730_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -51,9 +51,9 @@ namespace PullApp.Accounts.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<byte[]>("PasswordHash")
+                    b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("bytea");
+                        .HasColumnType("text");
 
                     b.Property<string>("ProfilePicture")
                         .HasColumnType("text");

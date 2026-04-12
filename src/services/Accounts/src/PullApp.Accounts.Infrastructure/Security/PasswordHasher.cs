@@ -1,6 +1,6 @@
 using PullApp.Accounts.Domain;
 
-namespace PullApp.Accounts.Infrastructure;
+namespace PullApp.Accounts.Infrastructure.Security;
 
 public class PasswordHasher : IPasswordHasher
 {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PullApp.Accounts.Domain;
 
-namespace PullApp.Accounts.Infrastructure;
+namespace PullApp.Accounts.Infrastructure.Persistence;
 
 public class AccountsDbContext : DbContext
 {
