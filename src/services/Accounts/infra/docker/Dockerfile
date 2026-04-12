@@ -3,16 +3,16 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY src/Accounts.Api/Accounts.Api.csproj                       Accounts.Api/
-COPY src/Accounts.Application/Accounts.Application.csproj       Accounts.Application/
-COPY src/Accounts.Domain/Accounts.Domain.csproj                 Accounts.Domain/
-COPY src/Accounts.Infrastructure/Accounts.Infrastructure.csproj Accounts.Infrastructure/
+COPY src/PullApp.Accounts.Api/PullApp.Accounts.Api.csproj                       PullApp.Accounts.Api/
+COPY src/PullApp.Accounts.Application/PullApp.Accounts.Application.csproj       PullApp.Accounts.Application/
+COPY src/PullApp.Accounts.Domain/PullApp.Accounts.Domain.csproj                 PullApp.Accounts.Domain/
+COPY src/PullApp.Accounts.Infrastructure/PullApp.Accounts.Infrastructure.csproj PullApp.Accounts.Infrastructure/
 
-RUN dotnet restore Accounts.Api/Accounts.Api.csproj
+RUN dotnet restore PullApp.Accounts.Api/PullApp.Accounts.Api.csproj
 
 COPY src/. .
 
-WORKDIR /src/Accounts.Api
+WORKDIR /src/PullApp.Accounts.Api
 RUN dotnet publish -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
@@ -22,4 +22,4 @@ COPY --from=build /app/publish .
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "Accounts.Api.dll"]
+ENTRYPOINT ["dotnet", "PullApp.Accounts.Api.dll"]

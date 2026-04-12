@@ -1,4 +1,4 @@
-﻿namespace Accounts.UnitTests;
+﻿namespace PullApp.Accounts.UnitTests;
 
 public class UnitTest1
 {

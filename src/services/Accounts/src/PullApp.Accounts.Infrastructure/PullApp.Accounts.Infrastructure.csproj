@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Accounts.Domain\Accounts.Domain.csproj" />
+    <ProjectReference Include="..\PullApp.Accounts.Application\PullApp.Accounts.Application.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

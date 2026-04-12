@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Accounts.Application\Accounts.Application.csproj" />
+    <ProjectReference Include="..\..\src\PullApp.Accounts.Application\PullApp.Accounts.Application.csproj" />
   </ItemGroup>
 
 </Project>

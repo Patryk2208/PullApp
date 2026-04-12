@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Accounts.Application\Accounts.Application.csproj" />
-    <ProjectReference Include="..\Accounts.Infrastructure\Accounts.Infrastructure.csproj" />
+    <ProjectReference Include="..\PullApp.Accounts.Application\PullApp.Accounts.Application.csproj" />
+    <ProjectReference Include="..\PullApp.Accounts.Infrastructure\PullApp.Accounts.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
