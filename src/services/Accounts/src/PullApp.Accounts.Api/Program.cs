@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
-using PullApp.Accounts.Domain; // TODO: Violates Clean Architecture (I think). For development only.
+using Microsoft.EntityFrameworkCore; // TODO: Violates Clean Architecture (I think). For development only.
+using PullApp.Accounts.Api;
+using PullApp.Accounts.Domain;
 using PullApp.Accounts.Infrastructure.Persistence;
 using PullApp.Accounts.Infrastructure.Persistence.Repositories;
 using PullApp.Accounts.Infrastructure.Security;
@@ -30,37 +31,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-Console.WriteLine("Hello, world!"); // TODO
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AccountsDbContext>();
-    Console.WriteLine("db.Database.Migrate();"); // TODO
     db.Database.Migrate(); 
 }
 
-app.Run();
+app.MapEndpoints();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+app.Run();

@@ -12,6 +12,8 @@ services:
         condition: service_healthy
     networks:
       - pullapp-net
+    ports:
+      - "8080:8080"
 
   accounts-db:
     image: postgres:15-alpine

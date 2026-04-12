@@ -17,7 +17,7 @@ public class UserRepository : IUserRepository
 	}
 
 	public async Task<bool> IsEmailUniqueAsync(string email, CancellationToken ct) =>
-		await _context.Users.AnyAsync(u => u.Email == email, ct);
+		!await _context.Users.AnyAsync(u => u.Email == email, ct);
 
 	public async Task<User?> GetByEmailAsync(string email, CancellationToken ct) =>
 		await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
