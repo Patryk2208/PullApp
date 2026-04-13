@@ -1,5 +1,6 @@
 using TripPlanner.Application.RouteCalculator;
 using TripPlanner.Domain;
+using TripPlanner.Domain.Compute;
 
 namespace TripPlanner.Api.BackgroundServices;
 

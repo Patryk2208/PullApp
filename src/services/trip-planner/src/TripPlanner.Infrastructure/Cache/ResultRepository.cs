@@ -2,6 +2,7 @@ using System.Text.Json;
 using StackExchange.Redis;
 using TripPlanner.Application.RouteCalculator;
 using TripPlanner.Domain;
+using TripPlanner.Domain.Compute;
 
 namespace TripPlanner.Infrastructure.Cache;
 
