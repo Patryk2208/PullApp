@@ -16,7 +16,7 @@ env:
   COMMIT_SHA: ${{ github.sha }}
 
 jobs:
-  build-and-test:
+  build-test-docker:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -62,14 +62,6 @@ jobs:
         with:
           name: trip-planner-coverage
           path: TestResults/coverage.cobertura.xml
-  dockerize:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/services/trip-planner
-    steps:
-      - uses: actions/checkout@v6.0.2
       
       - name: Docker build
         run: docker build -f infra/docker/Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} .

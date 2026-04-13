@@ -68,9 +68,7 @@
     "shutdown_timeout_seconds": 5
   },
   "logging": {
-    "level": "INFO",
-    "format": "json",
-    "output": "stdout"
+    "level": "INFO"
   },
   "metrics": {
     "enabled": true,

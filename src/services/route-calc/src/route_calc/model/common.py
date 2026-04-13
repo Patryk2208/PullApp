@@ -35,6 +35,3 @@ class Point(BaseModel):
         if v is None:
             raise ValueError("Coordinate cannot be None")
         return v
-
-    class Config:
-        frozen = True  # Immutable, usable as dict key
