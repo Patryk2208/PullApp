@@ -24,13 +24,13 @@ namespace TripPlanner.Application.Features.Routes
 
         public async Task<Guid> Handle(CreateRouteCommand cmd)
         {
-            // Walidacja
+            // Validation
             await _validator.Validate(cmd);
 
-            // Wysyłamy do zewnętrznego serwisu
+            // Dispatched to route calculator
             var externalId = await DispatchRoute(cmd);
 
-            // Tworzymy job
+            // Create a job to track the status
             var job = CreateJob(externalId, cmd);
 
             await _repo.Add(job);

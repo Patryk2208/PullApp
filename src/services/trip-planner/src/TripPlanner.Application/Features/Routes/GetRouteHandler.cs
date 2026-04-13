@@ -42,7 +42,7 @@ namespace TripPlanner.Application.Features.Routes
             if (result != null)
             {
                 job.Status = JobStatus.Completed;
-                job.Route = "FAKE_ROUTE"; // na razie
+                job.Route = "FAKE_ROUTE"; // fake
 
                 await _repo.Update(job);
             }
