@@ -13,7 +13,7 @@ namespace TripPlanner.Infrastructure.Fakes
         {
             var id = Guid.NewGuid();
 
-            // symulacja async joba
+            // Simulating computation
             _ = Task.Run(async () =>
             {
                 await Task.Delay(10000);
