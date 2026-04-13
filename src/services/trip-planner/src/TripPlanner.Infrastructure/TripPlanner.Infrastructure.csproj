@@ -8,6 +8,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\TripPlanner.Domain\TripPlanner.Domain.csproj" />
+		<ProjectReference Include="..\TripPlanner.Application\TripPlanner.Application.csproj" />
     </ItemGroup>
 
 </Project>
