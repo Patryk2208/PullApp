@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-calc
+  labels:
+    app: route-calc
+    tier: compute
+    scaler: keda
+spec:
+  # No replicas here - KEDA manages this
+  selector:
+    matchLabels:
+      app: route-calc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 5        # Allow rapid scaling up
+      maxUnavailable: 1  # Slow scaling down
+  template:
+    metadata:
+      labels:
+        app: route-calc
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: osrm
+        image: route-calc:latest
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8000
+          name: metrics
+          protocol: TCP
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: route-calc-config
+              key: RABBITMQ_HOST
+        
+        - name: RABBITMQ_QUEUE
+          value: "compute-requests"
+        
+        - name: RABBITMQ_RESULTS_QUEUE
+          value: "compute-results"
+        
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: route-calc-config
+              key: POSTGRES_HOST
+        
+        - name: OSM_DATA_PATH
+          value: "/data/poland-latest.osm.pbf"
+        
+        - name: LOG_LEVEL
+          value: "info"
+        
+        # Probes for C++ service
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60  # OSRM needs time to load
+          periodSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        
+        # C++ workloads need more resources
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        
+        volumeMounts:
+        - name: osrm-data
+          mountPath: /data
+          readOnly: true
+      
+      volumes:
+      - name: osrm-data
+        persistentVolumeClaim:
+          claimName: osrm-data-pvc
+      
+      terminationGracePeriodSeconds: 60  # Allow finishing current calculation

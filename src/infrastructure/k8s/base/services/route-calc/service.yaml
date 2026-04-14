@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: route-calc
+  labels:
+    app: route-calc
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+spec:
+  selector:
+    app: route-calc
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: metrics
+    protocol: TCP
+  - port: 80
+    targetPort: 8080
+    name: http
+    protocol: TCP
+  type: ClusterIP
