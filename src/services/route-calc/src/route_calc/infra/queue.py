@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import socket
 from typing import Any
 
@@ -22,8 +23,9 @@ class NonRequeueException(BaseQueueException):
 
 
 class ComputeQueue:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
+        self.logger = logger
         self.connection = None
         self.channel = None
         self.connection_string = "TODO"
@@ -37,6 +39,7 @@ class ComputeQueue:
                 self.connection = await connect_robust(url="TODO")
                 self.channel = self.connection.channel()
                 await self.channel.set_qos(prefetch_count=self.config["prefetch_count"])
+                self.logger.info("Connected to RabbitMQ")
                 return
             except (socket.gaierror, ConnectionRefusedError) as e:
                 retries += 1
@@ -48,6 +51,7 @@ class ComputeQueue:
         # has to be [n]acked externally
         try:
             msg = await self.channel.get(self.compute_queue, no_ack=False)
+            self.logger.info(f"Received job {msg.body.job_id}")
             return msg
         except aio_pika.exceptions.ChannelInvalidStateError:
             await self.start()
@@ -58,12 +62,14 @@ class ComputeQueue:
     async def ack(self, msg):
         try:
             await msg.ack()
+            self.logger.info(f"Acked job {msg.body.job_id}")
         except aio_pika.exceptions.AMQPError:
             pass # already [n]acked or channel closed
 
     async def nack(self, msg, requeue):
         try:
             await msg.nack(requeue=requeue)
+            self.logger.info(f"Nacked job {msg.body.job_id}")
         except aio_pika.exceptions.AMQPError:
             pass # already [n]acked or channel closed
 
@@ -71,8 +77,10 @@ class ComputeQueue:
         try:
             queue = await self.channel.declare_queue(self.result_queue)
             await queue.publish(result)
+            self.logger.info(f"Published result for job {result.job_id}")
         except Exception as e:
             raise RequeueException(e)
 
     async def stop(self):
         await self.connection.close()
+        self.logger.info("Connection closed")

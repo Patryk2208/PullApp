@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import signal
 from asyncio import CancelledError
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -10,17 +11,19 @@ from route_calc.infra.queue import ComputeQueue, BaseQueueException, RequeueExce
 
 
 class JobContext:
-    def __init__(self, queue_msg, job_id: int, loop: asyncio.AbstractEventLoop):
+    def __init__(self, queue_msg, loop: asyncio.AbstractEventLoop):
         self.msg = queue_msg
-        self.job_id = job_id
+        self.payload = queue_msg.body
+        self.job_id = self.payload.job_id
         self.loop = loop
         self.result = None
         self.future = None
         self.callback_task = None
 
 class Consumer:
-    def __init__(self, config: dict, queue: Optional[ComputeQueue], alg_orchestrator: Optional[AlgorithmsOrchestrator]):
+    def __init__(self, config: dict, logger: logging.Logger, queue: Optional[ComputeQueue], alg_orchestrator: Optional[AlgorithmsOrchestrator]):
         self.config = config
+        self.logger = logger
         self.executor = ThreadPoolExecutor(max_workers=self.config["thread_pool"]["max_workers"], thread_name_prefix="route-calc-worker-")
         self.queue = ComputeQueue(self.config["queue"]) if queue is None else queue
         self.algorithms_orchestrator = AlgorithmsOrchestrator(self.config["algorithms"]) if alg_orchestrator is None else alg_orchestrator
@@ -33,8 +36,7 @@ class Consumer:
         self.should_stop = False
         self.shutdown_timeout = self.config["thread_pool"]["shutdown_timeout_seconds"]
 
-        self.job_key = 0
-        self.jobs : dict[int, JobContext] = {}
+        self.jobs : dict[str, JobContext] = {}
         #todo configure db
 
     async def run(self):
@@ -55,19 +57,21 @@ class Consumer:
                 await self._shutdown()
                 break
             compute_msg = completed.pop().result()
-            ctx = JobContext(compute_msg, self.job_key, self.loop)
-            self.jobs[self.job_key] = ctx
+            ctx = JobContext(compute_msg, self.loop)
+            self.logger.info(f"Consumed job from queue: {ctx.job_id}")
+            self.jobs[ctx.job_id] = ctx
             ctx.future = asyncio.wrap_future(self.executor.submit(self._process_job, ctx), loop=self.loop)
             print(
-                f"Job {self.job_key} submitted for processing."
+                f"Job {ctx.job_id} submitted for processing."
                 f"Total jobs: {len(self.jobs)}"
             )
-            self.job_key += 1
 
     def _process_job(self, ctx: JobContext):
         dtoPayload = ctx.msg.body
         payload = ComputeMessage.from_proto(dtoPayload)
+        self.logger.info(f"Processing job {payload.job_id}")
         result = self.algorithms_orchestrator.compute(payload)
+        self.logger.info(f"Job {payload.job_id} processed, now scheduling callback")
         ctx.result = result
 
         asyncio.run_coroutine_threadsafe(self._job_done(ctx), self.loop)
@@ -79,16 +83,16 @@ class Consumer:
             await self.queue.publish_result(result)
             await self.queue.ack(ctx.msg)
             _ = self.jobs.pop(ctx.job_id)
-            print(f"Job {ctx.job_id} completed. Total jobs: {len(self.jobs)}")
+            self.logger.info(f"Job {ctx.job_id} completed. Total jobs: {len(self.jobs)}")
             # todo handle multiple types of exceptions for algorithms
         except RequeueException as e:
             await self.queue.nack(ctx.msg, requeue=True)
             _ = self.jobs.pop(ctx.job_id)
-            print(f"Job {ctx.job_id} failed: {e}, requeued")
+            self.logger.info(f"Job {ctx.job_id} failed: {e}, requeued")
         except NonRequeueException as e:
             await self.queue.nack(ctx.msg, requeue=False)
             _ = self.jobs.pop(ctx.job_id)
-            print(f"Job {ctx.job_id} failed: {e}, not requeued")
+            self.logger.info(f"Job {ctx.job_id} failed: {e}, not requeued")
 
     def _setup_signal_handlers(self):
         self.loop.add_signal_handler(signal.SIGINT, self.shutdown_event.set)
@@ -99,10 +103,12 @@ class Consumer:
         self.should_stop = True
 
     async def _shutdown(self):
+        self.logger.info("Shutting down...")
         if not self.shutdown_task.done():
             self.shutdown_task.cancel()
 
         # todo shutdown c++ threads correctly from inside them, not from here, for now we wait until they compute
+        self.logger.info("Waiting for all jobs to complete...")
         self.executor.shutdown(wait=True, cancel_futures=True)
 
         pending_jobs = [f.callback_task for f in self.jobs.values() if f.callback_task]
@@ -134,4 +140,5 @@ class Consumer:
             except Exception:
                 continue
         self.jobs.clear()
+        self.logger.info("All jobs completed or nacked")
         await self.queue.stop()
