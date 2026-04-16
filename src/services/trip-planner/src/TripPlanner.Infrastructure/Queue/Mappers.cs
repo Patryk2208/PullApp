@@ -1,6 +1,12 @@
 using Core.V1;
 using Google.Protobuf;
-using TripPlanner.Domain;
+using TripPlanner.Domain.Compute;
+using ClosestRoutesParams = TripPlanner.Domain.Compute.ClosestRoutesParams;
+using ProtoClosestRoutesParams = Core.V1.ClosestRoutesParams;
+using BestRouteParams = TripPlanner.Domain.Compute.BestRouteParams;
+using ClosestRoutesResult = TripPlanner.Domain.Compute.ClosestRoutesResult;
+using Point = Core.V1.Point;
+using ProtoBestRouteParams = Core.V1.BestRouteParams;
 
 namespace TripPlanner.Infrastructure.Queue;
 
@@ -19,21 +25,60 @@ internal class ComputeProtoQueueMapper : IQueueDomainMapper<ComputePayload>, IQu
 {
     public ComputePayload ToDomain(in ReadOnlyMemory<byte> payload)
     {
-        var parsed = ComputeMessage.Parser.ParseFrom(payload.Span);
         throw new NotImplementedException();
-        return new ComputePayload
-        {
-            
-        };
     }
 
     public ReadOnlyMemory<byte> ToDto(ComputePayload domain)
     {
-        throw new NotImplementedException();
-        return new ComputeMessage
+        var alg = domain.Algorithm switch
         {
+            AlgorithmType.BestRoute => "best_route",
+            AlgorithmType.ClosestRoutes => "closest_routes",
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        var msg = new ComputeMessage
+        {
+            JobId = domain.Id.ToString(),
+            Algorithm = alg,
+            CreatedAt = domain.RequestedAt.Ticks,
+            RetryCount = 0
 
-        }.ToByteArray();
+        };
+        switch (domain.Algorithm)
+        {
+            case AlgorithmType.BestRoute:
+                msg.BestRoute = new ProtoBestRouteParams
+                {
+                    Start = new Point
+                    {
+                        Lat = ((BestRouteParams)domain.Params).From.Latitude,
+                        Lon = ((BestRouteParams)domain.Params).From.Longitude
+                    },
+                    End = new Point
+                    {
+                        Lat = ((BestRouteParams)domain.Params).To.Latitude,
+                        Lon = ((BestRouteParams)domain.Params).To.Longitude
+                    },
+                    CostType = ((BestRouteParams)domain.Params).Criteria switch
+                    {
+                        _ => "distance"
+                    },
+                };
+                break;
+            case AlgorithmType.ClosestRoutes:
+                msg.ClosestRoutes = new ProtoClosestRoutesParams
+                {
+                    Point = new Point
+                    {
+                        Lat = ((ClosestRoutesParams)domain.Params).P.Latitude,
+                        Lon = ((ClosestRoutesParams)domain.Params).P.Longitude
+                    },
+                    K = 0, //todo
+                    RadiusMeters = ((ClosestRoutesParams)domain.Params).Radius,
+                };
+                break;
+        }
+        return msg.ToByteArray();
     }
 }
 
