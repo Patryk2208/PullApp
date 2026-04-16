@@ -1,16 +1,10 @@
-using TripPlanner.Domain;
 using TripPlanner.Domain.Compute;
 
 namespace TripPlanner.Application.RouteCalculator;
 
-public class ComputePayloadDto
-{
-    //todo dto from frontend
-}
-
 public interface IRouteCalculator
 {
-    public Task<Guid> SendComputeAsync(ComputePayloadDto payloadDto, CancellationToken ct);
+    public Task<Guid> SendComputeAsync(ComputePayload payloadDto, CancellationToken ct);
     public Task<ComputeResult?> TryGetResultAsync(Guid id, CancellationToken ct);
 }
 
@@ -25,7 +19,7 @@ internal class RouteCalculator : IRouteCalculator
         _repository = repository;
     }
     
-    public async Task<Guid> SendComputeAsync(ComputePayloadDto payloadDto, CancellationToken ct)
+    public async Task<Guid> SendComputeAsync(ComputePayload payloadDto, CancellationToken ct)
     {
         //todo create and save payload from dto
         var payload = new ComputePayload(); //todo
