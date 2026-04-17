@@ -1,0 +1,85 @@
+services:
+  trip-planner-db:
+    image: postgis/postgis:17
+    container_name: trip-planner-db
+    environment:
+      POSTGRES_DB: ${TRIP_PLANNER_POSTGRES_DB}
+      POSTGRES_USER: ${TRIP_PLANNER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TRIP_PLANNER_POSTGRES_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - trip-planner-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d #???
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  accounts-db:
+    image: postgres:17-alpine
+    container_name: accounts-db
+    environment:
+      POSTGRES_USER: ${ACCOUNTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ACCOUNTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ACCOUNTS_POSTGRES_DB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - accounts-data:/var/lib/postgresql/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ACCOUNTS_POSTGRES_USER} -d ${ACCOUNTS_POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cache:
+    image: redis:8-alpine
+    container_name: cache
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  compute-queue:
+    image: rabbitmq:4.2-management-alpine
+    container_name: compute-queue
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  pullapp-network:
+    driver: bridge
+
+volumes:
+  postgis-data:
+  accounts-data:
+  redis-data:
+  rabbitmq-data:
