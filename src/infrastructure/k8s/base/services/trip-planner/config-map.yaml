@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: trip-planner-config
-  labels:
-    app: trip-planner
-data:
-  ## TODO

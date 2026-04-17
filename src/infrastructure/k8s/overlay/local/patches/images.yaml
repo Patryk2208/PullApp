@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trip-planner
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: pulapp.trip-planner:latest
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-calc
+spec:
+  template:
+    spec:
+      containers:
+      - name: route-calc
+        image: pullapp.route-calc:latest
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounts
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: pullapp.accounts:latest
+        imagePullPolicy: IfNotPresent

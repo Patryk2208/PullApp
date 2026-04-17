@@ -7,14 +7,11 @@ resources:
   - namespace.yaml
   - services/trip-planner/deployment.yaml
   - services/trip-planner/service.yaml
-  - services/trip-planner/config-map.yaml
   - services/route-calc/deployment.yaml
   - services/route-calc/service.yaml
-  - services/route-calc/config-map.yaml
   - services/route-calc/scaled-object.yaml
   - services/accounts/deployment.yaml
   - services/accounts/service.yaml
-  - services/accounts/config-map.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize
@@ -30,3 +27,11 @@ images:
   - name: accounts
     newName: pullapp/accounts
     newTag: latest
+
+configMapGenerator:
+- name: trip-planner-config
+  files:
+  - trip-planner/appsettings.json
+- name: route-calc-config
+  files:
+  - route-calc/config.json

@@ -12,7 +12,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0  # Zero downtime
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: trip-planner
@@ -24,66 +24,14 @@ spec:
     spec:
       containers:
       - name: app
-        image: trip-planner:latest  # Image name, tag from kustomize
-        imagePullPolicy: IfNotPresent  # :latest needs this
+        image: pulapp.trip-planner:latest
+        imagePullPolicy: IfNotPresent
         
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
-        
-        env:
-        # Database connections
-        - name: ConnectionStrings__TripDb
-          valueFrom:
-            configMapKeyRef:
-              name: trip-planner-config
-              key: TRIP_DB_CONNECTION
-        
-        - name: ConnectionStrings__Redis
-          valueFrom:
-            configMapKeyRef:
-              name: trip-planner-config
-              key: REDIS_CONNECTION
-        
-        # RabbitMQ
-        - name: RabbitMQ__Host
-          valueFrom:
-            configMapKeyRef:
-              name: trip-planner-config
-              key: RABBITMQ_HOST
-        
-        - name: RabbitMQ__ComputeQueue
-          value: "compute-requests"
-        
-        - name: RabbitMQ__ResultsQueue
-          value: "compute-results"
-        
-        # Kafka
-        - name: Kafka__BootstrapServers
-          valueFrom:
-            configMapKeyRef:
-              name: trip-planner-config
-              key: KAFKA_BOOTSTRAP
-        
-        # Service discovery
-        - name: SERVICES__ACCOUNTS_URL
-          value: "http://accounts:80"
-        
-        - name: SERVICES__PAYMENTS_URL
-          value: "http://payments:80"  # Future service
-        
-        # ASP.NET Core specific
-        - name: ASPNETCORE_ENVIRONMENT
-          valueFrom:
-            configMapKeyRef:
-              name: trip-planner-config
-              key: ASPNETCORE_ENVIRONMENT
-        
-        - name: ASPNETCORE_URLS
-          value: "http://+:8080"
-        
-        # Probes
+
         livenessProbe:
           httpGet:
             path: /health/live
@@ -109,7 +57,6 @@ spec:
           failureThreshold: 30
           periodSeconds: 2
         
-        # Resources
         resources:
           requests:
             memory: "512Mi"
@@ -118,7 +65,6 @@ spec:
             memory: "1Gi"
             cpu: "1000m"
         
-        # Volume mounts for config
         volumeMounts:
         - name: config
           mountPath: /app/config
@@ -129,5 +75,4 @@ spec:
         configMap:
           name: trip-planner-config
       
-      # Graceful shutdown
       terminationGracePeriodSeconds: 30

@@ -7,15 +7,14 @@ metadata:
     tier: compute
     scaler: keda
 spec:
-  # No replicas here - KEDA manages this
   selector:
     matchLabels:
       app: route-calc
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 5        # Allow rapid scaling up
-      maxUnavailable: 1  # Slow scaling down
+      maxSurge: 5
+      maxUnavailable: 1
   template:
     metadata:
       labels:
@@ -27,8 +26,8 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       containers:
-      - name: osrm
-        image: route-calc:latest
+      - name: route-calc
+        image: pullapp.route-calc:latest
         imagePullPolicy: IfNotPresent
         
         ports:
@@ -38,38 +37,12 @@ spec:
         - containerPort: 8080
           name: http
           protocol: TCP
-        
-        env:
-        - name: RABBITMQ_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: route-calc-config
-              key: RABBITMQ_HOST
-        
-        - name: RABBITMQ_QUEUE
-          value: "compute-requests"
-        
-        - name: RABBITMQ_RESULTS_QUEUE
-          value: "compute-results"
-        
-        - name: POSTGRES_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: route-calc-config
-              key: POSTGRES_HOST
-        
-        - name: OSM_DATA_PATH
-          value: "/data/poland-latest.osm.pbf"
-        
-        - name: LOG_LEVEL
-          value: "info"
-        
-        # Probes for C++ service
+
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 60  # OSRM needs time to load
+          initialDelaySeconds: 20
           periodSeconds: 10
           failureThreshold: 3
         
@@ -81,7 +54,6 @@ spec:
           periodSeconds: 5
           failureThreshold: 3
         
-        # C++ workloads need more resources
         resources:
           requests:
             memory: "2Gi"
@@ -100,4 +72,4 @@ spec:
         persistentVolumeClaim:
           claimName: osrm-data-pvc
       
-      terminationGracePeriodSeconds: 60  # Allow finishing current calculation
+      terminationGracePeriodSeconds: 30

@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: accounts:latest
+        image: pullapp.accounts:latest
         imagePullPolicy: IfNotPresent
         
         ports:
@@ -32,54 +32,6 @@ spec:
           name: http
           protocol: TCP
         
-        env:
-        - name: ConnectionStrings__AccountsDb
-          valueFrom:
-            configMapKeyRef:
-              name: accounts-config
-              key: ACCOUNTS_DB_CONNECTION
-        
-        - name: ConnectionStrings__Redis
-          valueFrom:
-            configMapKeyRef:
-              name: accounts-config
-              key: REDIS_CONNECTION
-        
-        - name: ASPNETCORE_ENVIRONMENT
-          valueFrom:
-            configMapKeyRef:
-              name: accounts-config
-              key: ASPNETCORE_ENVIRONMENT
-        
-        - name: ASPNETCORE_URLS
-          value: "http://+:8080"
-        
-        - name: JWT__ISSUER
-          valueFrom:
-            configMapKeyRef:
-              name: accounts-config
-              key: JWT_ISSUER
-        
-        - name: JWT__AUDIENCE
-          valueFrom:
-            configMapKeyRef:
-              name: accounts-config
-              key: JWT_AUDIENCE
-        
-        # Secrets (from Secret, not ConfigMap)
-        - name: JWT__SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: accounts-secrets
-              key: jwt-secret-key
-        
-        - name: SMTP__PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: accounts-secrets
-              key: smtp-password
-        
-        # Probes
         livenessProbe:
           httpGet:
             path: /health/live
@@ -102,4 +54,4 @@ spec:
             memory: "512Mi"
             cpu: "500m"
       
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 15
