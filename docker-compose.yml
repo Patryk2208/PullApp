@@ -9,6 +9,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development # TODO
       - ConnectionStrings__DefaultConnection=Host=accounts-db;Database=${ACCOUNTS_POSTGRES_DB};Username=${ACCOUNTS_POSTGRES_USER};Password=${ACCOUNTS_POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+      - Jwt__SecretKey=${ACCOUNTS_JWT_SECRETKEY}
     depends_on:
       accounts-db:
         condition: service_healthy
