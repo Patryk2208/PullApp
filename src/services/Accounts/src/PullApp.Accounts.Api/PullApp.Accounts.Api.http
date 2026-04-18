@@ -1,4 +1,4 @@
-@Host = http://localhost:8080
+@Host = http://localhost:5000
 
 ### Rejestracja
 POST {{Host}}/api/auth/register

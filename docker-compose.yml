@@ -1,4 +1,16 @@
 services:
+  gateway:
+    build:
+      context: ./src/services/Gateway
+      dockerfile: Dockerfile
+      args:
+        - BUILD_MODE=Debug # TODO
+    ports:
+      - "5000:8080"
+    networks:
+      - gateway-network
+    depends_on:
+      - accounts-api
   
   accounts-api:
     build:
@@ -14,9 +26,8 @@ services:
       accounts-db:
         condition: service_healthy
     networks:
-      - pullapp-net
-    ports:
-      - "8080:8080"
+      - gateway-network
+      - accounts-network
 
   accounts-db:
     image: postgres:15-alpine
@@ -30,10 +41,8 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - pullapp-net
-    ports:
-      - "5432:5432" # TODO development only
+      - accounts-network
 
 networks:
-  pullapp-net:
-    driver: bridge
+  gateway-network:
+  accounts-network:
