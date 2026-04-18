@@ -1,15 +1,7 @@
 using MediatR;
 using PullApp.Accounts.Domain;
 
-namespace PullApp.Accounts.Application;
-
-public record class RegisterUserCommand(
-	string Name,
-	string Surname,
-	string Email,
-	string Password,
-	DateOnly BirthDate)
-	: IRequest<int>;
+namespace PullApp.Accounts.Application.RegisterUser;
 
 public class RegisterUserHandler
 	: IRequestHandler<RegisterUserCommand, int>
