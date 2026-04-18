@@ -1,0 +1,55 @@
+services:
+  gateway:
+    build:
+      context: ./src/services/Gateway
+      dockerfile: Dockerfile
+      args:
+        - BUILD_MODE=Debug # TODO
+    ports:
+      - "5000:8080"
+    networks:
+      - gateway-network
+    depends_on:
+      - accounts-api
+  
+  accounts-api:
+    build:
+      context: ./src/services/Accounts
+      dockerfile: infra/docker/Dockerfile
+      args:
+        - BUILD_MODE=Debug # TODO
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development # TODO
+      - ConnectionStrings__DefaultConnection=Host=accounts-db;Database=${ACCOUNTS_POSTGRES_DB};Username=${ACCOUNTS_POSTGRES_USER};Password=${ACCOUNTS_POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+      - Jwt__SecretKey=${ACCOUNTS_JWT_SECRETKEY}
+    depends_on:
+      accounts-db:
+        condition: service_healthy
+    networks:
+      - gateway-network
+      - accounts-network
+
+  accounts-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${ACCOUNTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ACCOUNTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ACCOUNTS_POSTGRES_DB}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ACCOUNTS_POSTGRES_USER} -d ${ACCOUNTS_POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - accounts-network
+
+  trip-planner-api:
+    build:
+      context: ./src
+      dockerfile: services/trip-planner/infra/docker/Dockerfile
+    networks:
+      - gateway-network
+
+networks:
+  gateway-network:
+  accounts-network:
