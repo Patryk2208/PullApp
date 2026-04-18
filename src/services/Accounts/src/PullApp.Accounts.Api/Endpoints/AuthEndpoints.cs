@@ -1,5 +1,5 @@
 using MediatR;
-using PullApp.Accounts.Application;
+using PullApp.Accounts.Application.RegisterUser;
 
 namespace PullApp.Accounts.Api.Endpoints;
 

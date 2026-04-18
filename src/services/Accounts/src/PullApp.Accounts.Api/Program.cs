@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore; // TODO: Violates Clean Architecture (I think). For development only.
 using PullApp.Accounts.Application;
 using PullApp.Accounts.Api;
+using PullApp.Accounts.Api.Middleware;
 using PullApp.Accounts.Domain;
 using PullApp.Accounts.Infrastructure.Persistence;
 using PullApp.Accounts.Infrastructure.Persistence.Repositories;
@@ -27,7 +28,12 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
