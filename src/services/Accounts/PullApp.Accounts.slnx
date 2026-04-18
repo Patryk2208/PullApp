@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PullApp.Accounts.Api/PullApp.Accounts.Api.csproj" />
+    <Project Path="src/PullApp.Accounts.Application/PullApp.Accounts.Application.csproj" />
+    <Project Path="src/PullApp.Accounts.Domain/PullApp.Accounts.Domain.csproj" />
+    <Project Path="src/PullApp.Accounts.Infrastructure/PullApp.Accounts.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PullApp.Accounts.UnitTests/PullApp.Accounts.UnitTests.csproj" />
+  </Folder>
+</Solution>

@@ -20,3 +20,6 @@
 
 # Generated code
 **/generated/
+
+# secret environment variables
+**/.env
