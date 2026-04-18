@@ -43,6 +43,13 @@ services:
     networks:
       - accounts-network
 
+  trip-planner-api:
+    build:
+      context: ./src
+      dockerfile: services/trip-planner/infra/docker/Dockerfile
+    networks:
+      - gateway-network
+
 networks:
   gateway-network:
   accounts-network:
