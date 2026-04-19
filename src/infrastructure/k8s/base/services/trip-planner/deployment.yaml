@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: pulapp.trip-planner:latest
+        image: trip-planner
         imagePullPolicy: IfNotPresent
         
         ports:
@@ -48,13 +48,6 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
-        
-        startupProbe:
-          httpGet:
-            path: /health/startup
-            port: 8080
-          failureThreshold: 30
-          periodSeconds: 2
         
         resources:
           requests:

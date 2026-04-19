@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: route-calc
-        image: pullapp.route-calc:latest
+        image: route-calc
         imagePullPolicy: IfNotPresent
         
         ports:
@@ -62,14 +62,14 @@ spec:
             memory: "4Gi"
             cpu: "2000m"
         
-        volumeMounts:
-        - name: osrm-data
-          mountPath: /data
-          readOnly: true
+      #   volumeMounts:
+      #   - name: osrm-data
+      #     mountPath: /data
+      #     readOnly: true
       
-      volumes:
-      - name: osrm-data
-        persistentVolumeClaim:
-          claimName: osrm-data-pvc
+      # volumes:
+      # - name: osrm-data
+      #   persistentVolumeClaim:
+      #     claimName: osrm-data-pvc
       
       terminationGracePeriodSeconds: 30

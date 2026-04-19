@@ -42,8 +42,6 @@ fi
 
 echo "${GREEN}CI passed, continuing...${NC}"
 
-echo -e "${GREEN}Loading images into minikube...${NC}"
-
 for image in "${images[@]}"; do
     echo "Building $image..."
     cd $REPO_ROOT/src/services/$image
@@ -60,7 +58,7 @@ for image in "${images[@]}"; do
     echo -e "${GREEN}Tagging images with commit: $COMMIT_HASH${NC}"
     minikube ssh "docker tag pullapp/${image}:latest pullapp/${image}:${COMMIT_HASH}"
     echo -e "${GREEN}Updating kustomize overlay...${NC}"
-    kustomize edit set image ${image}=pullapp/${image}:${COMMIT_HASH}
+    kustomize edit set image ${image}=pullapp/${image}:${COMMIT_HASH}s
 done
 
 cd $SCRIPT_DIR

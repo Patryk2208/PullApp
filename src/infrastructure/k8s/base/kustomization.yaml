@@ -12,6 +12,8 @@ resources:
   - services/route-calc/scaled-object.yaml
   - services/accounts/deployment.yaml
   - services/accounts/service.yaml
+  - services/gateway/deployment.yaml
+  - services/gateway/service.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize

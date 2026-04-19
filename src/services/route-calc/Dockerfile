@@ -22,4 +22,4 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
-CMD ["python", "main.py"]
+CMD ["python", "src/route_calc/main.py"]
