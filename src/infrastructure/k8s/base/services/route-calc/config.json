@@ -5,11 +5,11 @@
     "description": "Routing service with C++ core and Python I/O layer"
   },
   "queue": {
-    "host": "localhost",
+    "host": "",
     "port": 5672,
     "vhost": "/",
-    "username": "TODO",
-    "password": "TODO",
+    "username": "",
+    "password": "",
     "queues": {
       "compute": "compute-queue",
       "results": "results-queue"
@@ -18,11 +18,11 @@
     "prefetch_count": 4
   },
   "postgres": {
-    "host": "localhost",
+    "host": "",
     "port": 5432,
     "database": "routing",
-    "username": "postgres",
-    "password": "postgres",
+    "username": "",
+    "password": "",
     "ssl_mode": "disable",
     "pool": {
       "min_connections": 2,
@@ -30,7 +30,7 @@
     }
   },
   "redis": {
-    "host": "localhost",
+    "host": "",
     "port": 6379,
     "password": "",
     "db": 0,

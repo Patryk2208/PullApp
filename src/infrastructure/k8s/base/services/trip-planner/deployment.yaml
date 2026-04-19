@@ -22,7 +22,7 @@ spec:
         version: v1
     spec:
       containers:
-      - name: app
+      - name: trip-planner
         image: trip-planner
         imagePullPolicy: IfNotPresent
         
