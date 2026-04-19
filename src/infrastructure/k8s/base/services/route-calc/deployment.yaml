@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-calc
+  labels:
+    app: route-calc
+    tier: compute
+    scaler: keda
+spec:
+  selector:
+    matchLabels:
+      app: route-calc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: route-calc
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: route-calc
+        image: pullapp.route-calc:latest
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8000
+          name: metrics
+          protocol: TCP
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        
+        volumeMounts:
+        - name: osrm-data
+          mountPath: /data
+          readOnly: true
+      
+      volumes:
+      - name: osrm-data
+        persistentVolumeClaim:
+          claimName: osrm-data-pvc
+      
+      terminationGracePeriodSeconds: 30

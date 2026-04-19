@@ -1,4 +1,4 @@
-FROM python:3.14-slim AS base
+FROM python:3.13-slim AS base
 
 ENV PYTHONUNBUFFERED=1
 ENV POETRY_VERSION=2.1.4
@@ -17,7 +17,7 @@ RUN poetry config virtualenvs.create false && poetry install --no-interaction --
 
 FROM base AS runtime
 
-COPY --from=builder /usr/local/lib/python3.14 /usr/local/lib/python3.14
+COPY --from=builder /usr/local/lib/python3.13 /usr/local/lib/python3.13
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
