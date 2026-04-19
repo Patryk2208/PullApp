@@ -3,8 +3,4 @@ kind: Kustomization
 
 resources:
   - ../../base
-
-patches:
-  - path: patches/state.yaml
-  - path: patches/config.yaml
-  - path: patches/images.yaml
+  - state.yaml

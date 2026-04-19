@@ -1,20 +1,20 @@
 services:
   trip-planner-db:
-    image: postgis/postgis:17
+    image: postgis/postgis:17-3.5-alpine
     container_name: trip-planner-db
     environment:
       POSTGRES_DB: ${TRIP_PLANNER_POSTGRES_DB}
       POSTGRES_USER: ${TRIP_PLANNER_POSTGRES_USER}
       POSTGRES_PASSWORD: ${TRIP_PLANNER_POSTGRES_PASSWORD}
     ports:
-      - "5434:5432"
+      - "5433:5432"
     volumes:
       - trip-planner-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d #???
+      #- ./init-scripts:/docker-entrypoint-initdb.d #???
     networks:
       - pullapp-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${TRIP_PLANNER_POSTGRES_USER} -d ${TRIP_PLANNER_POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
       POSTGRES_PASSWORD: ${ACCOUNTS_POSTGRES_PASSWORD}
       POSTGRES_DB: ${ACCOUNTS_POSTGRES_DB}
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - accounts-data:/var/lib/postgresql/data
     networks:
@@ -45,6 +45,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
+      - ./cache/redis.conf:/usr/local/etc/redis/redis.conf
       - redis-data:/data
     networks:
       - pullapp-network
@@ -58,13 +59,16 @@ services:
     image: rabbitmq:4.2-management-alpine
     container_name: compute-queue
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
       RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_PLUGINS: "rabbitmq_management rabbitmq_prometheus"
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # Management UI
     volumes:
+      - ./compute-queue/definitions.json:/etc/rabbitmq/definitions.json
+      #- ./compute-queue/enabled_plugins:/etc/rabbitmq/enabled_plugins
       - rabbitmq-data:/var/lib/rabbitmq
     networks:
       - pullapp-network
@@ -79,7 +83,7 @@ networks:
     driver: bridge
 
 volumes:
-  postgis-data:
+  trip-planner-data:
   accounts-data:
   redis-data:
   rabbitmq-data:

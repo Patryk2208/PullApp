@@ -1,6 +1,4 @@
-﻿### Build context has to be TripPlanner solution root directory, so the docker build has to be called with
-### docker build -f infra/docker/Dockerfile .
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+﻿FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY src/TripPlanner.Api/TripPlanner.Api.csproj TripPlanner.Api/
@@ -11,9 +9,10 @@ COPY src/TripPlanner.Infrastructure/TripPlanner.Infrastructure.csproj TripPlanne
 RUN dotnet restore TripPlanner.Api/TripPlanner.Api.csproj
 
 COPY src/. .
+COPY schemas/. /app/protos
 
 WORKDIR /src/TripPlanner.Api
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish -p:ContainerBuild=true -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app

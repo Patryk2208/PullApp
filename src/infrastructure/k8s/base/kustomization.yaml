@@ -31,7 +31,7 @@ images:
 configMapGenerator:
 - name: trip-planner-config
   files:
-  - trip-planner/appsettings.json
+  - services/trip-planner/appsettings.json
 - name: route-calc-config
   files:
-  - route-calc/config.json
+  - services/route-calc/config.json

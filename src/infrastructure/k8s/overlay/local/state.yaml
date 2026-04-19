@@ -9,7 +9,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis
+  name: cache
 spec:
   type: ExternalName
   externalName: host.docker.internal
@@ -17,7 +17,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: compute-queue
+  name: trip-planner-db
 spec:
   type: ExternalName
   externalName: host.docker.internal
