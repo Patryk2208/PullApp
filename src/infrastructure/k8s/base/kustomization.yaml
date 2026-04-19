@@ -20,13 +20,12 @@ commonLabels:
 images:
   - name: trip-planner
     newName: pullapp/trip-planner
-    newTag: latest
   - name: route-calc
     newName: pullapp/route-calc
-    newTag: latest
   - name: accounts
     newName: pullapp/accounts
-    newTag: latest
+  - name: gateway
+    newName: pullapp/gateway
 
 configMapGenerator:
 - name: trip-planner-config

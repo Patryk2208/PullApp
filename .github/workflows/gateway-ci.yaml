@@ -1,0 +1,91 @@
+name: CI pipeline for gateway service
+
+# We only want to run this CI pipeline for changes to the gateway service
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'src/services/gateway/**'
+      - '.github/workflows/gateway-ci.yaml'
+  pull_request:
+    paths:
+      - src/gateway/**'
+
+env:
+  BUILD_ID: ${{ github.run_id }}-${{ github.run_number }}
+  COMMIT_SHA: ${{ github.sha }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/services/gateway
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0
+
+      - name: Cache packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run unit tests
+        run: |
+            dotnet test \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=unit-test-results.trx" \
+            --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4  
+        with:
+          name: gateway-unit-test-results
+          path: TestResults/*.trx
+      
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-coverage
+          path: TestResults/coverage.cobertura.xml
+  dockerize:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/services/gateway
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0
+
+      - name: Cache packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+      
+      - name: Docker build
+        run: docker build -f Dockerfile -t gateway:${{ env.COMMIT_SHA }} .

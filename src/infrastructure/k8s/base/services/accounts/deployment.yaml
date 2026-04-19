@@ -4,8 +4,6 @@ metadata:
   name: accounts
   labels:
     app: accounts
-    tier: data
-    component: user-management
 spec:
   replicas: 2
   strategy:

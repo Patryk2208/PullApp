@@ -2,5 +2,24 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../base
-  - state.yaml
+- ../../base
+- state.yaml
+
+patches:
+- path: patches/gateway.yaml
+  target:
+    kind: Service
+    name: gateway
+images:
+- name: accounts
+  newName: pullapp/accounts
+  newTag: 03500df
+- name: gateway
+  newName: pullapp/gateway
+  newTag: 03500df
+- name: route-calc
+  newName: pullapp/route-calc
+  newTag: 03500df
+- name: trip-planner
+  newName: pullapp/trip-planner
+  newTag: 03500df

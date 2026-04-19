@@ -12,7 +12,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-images=(trip-planner route-calc accounts)
+images=(trip-planner route-calc accounts gateway)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -54,18 +54,13 @@ done
 
 COMMIT_HASH=$(git rev-parse --short HEAD)
 
-echo -e "${GREEN}Tagging images with commit: $COMMIT_HASH${NC}"
 
+cd $REPO_ROOT/src/infrastructure/k8s/overlay/local
 for image in "${images[@]}"; do
+    echo -e "${GREEN}Tagging images with commit: $COMMIT_HASH${NC}"
     minikube ssh "docker tag pullapp/${image}:latest pullapp/${image}:${COMMIT_HASH}"
+    echo -e "${GREEN}Updating kustomize overlay...${NC}"
+    kustomize edit set image ${image}=pullapp/${image}:${COMMIT_HASH}
 done
-
-echo -e "${GREEN}Updating kustomize overlay...${NC}"
-
-cd $REPO_ROOT/k8s/overlay/local
-kustomize edit set image \
-    trip-planner=pullapp/trip-planner:${COMMIT_HASH} \
-    route-calc=pullapp/route-calc:${COMMIT_HASH} \
-    accounts=pullapp/accounts:${COMMIT_HASH}
 
 cd $SCRIPT_DIR
