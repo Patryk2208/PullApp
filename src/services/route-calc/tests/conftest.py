@@ -6,6 +6,7 @@ from typing import Any, List
 import pytest
 from time import sleep
 
+from route_calc.model.algorithms import BestRouteParams, ClosestRoutesParams
 from route_calc.model.common import AlgorithmType, Point, JobStatus
 from route_calc.model.job_context import JobContext
 from route_calc.model.messages import ComputeMessage, ResultMessage
@@ -102,5 +103,20 @@ def mock_compute_message_factory():
     def _create():
         job_id = str(random.randint(0, 100000))
         alg = random.choice(list(AlgorithmType))
-        return ComputeMessage(job_id=job_id, algorithm=alg, params=None)
+        params = None
+        if alg == AlgorithmType.BEST_ROUTE:
+            params = BestRouteParams(
+                start=Point(lat=4, lon=7),
+                end=Point(lat=1, lon=2),
+                cost_type="distance"
+            )
+        elif alg == AlgorithmType.CLOSEST_ROUTES:
+            params = ClosestRoutesParams(
+                point=Point(lat=4, lon=7),
+                k=10,
+                radius_meters=1000
+            )
+        else:
+            raise ValueError(f"Unsupported algorithm: {alg}")
+        return ComputeMessage(job_id=job_id, algorithm=alg, params=params)
     return _create

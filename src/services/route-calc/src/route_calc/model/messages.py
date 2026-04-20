@@ -26,7 +26,7 @@ class ComputeMessage:
 
     @classmethod
     def from_proto(cls, dto) -> "ComputeMessage":
-        proto = ProtoComputeMessage.FromString(dto.body)
+        proto = ProtoComputeMessage.FromString(dto)
 
         # oneof params
         params_field = proto.WhichOneof("params")
@@ -127,21 +127,23 @@ class ResultMessage:
         return proto
 
     @classmethod
-    def from_proto(cls, dto: ProtoResultMessage) -> "ResultMessage":
-        result_field = dto.WhichOneof("result")
+    def from_proto(cls, dto) -> "ResultMessage":
+        proto = ProtoResultMessage.FromString(dto)
+
+        result_field = proto.WhichOneof("result")
 
         if result_field == "best_route":
-            result = BestRouteResult.from_proto(dto.best_route)
+            result = BestRouteResult.from_proto(proto.best_route)
 
         elif result_field == "closest_routes":
-            result = ClosestRoutesResult.from_proto(dto.closest_routes)
+            result = ClosestRoutesResult.from_proto(proto.closest_routes)
 
         else:
             result = None
 
         return cls(
-            job_id=dto.job_id,
-            status=JobStatus.SUCCESS if dto.success else JobStatus.FAILED,
+            job_id=proto.job_id,
+            status=JobStatus.SUCCESS if proto.success else JobStatus.FAILED,
             result=result,
-            error=dto.error or None,
+            error=proto.error or None,
         )
