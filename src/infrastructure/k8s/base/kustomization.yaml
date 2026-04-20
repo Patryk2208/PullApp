@@ -36,3 +36,13 @@ configMapGenerator:
 - name: route-calc-config
   files:
   - services/route-calc/config.json
+
+secretGenerator:
+- name: pullapp-secrets
+  literals:
+  - TRIP_PLANNER_DB_PASSWORD=PLACEHOLDER
+  - ACCOUNTS_DB_PASSWORD=PLACEHOLDER
+  - CACHE_PASSWORD=PLACEHOLDER
+  - COMPUTE_QUEUE_PASSWORD=PLACEHOLDER
+  options:
+    disableNameSuffixHash: true

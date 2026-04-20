@@ -38,6 +38,23 @@ spec:
           name: http
           protocol: TCP
 
+        env:
+        - name: TRIP_PLANNER_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: TRIP_PLANNER_DB_PASSWORD
+        - name: CACHE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: CACHE_PASSWORD
+        - name: COMPUTE_QUEUE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: COMPUTE_QUEUE_PASSWORD
+
         livenessProbe:
           httpGet:
             path: /health

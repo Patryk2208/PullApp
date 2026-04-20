@@ -22,4 +22,8 @@
 **/generated/
 
 # secret environment variables
+**/*.env
+**/.env*
 **/.env
+**/*secret*
+**/secrets/*

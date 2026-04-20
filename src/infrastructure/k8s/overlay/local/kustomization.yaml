@@ -4,6 +4,14 @@ kind: Kustomization
 resources:
 - ../../base
 - state.yaml
+
+secretGenerator:
+- name: pullapp-secrets
+  behavior: replace
+  envs:
+  - secrets/secrets.env
+  options:
+    disableNameSuffixHash: true
   
 patches:
 - path: patches/probes.yaml

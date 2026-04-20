@@ -1,15 +1,14 @@
 import asyncio
 import random
-from asyncio import CancelledError
-from typing import Any, List
+from typing import List
 
 import pytest
 from time import sleep
 
 from route_calc.model.algorithms import BestRouteParams, ClosestRoutesParams
 from route_calc.model.common import AlgorithmType, Point, JobStatus
-from route_calc.model.job_context import JobContext
-from route_calc.model.messages import ComputeMessage, ResultMessage
+from route_calc.model import JobContext
+from route_calc.model import ComputeMessage, ResultMessage
 
 
 class MockQueue:

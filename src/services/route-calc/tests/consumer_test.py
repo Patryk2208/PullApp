@@ -6,7 +6,7 @@ import sys
 import pytest
 
 from route_calc.api.consumer import Consumer
-from route_calc.model.messages import ComputeMessage
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("config", [

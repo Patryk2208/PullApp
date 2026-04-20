@@ -5,23 +5,22 @@
     "description": "Routing service with C++ core and Python I/O layer"
   },
   "queue": {
-    "host": "",
+    "host": "compute-queue",
     "port": 5672,
     "vhost": "/",
-    "username": "",
+    "username": "pullapp",
     "password": "",
-    "queues": {
-      "compute": "compute-queue",
-      "results": "results-queue"
-    },
+    "compute": "compute-queue",
+    "results": "results-queue",
     "max_retries": 3,
-    "prefetch_count": 4
+    "prefetch_count": 4,
+    "timeout_seconds": 10
   },
-  "postgres": {
-    "host": "",
-    "port": 5432,
-    "database": "routing",
-    "username": "",
+  "trip_planner_db": {
+    "host": "trip-planner-db",
+    "port": 5433,
+    "database": "trip-planner",
+    "username": "pullapp",
     "password": "",
     "ssl_mode": "disable",
     "pool": {
@@ -29,8 +28,8 @@
       "max_connections": 20
     }
   },
-  "redis": {
-    "host": "",
+  "cache": {
+    "host": "cache",
     "port": 6379,
     "password": "",
     "db": 0,

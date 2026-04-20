@@ -29,6 +29,13 @@ spec:
         - containerPort: 8080
           name: http
           protocol: TCP
+
+        env:
+        - name: ACCOUNTS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: ACCOUNTS_DB_PASSWORD
         
         livenessProbe:
           httpGet:

@@ -1,15 +1,11 @@
 import asyncio
 import json
-import random
-from codecs import backslashreplace_errors
 
 import aio_pika
 import pytest
 from aio_pika import connect_robust, Message
-from sqlalchemy.testing import assert_warns_message
 
-from route_calc.model.common import AlgorithmType
-from route_calc.model.messages import ComputeMessage, ResultMessage
+from route_calc.model import ResultMessage
 
 
 @pytest.mark.asyncio

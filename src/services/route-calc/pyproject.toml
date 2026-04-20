@@ -5,7 +5,6 @@ description = ""
 authors = [
     {name = "Patryk Pol"}
 ]
-readme = "../../../docs/04-components/route-calc.md"
 requires-python = ">=3.13"
 
 
@@ -40,7 +39,7 @@ pythonpath = ["src"]
 
 
 [tool.poetry]
-packages = [{ include = "route_calc", from = "src" }]
+packages = [{ include = "route_calc", from = "." }]
 
 
 [build-system]

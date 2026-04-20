@@ -7,7 +7,7 @@ from route_calc.infra.logger import setup_logging
 from route_calc.infra.queue import ComputeQueue
 
 async def main():
-    with open("./generated/config.json", "r", encoding="utf-8") as f:
+    with open("route_calc/config.json", "r", encoding="utf-8") as f:
         cfg = json.load(f)
     logger = setup_logging(cfg["logging"])
     logger.info("Starting route-calc")
