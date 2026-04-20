@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import signal
+import sys
+
 import pytest
 
 from route_calc.api.consumer import Consumer
@@ -15,6 +17,12 @@ from route_calc.model.messages import ComputeMessage
 async def test_consumer_flow(mock_queue_factory, mock_algorithm_factory, mock_compute_message_factory, config: dict):
     # arrange
     possible_messages = [mock_compute_message_factory() for _ in range(100)]
+    logging.basicConfig(
+        level=logging.DEBUG,
+        stream=sys.stdout,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        force=True,  # IMPORTANT in tests
+    )
     consumer = Consumer(
         config=config,
         queue=mock_queue_factory(config["test"]["mock_queue"], possible_messages),

@@ -3,15 +3,52 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from route_calc.model.common import Point, CostType
 
-class BestRouteParams(BaseModel):
+from route_calc.generated.queue_pb2 import BestRouteParams as ProtoBestRouteParams
+from route_calc.generated.queue_pb2 import ClosestRoutesParams as ProtoClosestRoutesParams
+
+@dataclass
+class BestRouteParams:
     start: Point
     end: Point
-    cost_type: CostType = CostType.DISTANCE
+    cost_type: str
 
-class ClosestRoutesParams(BaseModel):
+    def to_proto(self) -> ProtoBestRouteParams:
+        proto = ProtoBestRouteParams(
+            cost_type=self.cost_type
+        )
+        proto.start.CopyFrom(self.start.to_proto())
+        proto.end.CopyFrom(self.end.to_proto())
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoBestRouteParams) -> "BestRouteParams":
+        return cls(
+            start=Point.from_proto(proto.start),
+            end=Point.from_proto(proto.end),
+            cost_type=proto.cost_type
+        )
+
+@dataclass
+class ClosestRoutesParams:
     point: Point
-    k: int = Field(..., ge=1, le=100)
-    radius_meters: float = Field(default=0.0, ge=0)
+    k: int
+    radius_meters: float
+
+    def to_proto(self) -> ProtoClosestRoutesParams:
+        proto = ProtoClosestRoutesParams(
+            k=self.k,
+            radius_meters=self.radius_meters
+        )
+        proto.point.CopyFrom(self.point.to_proto())
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoClosestRoutesParams) -> "ClosestRoutesParams":
+        return cls(
+            point=Point.from_proto(proto.point),
+            k=proto.k,
+            radius_meters=proto.radius_meters
+        )
 
 # class CoveringRouteParams(BaseModel):
 #     driver_route: List[Point] = Field(..., min_length=2)

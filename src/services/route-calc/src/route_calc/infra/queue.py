@@ -1,10 +1,14 @@
 import asyncio
 import logging
 import socket
-from typing import Any
+from asyncio import CancelledError
 
 import aio_pika
 from aio_pika import connect_robust
+from aio_pika.abc import AbstractQueue, AbstractRobustChannel, AbstractRobustConnection, AbstractIncomingMessage
+
+from route_calc.api.consumer import JobContext
+from route_calc.model.messages import ComputeMessage, ResultMessage
 
 
 class BaseQueueException(Exception):
@@ -26,38 +30,52 @@ class ComputeQueue:
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
         self.logger = logger
-        self.connection = None
-        self.channel = None
-        self.connection_string = "TODO"
-        self.compute_queue = config["queues"]["compute"]
-        self.result_queue = config["queues"]["results"]
+        self.connection: AbstractRobustConnection = None
+        self.channel: AbstractRobustChannel = None
+        self.compute_queue: AbstractQueue = None
+        self.connection_string = f"amqp://{config['username']}:{config['password']}@{config['host']}:{config['port']}"
+        self.compute_queue_name = config["compute"]
+        self.result_queue_name = config["results"]
+        self.timeout_seconds = config["timeout_seconds"]
+        self.prefetch_count = config["prefetch_count"]
+        self.pull_based_queue: asyncio.Queue[JobContext] = asyncio.Queue(self.prefetch_count)
+        self.consumer_tag = None
 
     async def start(self):
         retries = 0
         while not self.connection and not self.channel and retries < self.config["max_retries"]:
             try:
-                self.connection = await connect_robust(url="TODO")
-                self.channel = self.connection.channel()
-                await self.channel.set_qos(prefetch_count=self.config["prefetch_count"])
+                self.connection = await connect_robust(url=self.connection_string)
+                self.channel = await self.connection.channel()
+                await self.channel.set_qos(prefetch_count=self.prefetch_count)
                 self.logger.info("Connected to RabbitMQ")
+                self.compute_queue = await self.channel.declare_queue(name=self.compute_queue_name, durable=True)
                 return
             except (socket.gaierror, ConnectionRefusedError) as e:
                 retries += 1
                 await asyncio.sleep(2 ** retries)
         raise BaseQueueException(ConnectionError("Failed to connect to RabbitMQ"))
 
+    async def _make_handler(self):
+        async def handler(msg: AbstractIncomingMessage):
+            payload = ComputeMessage.from_proto(msg.body)
+            ctx = JobContext(
+                queue_msg=msg,
+                payload=payload,
+                loop=asyncio.get_running_loop(),
+            )
+            self.logger.info(f"Received job {ctx.job_id}")
+            await self.pull_based_queue.put(ctx)
+        return handler
 
-    async def consume_job(self) -> Any:
+
+    async def run_consume_job(self):
         # has to be [n]acked externally
-        try:
-            msg = await self.channel.get(self.compute_queue, no_ack=False)
-            self.logger.info(f"Received job {msg.body.job_id}")
-            return msg
-        except aio_pika.exceptions.ChannelInvalidStateError:
-            await self.start()
-            return await self.consume_job()
-        except asyncio.CancelledError:
-            return None
+        handler = await self._make_handler()
+        self.consumer_tag = await self.compute_queue.consume(handler, no_ack=False)
+
+    async def stop_consume_job(self):
+        await self.compute_queue.cancel(self.consumer_tag)
 
     async def ack(self, msg):
         try:
@@ -66,17 +84,22 @@ class ComputeQueue:
         except aio_pika.exceptions.AMQPError:
             pass # already [n]acked or channel closed
 
-    async def nack(self, msg, requeue):
+    async def nack(self, msg, requeue: bool):
         try:
             await msg.nack(requeue=requeue)
             self.logger.info(f"Nacked job {msg.body.job_id}")
         except aio_pika.exceptions.AMQPError:
             pass # already [n]acked or channel closed
 
-    async def publish_result(self, result: Any):
+    async def publish_result(self, result: ResultMessage):
         try:
-            queue = await self.channel.declare_queue(self.result_queue)
-            await queue.publish(result)
+            await self.channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=result.to_proto().SerializeToString(),
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                ),
+                routing_key=self.result_queue_name,
+            )
             self.logger.info(f"Published result for job {result.job_id}")
         except Exception as e:
             raise RequeueException(e)

@@ -3,6 +3,10 @@ from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field, field_validator
 
+from route_calc.generated.queue_pb2 import (
+    Point as ProtoPoint
+)
+
 
 class CostType(str, Enum):
     DISTANCE = "distance"
@@ -13,8 +17,8 @@ class CostType(str, Enum):
 class AlgorithmType(str, Enum):
     BEST_ROUTE = "best_route"
     CLOSEST_ROUTES = "closest_routes"
-    COVERING_ROUTE = "covering_route"
-    OPTIMAL_SET = "optimal_set"
+    # COVERING_ROUTE = "covering_route"
+    # OPTIMAL_SET = "optimal_set"
 
 
 class JobStatus(str, Enum):
@@ -35,3 +39,16 @@ class Point(BaseModel):
         if v is None:
             raise ValueError("Coordinate cannot be None")
         return v
+
+    def to_proto(self) -> ProtoPoint:
+        return ProtoPoint(
+            lat=self.lat,
+            lon=self.lon
+        )
+
+    @classmethod
+    def from_proto(cls, proto: ProtoPoint) -> "Point":
+        return cls(
+            lat=proto.lat,
+            lon=proto.lon
+        )

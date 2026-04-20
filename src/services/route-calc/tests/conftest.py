@@ -1,11 +1,14 @@
 import asyncio
 import random
+from asyncio import CancelledError
 from typing import Any, List
 
 import pytest
 from time import sleep
 
+from route_calc.model.algorithms import BestRouteParams, ClosestRoutesParams
 from route_calc.model.common import AlgorithmType, Point, JobStatus
+from route_calc.model.job_context import JobContext
 from route_calc.model.messages import ComputeMessage, ResultMessage
 
 
@@ -16,6 +19,9 @@ class MockQueue:
 
         self.started_correctly = False
         self.jobs = {}
+        self.pull_based_queue: asyncio.Queue[JobContext] = asyncio.Queue(self.test_config["prefetch_count"])
+        self.should_stop = False
+        self.task = None
 
     async def start(self):
         if self.test_config["start_mode"] == "fail":
@@ -27,31 +33,39 @@ class MockQueue:
         else:
             self.started_correctly = True
 
-    async def consume_job(self) -> Any:
-        while [True if o not in ['acked', 'nacked'] else False for o in self.jobs.values()].count(True) >= self.test_config["prefetch_count"]:
-            await asyncio.sleep(0.05)
-        await asyncio.sleep(random.randint(0, 1))
-        class MyMsg:
-            pass
-        msg = MyMsg()
-        msg.__setattr__("body", self.mock_messages[random.randint(0, len(self.mock_messages) - 1)])
-        self.jobs[msg.body.job_id] = 'consumed'
-        return msg
+    async def _consume_job(self):
+        while not self.should_stop:
+            await asyncio.sleep(random.randint(0, 8))
+            payload = self.mock_messages[random.randint(0, len(self.mock_messages) - 1)]
+            ctx = JobContext(
+                queue_msg=payload.job_id,
+                payload=payload,
+                loop=asyncio.get_running_loop(),
+            )
+            self.jobs[payload.job_id] = 'consumed'
+            await self.pull_based_queue.put(ctx)
 
-    async def publish_result(self, result: Any):
+    async def run_consume_job(self):
+        self.task = asyncio.create_task(self._consume_job())
+
+    async def stop_consume_job(self):
+        self.should_stop = True
+        self.task.cancel()
+
+    async def publish_result(self, result: ResultMessage):
         self.jobs[result.job_id] = 'published'
         await asyncio.sleep(random.randint(0, 1))
 
-    async def ack(self, msg):
-        if self.jobs[msg.body.job_id] in ['acked', 'nacked']:
-            raise Exception(f"Job {msg.body.job_id} already {self.jobs[msg.body.job_id]}")
-        self.jobs[msg.body.job_id] = 'acked'
+    async def ack(self, msg: str):
+        if self.jobs[msg] in ['acked', 'nacked']:
+            raise Exception(f"Job {msg} already {self.jobs[msg]}")
+        self.jobs[msg] = 'acked'
         await asyncio.sleep(random.randint(0, 1))
 
-    async def nack(self, msg, requeue):
-        if self.jobs[msg.body.job_id] in ['acked', 'nacked']:
-             raise Exception(f"Job {msg.body.job_id} already {self.jobs[msg.body.job_id]}")
-        self.jobs[msg.body.job_id] = 'nacked'
+    async def nack(self, msg: str, requeue):
+        if self.jobs[msg] in ['acked', 'nacked']:
+             raise Exception(f"Job {msg} already {self.jobs[msg]}")
+        self.jobs[msg] = 'nacked'
         await asyncio.sleep(random.randint(0, 1))
 
     async def stop(self):
@@ -89,5 +103,20 @@ def mock_compute_message_factory():
     def _create():
         job_id = str(random.randint(0, 100000))
         alg = random.choice(list(AlgorithmType))
-        return ComputeMessage(job_id=job_id, algorithm=alg, params=None)
+        params = None
+        if alg == AlgorithmType.BEST_ROUTE:
+            params = BestRouteParams(
+                start=Point(lat=4, lon=7),
+                end=Point(lat=1, lon=2),
+                cost_type="distance"
+            )
+        elif alg == AlgorithmType.CLOSEST_ROUTES:
+            params = ClosestRoutesParams(
+                point=Point(lat=4, lon=7),
+                k=10,
+                radius_meters=1000
+            )
+        else:
+            raise ValueError(f"Unsupported algorithm: {alg}")
+        return ComputeMessage(job_id=job_id, algorithm=alg, params=params)
     return _create
