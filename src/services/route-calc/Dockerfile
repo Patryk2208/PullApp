@@ -10,8 +10,11 @@ RUN apt-get update && apt-get install -y curl build-essential && rm -rf /var/lib
 
 RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./
+
+RUN poetry install --no-interaction --no-ansi --no-root
+
 COPY route_calc/ ./route_calc/
 
-RUN poetry install --no-interaction
+RUN poetry install --no-interaction --no-ansi
 
 CMD ["python", "-m", "route_calc.main"]

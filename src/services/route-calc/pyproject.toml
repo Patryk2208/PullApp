@@ -24,6 +24,7 @@ aio-pika = ">=9.6.2,<9.7"
 
 # --- algorithms in c++ ---
 pybind11 = ">=3.0.2,<3.1"
+setuptools = ">=82.0,<82.1"
 
 # --- schema generation ---
 protobuf = "^7.34.1"

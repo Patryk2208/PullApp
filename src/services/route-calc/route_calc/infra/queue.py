@@ -54,7 +54,8 @@ class ComputeQueue:
             except (socket.gaierror, ConnectionRefusedError) as e:
                 retries += 1
                 await asyncio.sleep(2 ** retries)
-        raise BaseQueueException(ConnectionError("Failed to connect to RabbitMQ"))
+            except Exception:
+                raise BaseQueueException(ConnectionError("Failed to connect to RabbitMQ"))
 
     async def _make_handler(self):
         async def handler(msg: AbstractIncomingMessage):
