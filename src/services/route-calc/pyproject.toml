@@ -24,7 +24,6 @@ aio-pika = ">=9.6.2,<9.7"
 
 # --- algorithms in c++ ---
 pybind11 = ">=3.0.2,<3.1"
-setuptools = ">=82.0,<82.1"
 
 # --- schema generation ---
 protobuf = "^7.34.1"
@@ -40,9 +39,14 @@ pythonpath = ["src"]
 
 
 [tool.poetry]
-packages = [{ include = "route_calc", from = "." }]
+name = "route-calc"
+version = "0.1.0"
+packages = [{ include = "route_calc" }]
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["scikit-build-core>=0.12,<0.13", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+wheel.packages = ["route_calc"]

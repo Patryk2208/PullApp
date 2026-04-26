@@ -6,6 +6,7 @@ from route_calc.model.common import AlgorithmType, Point
 from route_calc.model.messages import ComputeMessage, ResultMessage
 from route_calc.model.results import BestRouteResult, ClosestRoutesResult, ClosestRoute
 
+from route_calc.algorithms import slow_algorithm
 
 class AlgorithmsOrchestrator:
     def __init__(self, config: dict, logger: logging.Logger):
@@ -13,6 +14,8 @@ class AlgorithmsOrchestrator:
         self.logger = logger
 
     def compute(self, payload: ComputeMessage) -> ResultMessage:
+        self.logger.info(f"Computing {payload.algorithm} for job {payload.job_id}")
+        slow_algorithm(0, 2)
         if random.random() < 0.1:
             return ResultMessage.failure(payload.job_id, "Mocked failure", 500)
         else:
