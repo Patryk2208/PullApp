@@ -23,7 +23,6 @@ def load_config(path: str = None):
     if Path(config_path).exists():
         with open(config_path) as f:
             config.update(json.load(f))
-    print(config)
     config["queue"]["password"] = os.getenv("COMPUTE_QUEUE_PASSWORD")
     config["trip_planner_db"]["password"] = os.getenv("TRIP_PLANNER_DB_PASSWORD")
     config["cache"]["password"] = os.getenv("CACHE_PASSWORD")

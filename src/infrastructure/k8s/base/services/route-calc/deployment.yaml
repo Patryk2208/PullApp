@@ -78,6 +78,16 @@ spec:
           limits:
             memory: "4Gi"
             cpu: "2000m"
+
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+      
+      volumes:
+      - name: config
+        configMap:
+          name: route-calc-config
         
       #   volumeMounts:
       #   - name: osrm-data
