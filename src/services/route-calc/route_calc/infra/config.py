@@ -17,8 +17,15 @@ def is_running_in_container():
 
 
 def load_config(path: str = None):
-    config_path = path or "/app/config/config.json"
+    if path:
+        config_path = path
+        config = {}
+        if Path(config_path).exists():
+            with open(config_path) as f:
+                config.update(json.load(f))
+        return config
 
+    config_path = "/app/config/config.json"
     config = {}
     if Path(config_path).exists():
         with open(config_path) as f:

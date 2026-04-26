@@ -50,7 +50,7 @@ class Consumer:
             ctx.useless_mutex.acquire_lock()
             ctx.future = fut
             ctx.useless_mutex.release_lock()
-            self.logger.info(f"Job {ctx.job_id} submitted for processing. Total jobs: {self.queue.pull_based_queue.qsize()}")
+            self.logger.info(f"Job {ctx.job_id} submitted for processing. Total jobs: {len(self.jobs)}")
 
     def _process_job(self, ctx: JobContext):
         ctx.useless_mutex.acquire_lock()
@@ -77,6 +77,7 @@ class Consumer:
             result = ctx.result
             await self.queue.publish_result(result)
             await self.queue.ack(ctx.msg)
+            self.logger.info(f"Job {ctx.job_id} acked")
             await self.shutdown_lock.acquire()
             _ = self.jobs.pop(ctx.job_id)
             self.shutdown_lock.release()
@@ -84,12 +85,14 @@ class Consumer:
             # todo handle multiple types of exceptions for algorithms
         except RequeueException as e:
             await self.queue.nack(ctx.msg, requeue=True)
+            self.logger.info(f"Job {ctx.job_id} nacked")
             await self.shutdown_lock.acquire()
             _ = self.jobs.pop(ctx.job_id)
             self.shutdown_lock.release()
             self.logger.info(f"Job {ctx.job_id} failed: {e}, requeued")
         except NonRequeueException as e:
             await self.queue.nack(ctx.msg, requeue=False)
+            self.logger.info(f"Job {ctx.job_id} nacked (not requeued)")
             await self.shutdown_lock.acquire()
             _ = self.jobs.pop(ctx.job_id)
             self.shutdown_lock.release()
@@ -128,7 +131,7 @@ class Consumer:
                     await self.queue.nack(j.msg, requeue=True)
                 except Exception:
                     continue
-                print(f"Executor submission for job {j.job_id} cancelled")
+                self.logger.info(f"Executor submission for job {j.job_id} cancelled")
         self.shutdown_lock.release()
 
         # todo shutdown c++ threads correctly from inside them, not from here, for now we wait until they compute
@@ -144,7 +147,7 @@ class Consumer:
                     await self.queue.nack(j.msg, requeue=True)
                 except Exception:
                     continue
-                print(f"Post compute scheduling for job {j.job_id} cancelled")
+                self.logger.info(f"Post compute scheduling for job {j.job_id} cancelled")
         self.shutdown_lock.release()
 
         pending_jobs = [f.callback_task for f in self.jobs.values() if f.callback_task]
@@ -159,7 +162,7 @@ class Consumer:
                         await self.queue.nack(f.msg, requeue=True)
                     except Exception:
                         continue
-                    print(f"Callback for job {f.job_id} cancelled")
+                    self.logger.info(f"Callback for job {f.job_id} cancelled")
             except Exception:
                 continue
 

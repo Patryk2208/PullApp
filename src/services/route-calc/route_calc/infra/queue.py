@@ -81,16 +81,14 @@ class ComputeQueue:
     async def ack(self, msg):
         try:
             await msg.ack()
-            self.logger.info(f"Acked job {msg.body.job_id}")
-        except aio_pika.exceptions.AMQPError:
-            pass # already [n]acked or channel closed
+        except Exception as e:
+            raise RequeueException(e)
 
     async def nack(self, msg, requeue: bool):
         try:
             await msg.nack(requeue=requeue)
-            self.logger.info(f"Nacked job {msg.body.job_id}")
-        except aio_pika.exceptions.AMQPError:
-            pass # already [n]acked or channel closed
+        except Exception as e:
+            raise RequeueException(e)
 
     async def publish_result(self, result: ResultMessage):
         try:

@@ -9,6 +9,7 @@ resources:
   - services/trip-planner/service.yaml
   - services/route-calc/deployment.yaml
   - services/route-calc/service.yaml
+  - services/route-calc/trigger-auth.yaml
   - services/route-calc/scaled-object.yaml
   - services/accounts/deployment.yaml
   - services/accounts/service.yaml
@@ -44,5 +45,6 @@ secretGenerator:
   - ACCOUNTS_DB_PASSWORD=PLACEHOLDER
   - CACHE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_PASSWORD=PLACEHOLDER
+  - COMPUTE_QUEUE_SCALING_URL=PLACEHOLDER
   options:
     disableNameSuffixHash: true

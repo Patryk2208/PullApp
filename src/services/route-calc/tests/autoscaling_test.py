@@ -18,6 +18,8 @@ async def test_flow(mock_compute_message_factory):
     channel = await connection.channel()
     await channel.set_qos(prefetch_count=cfg['queue']['prefetch_count'])
 
+    # msg_count = 50
+    # for i in range(msg_count):
     while True:
         payload = mock_compute_message_factory()
         print(f"Sending job {payload.job_id}")
@@ -26,6 +28,7 @@ async def test_flow(mock_compute_message_factory):
             Message(body=serialized, delivery_mode=aio_pika.DeliveryMode.PERSISTENT),
             routing_key=cfg['queue']['compute'],
         )
+        time.sleep(0.1)
 
     await channel.close()
     await connection.close()
