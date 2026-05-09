@@ -2,7 +2,8 @@ using TripPlanner.Application.Repositories;
 
 namespace TripPlanner.Api.BackgroundServices;
 
-public class ResultSubscriberService(ISubscriber subscriber) : BackgroundService
+// Hosts the KafkaConsumerService<string> as an ASP.NET BackgroundService.
+public class KafkaSubscriberService(ISubscriber subscriber) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
