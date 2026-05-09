@@ -1,12 +1,12 @@
 using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using TripPlanner.Application.RouteCalculator;
+using TripPlanner.Application.Repositories;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactory factory, 
-    IQueueDomainMapper<T> mapper, RabbitMqOptions options) : IQueueSubscriber<T>
+internal class RabbitSubscriber<T>(IHandler<T> handler, IConnectionFactory factory, 
+    IQueueDomainMapper<T> mapper, RabbitMqOptions options) : ISubscriber
 {
     private IConnection? _connection;
     private IChannel? _channel;

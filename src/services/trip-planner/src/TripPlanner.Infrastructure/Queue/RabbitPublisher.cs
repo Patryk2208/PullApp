@@ -1,20 +1,18 @@
 using RabbitMQ.Client;
-using TripPlanner.Application.RouteCalculator;
-using TripPlanner.Domain;
+using TripPlanner.Application.Repositories;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T> mapper, RabbitMqOptions options) 
-    : IQueuePublisher<T>
+internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T> mapper, RabbitMqOptions options)
+    : IPublisher<T>
 {
     public async Task PublishAsync(T payload, CancellationToken ct)
     {
-        var connection = await factory.CreateConnectionAsync(ct);
-        var channel = await connection.CreateChannelAsync(null, ct);
+        await using var connection = await factory.CreateConnectionAsync(ct);
+        await using var channel = await connection.CreateChannelAsync(null, ct);
         await channel.QueueDeclareAsync(options.ComputeQueueName, true, false, false, cancellationToken: ct);
 
-        var msg = mapper.ToDto(payload);
-        
-        await channel.BasicPublishAsync(exchange: "", routingKey: options.ComputeQueueName, true, msg, ct);
+        var bytes = mapper.ToDto(payload);
+        await channel.BasicPublishAsync(exchange: "", routingKey: options.ComputeQueueName, true, bytes, ct);
     }
 }

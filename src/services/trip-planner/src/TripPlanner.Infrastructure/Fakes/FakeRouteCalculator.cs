@@ -1,34 +1,43 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using TripPlanner.Application;
-using TripPlanner.Application.RouteCalculator;
+using TripPlanner.Application.Repositories;
 using TripPlanner.Domain.Compute;
 
-namespace TripPlanner.Infrastructure.Fakes
+namespace TripPlanner.Infrastructure.Fakes;
+
+public class FakeRouteCalculator : IRouteCalculator
 {
-    public class FakeRouteCalculator : IRouteCalculator
+    private static readonly Dictionary<Guid, ComputeJobResult> _results = new();
+
+    public Task<Guid> SendComputeAsync(ComputeJob job, CancellationToken ct)
     {
-        private static readonly Dictionary<Guid, ComputeResult> _results = new();
-
-        public Task<Guid> SendComputeAsync(ComputePayload payload, CancellationToken ct)
+        _ = Task.Run(async () =>
         {
-            var id = Guid.NewGuid();
+            await Task.Delay(2000, ct);
 
-            // Simulating computation
-            _ = Task.Run(async () =>
+            ComputeJobResult result = job.JobType switch
             {
-                await Task.Delay(10000, ct);
-                _results[id] = new ComputeResult();
-            }, ct);
+                JobType.DriverRoute => new DriverRouteComputeResult(
+                    job.JobId,
+                    new DriverRouteJobResult(
+                        RouteGeomJson: """{"type":"LineString","coordinates":[[21.0122,52.2297],[21.0200,52.2350],[20.9752,52.2489]]}""",
+                        EtaSeconds: 1800,
+                        DistanceMeters: 12000)),
 
-            return Task.FromResult(id);
-        }
+                JobType.PassengerMatch => new PassengerMatchComputeResult(
+                    job.JobId,
+                    new PassengerMatchJobResult([])),
 
-        public Task<ComputeResult?> TryGetResultAsync(Guid id, CancellationToken ct)
-        {
-            _results.TryGetValue(id, out var result);
-            return Task.FromResult(result);
-        }
+                _ => new FailedComputeResult(job.JobId, job.JobType, "unknown_job_type"),
+            };
+
+            _results[job.JobId] = result;
+        }, ct);
+
+        return Task.FromResult(job.JobId);
+    }
+
+    public Task<ComputeJobResult?> TryGetResultAsync(Guid jobId, CancellationToken ct)
+    {
+        _results.TryGetValue(jobId, out var result);
+        return Task.FromResult(result);
     }
 }

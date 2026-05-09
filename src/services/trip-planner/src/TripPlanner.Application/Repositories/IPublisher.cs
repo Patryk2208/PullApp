@@ -1,6 +1,4 @@
-using TripPlanner.Domain;
-
-namespace TripPlanner.Application.RouteCalculator;
+namespace TripPlanner.Application.Repositories;
 
 public interface IQueuePublisher<in T>
 {
