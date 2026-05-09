@@ -1,6 +1,5 @@
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
-using TripPlanner.Infrastructure.Database;
 
 namespace TripPlanner.Infrastructure.Postgres;
 

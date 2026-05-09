@@ -1,6 +1,6 @@
 using TripPlanner.Domain.Compute;
 
-namespace TripPlanner.Application.RouteCalculator;
+namespace TripPlanner.Application.Repositories;
 
 public interface IResultRepository
 {

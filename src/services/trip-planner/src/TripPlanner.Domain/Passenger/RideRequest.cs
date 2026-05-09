@@ -35,7 +35,7 @@ public class RideRequest
     public DateTimeOffset? ConfirmationDeadline { get; private set; }
 
     public DateTimeOffset CreatedAt { get; init; }
-    public DateTimeOffset UpdatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 
     public void AssignJob(Guid jobId)
     {

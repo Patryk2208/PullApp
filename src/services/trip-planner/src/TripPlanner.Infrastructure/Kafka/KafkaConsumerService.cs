@@ -73,8 +73,6 @@ public class KafkaConsumerService<T>(
         
         consumer.Close();
     }
-
-    public void Dispose() {}
 }
 
 // todo

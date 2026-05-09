@@ -43,9 +43,10 @@ internal class RabbitSubscriber<T>(IHandler<T> handler, IConnectionFactory facto
         await _channel.BasicConsumeAsync(queue: options.ResultQueueName, false, consumer, ct);
     }
 
-    public void Dispose()
+    public Task StopAsync(CancellationToken ct)
     {
         _channel?.Dispose();
         _connection?.Dispose();
+        return Task.CompletedTask;
     }
 }

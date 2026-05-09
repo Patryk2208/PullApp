@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using TripPlanner.Application.Repositories;
 
-namespace TripPlanner.Infrastructure.Database;
+namespace TripPlanner.Infrastructure.Postgres;
 
 // Seeds a default Warsaw service area on first startup if the table is empty.
-public class ServiceAreaSeeder(NpgsqlDataSource dataSource, ILogger<ServiceAreaSeeder> logger)
+public class ServiceAreaSeeder(NpgsqlDataSource dataSource, ILogger<ServiceAreaSeeder> logger) : ISubscriber
 {
     public async Task StartAsync(CancellationToken ct)
     {
@@ -32,6 +33,4 @@ public class ServiceAreaSeeder(NpgsqlDataSource dataSource, ILogger<ServiceAreaS
 
         logger.LogInformation("Warsaw service area seeded");
     }
-
-    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }

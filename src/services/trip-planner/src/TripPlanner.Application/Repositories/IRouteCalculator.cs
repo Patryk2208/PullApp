@@ -1,6 +1,6 @@
 using TripPlanner.Domain.Compute;
 
-namespace TripPlanner.Application.RouteCalculator;
+namespace TripPlanner.Application.Repositories;
 
 public interface IRouteCalculator
 {
@@ -12,7 +12,7 @@ public interface IRouteCalculator
 }
 
 internal class RouteCalculator(
-    IQueuePublisher<ComputeJob> publisher,
+    IPublisher<ComputeJob> publisher,
     IResultRepository repository) : IRouteCalculator
 {
     public async Task<Guid> SendComputeAsync(ComputeJob job, CancellationToken ct)

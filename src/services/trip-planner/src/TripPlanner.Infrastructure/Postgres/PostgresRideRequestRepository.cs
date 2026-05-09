@@ -1,12 +1,10 @@
 using System.Text.Json;
 using Npgsql;
 using TripPlanner.Application.Repositories;
-using TripPlanner.Infrastructure.Database;
 using TripPlanner.Domain.Compute;
 using TripPlanner.Domain.Passenger;
-using TripPlanner.Infrastructure.Postgres;
 
-namespace TripPlanner.Infrastructure.Repositories;
+namespace TripPlanner.Infrastructure.Postgres;
 
 public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepository
 {

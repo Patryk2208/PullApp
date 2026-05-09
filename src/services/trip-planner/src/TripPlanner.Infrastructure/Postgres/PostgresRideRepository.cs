@@ -1,11 +1,9 @@
 using Npgsql;
 using TripPlanner.Application.Repositories;
-using TripPlanner.Infrastructure.Database;
 using TripPlanner.Domain.Compute;
 using TripPlanner.Domain.Ride;
-using TripPlanner.Infrastructure.Postgres;
 
-namespace TripPlanner.Infrastructure.Repositories;
+namespace TripPlanner.Infrastructure.Postgres;
 
 public class PostgresRideRepository(DbSession db) : IRideRepository
 {

@@ -1,11 +1,9 @@
 using Npgsql;
 using TripPlanner.Application.Repositories;
-using TripPlanner.Infrastructure.Database;
 using TripPlanner.Domain;
 using TripPlanner.Domain.Compute;
-using TripPlanner.Infrastructure.Postgres;
 
-namespace TripPlanner.Infrastructure.Repositories;
+namespace TripPlanner.Infrastructure.Postgres;
 
 public class PostgresRouteJobRepository(DbSession db) : IRouteJobRepository
 {

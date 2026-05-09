@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using TripPlanner.Application.Repositories;
 
 namespace TripPlanner.Infrastructure.Postgres;
 
 // Runs on startup: creates the schema if it doesn't exist.
 // Safe to run on every start (all statements use IF NOT EXISTS).
-public class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<DatabaseInitializer> logger)
+public class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<DatabaseInitializer> logger) : ISubscriber
 {
     public async Task StartAsync(CancellationToken ct)
     {
