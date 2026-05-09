@@ -15,7 +15,7 @@ services:
   accounts-api:
     build:
       context: ./src/services/Accounts
-      dockerfile: infra/docker/Dockerfile
+      dockerfile: Dockerfile
       args:
         - BUILD_MODE=Debug # TODO
     environment:

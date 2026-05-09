@@ -1,0 +1,59 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+- state.yaml
+
+secretGenerator:
+- behavior: replace
+  envs:
+  - secrets/secrets.env
+  name: pullapp-secrets
+  options:
+    disableNameSuffixHash: true
+  
+patches:
+- path: patches/probes.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: trip-planner
+    version: v1
+- path: patches/probes.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: accounts
+    version: v1
+- path: patches/probes.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: route-calc
+    version: v1
+- path: patches/probes.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: gateway
+    version: v1
+- path: patches/gateway.yaml
+  target:
+    kind: Service
+    name: gateway
+    version: v1
+
+images:
+- name: accounts
+  newName: pullapp/accounts
+  newTag: 572901as
+- name: gateway
+  newName: pullapp/gateway
+  newTag: 572901as
+- name: route-calc
+  newName: pullapp/route-calc
+  newTag: db7c55fs
+- name: trip-planner
+  newName: pullapp/trip-planner
+  newTag: 572901as

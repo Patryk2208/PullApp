@@ -1,15 +1,15 @@
-name: CI pipeline for trip-planner service
+name: CI pipeline for gateway service
 
-# We only want to run this CI pipeline for changes to the trip-planner service
+# We only want to run this CI pipeline for changes to the gateway service
 on:
   push:
     branches: [ master ]
     paths:
-      - 'src/services/trip-planner/**'
-      - '.github/workflows/trip-planner-ci.yaml'
+      - 'src/services/gateway/**'
+      - '.github/workflows/gateway-ci.yaml'
   pull_request:
     paths:
-      - src/trip-planner/**'
+      - src/gateway/**'
 
 env:
   BUILD_ID: ${{ github.run_id }}-${{ github.run_number }}
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/services/trip-planner
+        working-directory: src/services/gateway
     steps:
       - uses: actions/checkout@v6
 
@@ -53,19 +53,19 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4  
         with:
-          name: trip-planner-unit-test-results
+          name: gateway-unit-test-results
           path: TestResults/*.trx
       
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: trip-planner-coverage
+          name: gateway-coverage
           path: TestResults/coverage.cobertura.xml
   dockerize:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/services/trip-planner
+        working-directory: src/services/gateway
     steps:
       - uses: actions/checkout@v6
 
@@ -88,4 +88,4 @@ jobs:
         run: dotnet build --no-restore --configuration Release
       
       - name: Docker build
-        run: docker build -f Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} .
+        run: docker build -f Dockerfile -t gateway:${{ env.COMMIT_SHA }} .

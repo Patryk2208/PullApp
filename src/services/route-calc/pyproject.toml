@@ -5,7 +5,6 @@ description = ""
 authors = [
     {name = "Patryk Pol"}
 ]
-readme = "../../../docs/04-components/route-calc.md"
 requires-python = ">=3.13"
 
 
@@ -40,9 +39,14 @@ pythonpath = ["src"]
 
 
 [tool.poetry]
-packages = [{ include = "route_calc", from = "src" }]
+name = "route-calc"
+version = "0.1.0"
+packages = [{ include = "route_calc" }]
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["scikit-build-core>=0.12,<0.13", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+wheel.packages = ["route_calc"]
