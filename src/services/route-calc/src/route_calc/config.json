@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "description": "Routing service with C++ core and Python I/O layer"
   },
-  "rabbitmq": {
+  "queue": {
     "host": "localhost",
     "port": 5672,
     "vhost": "/",
@@ -13,7 +13,9 @@
     "queues": {
       "compute": "compute-queue",
       "results": "results-queue"
-    }
+    },
+    "max_retries": 3,
+    "prefetch_count": 4
   },
   "postgres": {
     "host": "localhost",
@@ -35,7 +37,7 @@
     "ttl_seconds": 3600,
     "max_memory_mb": 512
   },
-  "routing": {
+  "algorithms": {
     "osm_data_path": "/data/osm.pbf",
     "graph_cache_size_mb": 1024,
     "algorithms": {
@@ -61,14 +63,12 @@
       }
     }
   },
-  "worker": {
-    "thread_pool_size": 4,
-    "graceful_shutdown_timeout_seconds": 30
+  "thread_pool": {
+    "max_workers": 4,
+    "shutdown_timeout_seconds": 5
   },
   "logging": {
-    "level": "INFO",
-    "format": "json",
-    "output": "stdout"
+    "level": "INFO"
   },
   "metrics": {
     "enabled": true,

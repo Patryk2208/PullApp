@@ -1,6 +1,18 @@
 @TripPlanner.Api_HostAddress = http://localhost:5238
+@jobId = 906adfce-373f-4d13-a6f8-d4ee0e9d3fd8
 
 GET {{TripPlanner.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+POST http://localhost:5238/api/route
+Content-Type: application/json
+
+{
+  "driverId": "11111111-1111-1111-1111-111111111111",
+  "start": "A",
+  "end": "B"
+}
+
+###
+GET http://localhost:5238/api/route/eb571622-3167-464a-b7be-f09e5a5fbd39

@@ -17,3 +17,9 @@
 **/.venv/
 **/__pycache__/
 **/*.pyc
+
+# Generated code
+**/generated/
+
+# secret environment variables
+**/.env

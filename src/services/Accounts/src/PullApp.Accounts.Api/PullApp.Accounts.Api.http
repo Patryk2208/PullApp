@@ -1,0 +1,42 @@
+@Host = http://localhost:5000
+
+### Rejestracja
+POST {{Host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jan",
+  "surname": "Kowalski",
+  "email": "jan@kowalski.pl",
+  "password": "StrongPassword123!",
+  "birthDate": "1990-01-01"
+}
+
+### Logowanie
+POST {{Host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan@kowalski.pl",
+  "password": "StrongPassword123!"
+}
+
+> {% client.global.set("auth_token", response.body.accessToken) %}
+
+### Logowanie (BŁĘDNE)
+POST {{Host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "jan@kowalski.pl",
+  "password": "some incorrect password"
+}
+
+### Logowanie (odrzucone przez walidację)
+POST {{Host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "",
+  "password": "StrongPassword123!"
+}

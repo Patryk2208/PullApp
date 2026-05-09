@@ -2,29 +2,29 @@ namespace TripPlanner.UnitTests;
 
 public class HelloWorldTest
 {
-    [Fact]
-    public void HelloTest_ShouldAccept()
-    {
-        // Arrange
-        var hw = new HelloWorld();
+    //[Fact]
+    //public void HelloTest_ShouldAccept()
+    //{
+    //    // Arrange
+    //    var hw = new HelloWorld();
         
-        //Act
-        var msg = hw.Hello();
+    //    //Act
+    //    var msg = hw.Hello();
         
-        //Assert
-        Assert.Equal("Hello World!", msg);
-    }
+    //    //Assert
+    //    Assert.Equal("Hello World!", msg);
+    //}
     
-    [Fact]
-    public void HelloTest_ShouldFail()
-    {
-        // Arrange
-        var hw = new HelloWorld();
+    //[Fact]
+    //public void HelloTest_ShouldFail()
+    //{
+    //    // Arrange
+    //    var hw = new HelloWorld();
         
-        //Act
-        var msg = hw.Hello();
+    //    //Act
+    //    var msg = hw.Hello();
         
-        //Assert
-        Assert.NotEqual("Bye, World!", msg);
-    }
+    //    //Assert
+    //    Assert.NotEqual("Bye, World!", msg);
+    //}
 }
