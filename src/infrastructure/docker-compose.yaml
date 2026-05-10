@@ -78,6 +78,32 @@ services:
       timeout: 10s
       retries: 5
 
+  event-bus:
+    image: apache/kafka:3.9.0
+    container_name: event-bus
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://event-bus:9092,CONTROLLER://event-bus:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@event-bus:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - event-bus-data:/var/lib/kafka/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+
 networks:
   pullapp-network:
     driver: bridge
@@ -87,3 +113,4 @@ volumes:
   accounts-data:
   redis-data:
   rabbitmq-data:
+  event-bus-data:
