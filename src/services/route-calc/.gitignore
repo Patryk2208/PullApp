@@ -1,2 +1,7 @@
 dist
 route_calc/algorithms/*.so
+route_calc/algorithms/*.pyd
+route_calc/algorithms/Debug/
+build/
+.pytest_cache/
+*.egg-info/

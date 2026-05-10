@@ -6,15 +6,16 @@ package core.v1;
 
 message ComputeMessage {
     string job_id = 1;
-    string algorithm = 2; // "best_route", "closest_routes", "covering_route", "optimal_set"
+    string algorithm = 2; // "best_route", "closest_routes", "ride_matching", "covering_route", "optimal_set"
     int64 created_at = 3; // Unix timestamp
     int32 retry_count = 4;
-    
+
     oneof params {
         BestRouteParams best_route = 20;
         ClosestRoutesParams closest_routes = 21;
-        //CoveringRouteParams covering_route = 22;
-        //OptimalSetParams optimal_set = 23;
+        RideMatchingQuery ride_matching = 22;
+        //CoveringRouteParams covering_route = 23;
+        //OptimalSetParams optimal_set = 24;
     }
 }
 
@@ -33,6 +34,29 @@ message ClosestRoutesParams {
     Point point = 1;
     int32 k = 2;
     double radius_meters = 3; // 0 = unlimited
+}
+
+message RideMatchingQuery {
+    string passenger_id = 1;
+    Point start = 2;  // Where passenger wants to start
+    Point end = 3;    // Where passenger wants to end
+    int64 departure_date = 4;  // Unix timestamp (date only)
+    int32 seats_needed = 5;
+    // Available driver routes to search through
+    repeated DriverRoute candidate_routes = 6;
+    // Matching parameters
+    int32 max_detour_km = 7;  // Don't match if detour is larger
+    int32 time_window_minutes = 8;  // Acceptable time difference from departure_date
+}
+
+message DriverRoute {
+    string route_id = 1;
+    string driver_id = 2;
+    repeated Point route_points = 3;  // The actual road path (list of coordinates)
+    int64 departure_date = 4;  // Unix timestamp
+    int32 departure_time_minutes = 5;  // Minutes since midnight
+    int32 seats_available = 6;
+    double estimated_duration_hours = 7;
 }
 
 // message CoveringRouteParams {
@@ -64,12 +88,13 @@ message ResultMessage {
     string job_id = 1;
     bool success = 2;
     string error = 3;
-    
+
     oneof result {
         BestRouteResult best_route = 20;
         ClosestRoutesResult closest_routes = 21;
-        //CoveringRouteResult covering_route = 22;
-        //OptimalSetResult optimal_set = 23;
+        RideMatchingResult ride_matching = 22;
+        //CoveringRouteResult covering_route = 23;
+        //OptimalSetResult optimal_set = 24;
     }
 }
 
@@ -87,6 +112,19 @@ message ClosestRoute {
     string route_id = 1;
     double distance_to_point_meters = 2;
     Point access_point = 3;
+}
+
+message RideMatchingResult {
+    repeated MatchedRoute matches = 1;
+}
+
+message MatchedRoute {
+    string route_id = 1;
+    string driver_id = 2;
+    double match_score = 3;  // 0.0 to 1.0, higher is better
+    double detour_km = 4;  // How much longer than ideal passenger route
+    int32 pickup_point_index = 5;  // Which index in driver route for pickup
+    int32 dropoff_point_index = 6;  // Which index in driver route for dropoff
 }
 
 // message CoveringRouteResult {
