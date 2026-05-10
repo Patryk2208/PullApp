@@ -10,7 +10,7 @@ public record CancelRouteCommand(Guid DriverId);
 public class CancelRouteHandler(
     IDriverRouteRepository driverRoutes,
     IRideRequestRepository rideRequests,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(CancelRouteCommand cmd, CancellationToken ct)

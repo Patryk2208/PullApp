@@ -1,10 +1,11 @@
 using RabbitMQ.Client;
 using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitPublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T> mapper, RabbitMqOptions options)
-    : IPublisher<T>
+internal class RabbitComputePublisher<T>(IConnectionFactory factory, IQueueDtoMapper<T> mapper, RabbitMqOptions options)
+    : IComputePublisher<T>
 {
     public async Task PublishAsync(T payload, CancellationToken ct)
     {

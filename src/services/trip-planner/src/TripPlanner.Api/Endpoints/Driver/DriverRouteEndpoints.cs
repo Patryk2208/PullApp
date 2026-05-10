@@ -1,10 +1,11 @@
 using TripPlanner.Application.Features.DTO.Driver;
 using TripPlanner.Application.Features.Driver;
+using TripPlanner.Infrastructure.Sse;
 
 namespace TripPlanner.Api.Endpoints.Driver;
 
 // POST /api/driver/route        — register a new route
-// GET  /api/driver/route/{jobId} — poll compute job status
+// GET  /api/driver/route/events — SSE stream
 // PUT  /api/driver/route        — modify existing route
 // DELETE /api/driver/route      — cancel route
 
@@ -29,18 +30,38 @@ public class RegisterRouteEndpoint : IEndpoint
 public class GetRouteStatusEndpoint : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app) =>
-        app.MapGet("api/driver/route/{jobId}", Handle)
-           .WithName("GetRouteStatus");
+        app.MapGet("api/driver/route/{jobId}/events", Handle)
+           .WithName("ReadyRouteSseStream");
 
-    private static async Task<IResult> Handle(
+    private static async Task Handle(
         Guid jobId,
-        GetRouteStatusHandler handler,
+        InMemorySseHub hub,
         HttpContext http,
         CancellationToken ct)
     {
+        http.Response.Headers.ContentType = "text/event-stream";
+        http.Response.Headers.CacheControl = "no-cache";
+        http.Response.Headers.Connection = "keep-alive";
+        
         var driverId = HttpUtils.GetDriverId(http);
-        var response = await handler.HandleAsync(new GetRouteStatusQuery(jobId, driverId), ct);
-        return Results.Ok(response);
+        var channel = hub.Register(driverId);
+
+        try
+        {
+            await foreach (var msg in channel.Reader.ReadAllAsync(ct))
+            {
+                await http.Response.WriteAsync($"event: {msg.EventType}\n", ct);
+                await http.Response.WriteAsync($"data: {msg.Json}\n\n", ct);
+                await http.Response.Body.FlushAsync(ct);
+
+                if (msg.Close) break;
+            }
+        }
+        catch (OperationCanceledException) { /* client disconnected */ }
+        finally
+        {
+            hub.Unregister(driverId);
+        }
     }
 }
 
@@ -57,8 +78,7 @@ public class ModifyRouteEndpoint : IEndpoint
         CancellationToken ct)
     {
         var driverId = HttpUtils.GetDriverId(http);
-        var response = await handler.HandleAsync(
-            new ModifyRouteCommand(driverId, req.Start, req.End), ct);
+        var response = await handler.HandleAsync(new ModifyRouteCommand(driverId, req.Start, req.End), ct);
         return Results.Accepted($"/api/driver/route/{response.JobId}", response);
     }
 }

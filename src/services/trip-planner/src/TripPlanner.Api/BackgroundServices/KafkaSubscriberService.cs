@@ -1,4 +1,5 @@
 using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Api.BackgroundServices;
 

@@ -17,7 +17,7 @@ public class ConfirmationHandler(
     IRideRepository rides,
     IChatService chat,
     IPaymentsService payments,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(DriverConfirmationCommand cmd, CancellationToken ct)
@@ -40,7 +40,7 @@ public class ConfirmationHandler(
 
             await rideRequests.UpdateAsync(request, ct);
 
-            await kafka.PublishAsync<MatchDeclinedEvent>(Topics.UserActions,
+            await @event.PublishAsync<MatchDeclinedEvent>(Topics.UserActions,
                 new MatchDeclinedEvent(cmd.RequestId, cmd.DriverId, request.PassengerId), ct);
 
             var remaining = request.MatchResults?.Count ?? 0;
@@ -88,16 +88,16 @@ public class ConfirmationHandler(
 
         await rides.AddAsync(ride, ct);
 
-        await kafka.PublishAsync<MatchConfirmedEvent>(Topics.UserActions,
+        await @event.PublishAsync<MatchConfirmedEvent>(Topics.UserActions,
             new MatchConfirmedEvent(ride.Id, cmd.DriverId, request.PassengerId), ct);
 
-        await sseHub.PushAsync(cmd.RequestId, "match_confirmed",
+        await sseHub.PushAsync(ride.PassengerId, "match_confirmed",
             JsonSerializer.Serialize(new MatchConfirmedSseEvent(
                 cmd.RequestId,
                 ride.Id,
                 chatRoomId,
-                "Driver", // TODO: fetch display name from Accounts
-                0,        // TODO: fetch rating from Accounts
+                "Robert Kubica", // TODO: fetch display name from Accounts
+                5,        // TODO: fetch rating from Accounts
                 selectedEntry.EtaToPassengerSeconds,
                 quote.Amount,
                 quote.Currency)),

@@ -22,6 +22,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
     {
         var (status, code, message) = ex switch
         {
+            BadRequestException e                => (400, e.Message, e.Message),
             NotFoundException e                  => (404, e.Message, e.Message),
             ForbiddenException e                 => (403, e.Message, e.Message),
             RouteAlreadyActiveException e        => (409, e.Message, e.Message),

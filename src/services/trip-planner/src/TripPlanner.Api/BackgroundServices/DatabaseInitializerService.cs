@@ -1,4 +1,5 @@
 using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
 using TripPlanner.Infrastructure.Postgres;
 
 namespace TripPlanner.Api.BackgroundServices;

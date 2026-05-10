@@ -2,6 +2,7 @@ using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Kafka;
 

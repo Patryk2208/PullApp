@@ -2,6 +2,7 @@ using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Queue;
 

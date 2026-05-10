@@ -5,11 +5,11 @@ using TripPlanner.Domain.Events;
 
 namespace TripPlanner.Infrastructure.Kafka;
 
-public class KafkaPublisher : IKafkaPublisher, IDisposable
+public class EventPublisher : IEventPublisher, IDisposable
 {
     private readonly IProducer<Null, string> _producer;
 
-    public KafkaPublisher(KafkaOptions options)
+    public EventPublisher(KafkaOptions options)
     {
         var config = new ProducerConfig
         {

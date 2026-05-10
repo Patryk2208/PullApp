@@ -16,7 +16,7 @@ public record PassengerStartRideCommand(Guid PassengerId, Guid RideId);
 
 public class PassengerStartRideHandler(
     IRideRepository rides,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(PassengerStartRideCommand cmd, CancellationToken ct)
@@ -30,7 +30,7 @@ public class PassengerStartRideHandler(
         ride.Start();
         await rides.UpdateAsync(ride, ct);
 
-        await kafka.PublishAsync<RideStartedEvent>(Topics.UserActions,
+        await @event.PublishAsync<RideStartedEvent>(Topics.UserActions,
             new RideStartedEvent(ride.Id, ride.DriverId, ride.PassengerId, ride.StartedAt!.Value), ct);
 
         await sseHub.PushAsync(ride.PassengerId, "ride_started",
@@ -67,7 +67,7 @@ public record PassengerCancelRideCommand(Guid PassengerId, Guid RideId, string? 
 public class PassengerCancelRideHandler(
     IRideRepository rides,
     IRideRequestRepository rideRequests,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(PassengerCancelRideCommand cmd, CancellationToken ct)
@@ -94,7 +94,7 @@ public class PassengerCancelRideHandler(
             await rideRequests.UpdateAsync(request, ct);
         }
 
-        await kafka.PublishAsync(Topics.RideCompletions,
+        await @event.PublishAsync(Topics.RideCompletions,
             new RideCancelledEvent(
                 ride.Id, ride.DriverId, ride.PassengerId,
                 ride.FrozenPriceId,

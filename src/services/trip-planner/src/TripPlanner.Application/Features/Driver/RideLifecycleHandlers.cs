@@ -17,7 +17,7 @@ public record DriverArrivedCommand(Guid DriverId, Guid RideId);
 
 public class DriverArrivedHandler(
     IRideRepository rides,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(DriverArrivedCommand cmd, CancellationToken ct)
@@ -31,7 +31,7 @@ public class DriverArrivedHandler(
         ride.MarkDriverArrived();
         await rides.UpdateAsync(ride, ct);
 
-        await kafka.PublishAsync(Topics.UserActions,
+        await @event.PublishAsync(Topics.UserActions,
             new DriverArrivedEvent(ride.Id, ride.DriverId, ride.PassengerId), ct);
 
         await sseHub.PushAsync(ride.PassengerId, "driver_arrived",
@@ -45,7 +45,7 @@ public record DriverStartRideCommand(Guid DriverId, Guid RideId);
 
 public class DriverStartRideHandler(
     IRideRepository rides,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(DriverStartRideCommand cmd, CancellationToken ct)
@@ -59,7 +59,7 @@ public class DriverStartRideHandler(
         ride.Start();
         await rides.UpdateAsync(ride, ct);
 
-        await kafka.PublishAsync<RideStartedEvent>(Topics.UserActions,
+        await @event.PublishAsync<RideStartedEvent>(Topics.UserActions,
             new RideStartedEvent(ride.Id, ride.DriverId, ride.PassengerId, ride.StartedAt!.Value), ct);
 
         await sseHub.PushAsync(ride.PassengerId, "ride_started",
@@ -74,7 +74,7 @@ public record CompleteRideCommand(Guid DriverId, Guid RideId, GeoPointDto Dropof
 public class CompleteRideHandler(
     IRideRepository rides,
     IDriverRouteRepository driverRoutes,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(CompleteRideCommand cmd, CancellationToken ct)
@@ -92,7 +92,7 @@ public class CompleteRideHandler(
         var driverRoute = await driverRoutes.GetByIdAsync(ride.DriverRouteId, ct);
         // Driver's route stays active per spec §21 #9.
 
-        await kafka.PublishAsync(Topics.RideCompletions,
+        await @event.PublishAsync(Topics.RideCompletions,
             new RideCompletedEvent(
                 ride.Id,
                 ride.DriverId,
@@ -121,7 +121,7 @@ public record DriverCancelRideCommand(Guid DriverId, Guid RideId, string? Reason
 public class DriverCancelRideHandler(
     IRideRepository rides,
     IRideRequestRepository rideRequests,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     public async Task HandleAsync(DriverCancelRideCommand cmd, CancellationToken ct)
@@ -148,7 +148,7 @@ public class DriverCancelRideHandler(
             await rideRequests.UpdateAsync(request, ct);
         }
 
-        await kafka.PublishAsync(Topics.RideCompletions,
+        await @event.PublishAsync(Topics.RideCompletions,
             new RideCancelledEvent(
                 ride.Id, ride.DriverId, ride.PassengerId,
                 ride.FrozenPriceId,

@@ -1,4 +1,4 @@
-namespace TripPlanner.Application.Repositories;
+namespace TripPlanner.Application.Services;
 
 public interface ISubscriber
 {

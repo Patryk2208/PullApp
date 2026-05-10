@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Postgres;
 

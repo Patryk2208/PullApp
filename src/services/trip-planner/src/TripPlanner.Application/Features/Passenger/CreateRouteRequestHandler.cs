@@ -1,3 +1,4 @@
+using System.Text.Json;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -21,7 +22,7 @@ public class CreateRouteRequestHandler(
     IGeoService geo,
     IRideRequestRepository rideRequests,
     IRouteJobRepository jobs,
-    IRouteCalculator calculator)
+    IComputePublisher<ComputeJob> queue)
 {
     public async Task<PassengerRouteRequestResponse> HandleAsync(
         CreateRouteRequestCommand cmd, CancellationToken ct)
@@ -42,13 +43,17 @@ public class CreateRouteRequestHandler(
         var correlationId = Guid.NewGuid();
         var constraints   = new MatchConstraints(cmd.MaxDetourKm, cmd.MaxResults);
 
+        var payload = new PassengerMatchJobPayload(start, end, constraints);
+        var computeJob = new PassengerMatchComputeJob(correlationId, cmd.PassengerId, payload, DateTimeOffset.UtcNow);
+        var computeJobJson = JsonSerializer.Serialize(computeJob);
+
         var job = new RouteJob
         {
             Id            = Guid.NewGuid(),
             CorrelationId = correlationId,
             JobType       = JobType.PassengerMatch,
             RequesterId   = cmd.PassengerId,
-            PayloadJson   = "{}",
+            PayloadJson   = computeJobJson,
             ExpiresAt     = DateTimeOffset.UtcNow.AddMinutes(10),
             CreatedAt     = DateTimeOffset.UtcNow,
         };
@@ -68,13 +73,7 @@ public class CreateRouteRequestHandler(
         await jobs.AddAsync(job, ct);
         await rideRequests.AddAsync(request, ct);
 
-        await calculator.SendComputeAsync(
-            new PassengerMatchComputeJob(
-                correlationId,
-                cmd.PassengerId,
-                new PassengerMatchJobPayload(start, end, constraints),
-                DateTimeOffset.UtcNow),
-            ct);
+        await queue.PublishAsync(computeJob, ct);
 
         return new PassengerRouteRequestResponse(request.Id);
     }

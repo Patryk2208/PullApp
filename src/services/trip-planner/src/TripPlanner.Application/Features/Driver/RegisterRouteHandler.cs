@@ -1,3 +1,5 @@
+using System.Numerics;
+using System.Text.Json;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -16,24 +18,20 @@ public class RegisterRouteHandler(
     IGeoService geo,
     IDriverRouteRepository driverRoutes,
     IRouteJobRepository jobs,
-    IRouteCalculator calculator)
+    IComputePublisher<ComputeJob> queue)
 {
     public async Task<RegisterRouteResponse> HandleAsync(RegisterRouteCommand cmd, CancellationToken ct)
     {
-        if (!await accounts.IsDriverActiveAsync(cmd.DriverId, ct))
-            throw new AccountsUnavailableException();
-
+        await Validate(cmd, ct);
+        
         var start = new GeoPoint(cmd.Start.Lat, cmd.Start.Lng);
         var end   = new GeoPoint(cmd.End.Lat,   cmd.End.Lng);
-
-        if (!await geo.IsWithinServiceAreaAsync(start, ct) ||
-            !await geo.IsWithinServiceAreaAsync(end, ct))
-            throw new OutsideServiceAreaException();
-
-        if (await driverRoutes.GetActiveByDriverIdAsync(cmd.DriverId, ct) is not null)
-            throw new RouteAlreadyActiveException();
-
+        
         var correlationId = Guid.NewGuid();
+        
+        var payload = new DriverRouteJobPayload(start, end);
+        var computeJob = new DriverRouteComputeJob(correlationId, cmd.DriverId, payload, DateTimeOffset.UtcNow);
+        var computeJobJson = JsonSerializer.Serialize(computeJob);
 
         var job = new RouteJob
         {
@@ -41,7 +39,7 @@ public class RegisterRouteHandler(
             CorrelationId = correlationId,
             JobType       = JobType.DriverRoute,
             RequesterId   = cmd.DriverId,
-            PayloadJson   = $"{{\"start\":{{\"lat\":{start.Latitude},\"lon\":{start.Longitude}}},\"end\":{{\"lat\":{end.Latitude},\"lon\":{end.Longitude}}}}}",
+            PayloadJson   = computeJobJson,
             CreatedAt     = DateTimeOffset.UtcNow,
         };
 
@@ -58,10 +56,24 @@ public class RegisterRouteHandler(
         await jobs.AddAsync(job, ct);
         await driverRoutes.AddAsync(route, ct);
 
-        await calculator.SendComputeAsync(
-            new DriverRouteComputeJob(correlationId, cmd.DriverId, new DriverRouteJobPayload(start, end), DateTimeOffset.UtcNow),
-            ct);
-
+        await queue.PublishAsync(computeJob, ct);
+        
         return new RegisterRouteResponse(job.Id);
+    }
+
+    private async Task Validate(RegisterRouteCommand cmd, CancellationToken ct)
+    {
+        if (!await accounts.IsDriverActiveAsync(cmd.DriverId, ct))
+            throw new AccountsUnavailableException();
+
+        var start = new GeoPoint(cmd.Start.Lat, cmd.Start.Lng);
+        var end   = new GeoPoint(cmd.End.Lat,   cmd.End.Lng);
+
+        if (!await geo.IsWithinServiceAreaAsync(start, ct) ||
+            !await geo.IsWithinServiceAreaAsync(end, ct))
+            throw new OutsideServiceAreaException();
+
+        if (await driverRoutes.GetActiveByDriverIdAsync(cmd.DriverId, ct) is not null)
+            throw new RouteAlreadyActiveException();
     }
 }

@@ -13,7 +13,7 @@ public record SelectRouteCommand(Guid PassengerId, Guid RequestId, Guid DriverRo
 public class SelectRouteHandler(
     IRideRequestRepository rideRequests,
     IDriverRouteRepository driverRoutes,
-    IKafkaPublisher kafka,
+    IEventPublisher @event,
     ISseHub sseHub)
 {
     private static readonly TimeSpan ConfirmationWindow = TimeSpan.FromSeconds(30);
@@ -41,12 +41,12 @@ public class SelectRouteHandler(
 
         var driverEntry = request.MatchResults!.First(m => m.DriverRouteId == cmd.DriverRouteId);
 
-        await kafka.PublishAsync(Topics.UserActions,
-            new RouteRequestedEvent(
+        await @event.PublishAsync(Topics.UserActions,
+            new RouteSelectedEvent(
                 cmd.RequestId,
                 driverEntry.DriverId,
                 cmd.PassengerId,
-                "Passenger", // TODO: fetch display name from Accounts
+                "Jan Kowalski", // TODO: fetch display name from Accounts
                 request.StartPoint,
                 request.EndPoint,
                 driverEntry.EtaToPassengerSeconds,

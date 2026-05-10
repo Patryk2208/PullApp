@@ -63,7 +63,7 @@ public record RideInterruptedEvent(
 
 // ─── user-actions ─────────────────────────────────────────────────────────────
 
-public record RouteRequestedEvent(
+public record RouteSelectedEvent(
     Guid RequestId,
     Guid DriverId,
     Guid PassengerId,
@@ -73,7 +73,7 @@ public record RouteRequestedEvent(
     int EtaToPassengerSeconds,
     DateTimeOffset ExpiresAt) : IEvent
 {
-    public string EventType => "route_requested";
+    public string EventType => "route_selected";
 }
 
 public record MatchConfirmedEvent(

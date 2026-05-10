@@ -22,8 +22,6 @@ var dbOptions = builder.Configuration
 var dataSource = new NpgsqlDataSourceBuilder(dbOptions.ConnectionString).Build();
 builder.Services.AddSingleton(dataSource);
 builder.Services.AddHostedService<DatabaseInitializerService>();
-builder.Services.AddHostedService<ResultSubscriberService>();
-builder.Services.AddHostedService<KafkaSubscriberService>();
 builder.Services.AddScoped<DbSession>();
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
@@ -48,10 +46,7 @@ builder.Services.AddSingleton<IPaymentsService,  FakePaymentsService>();
 builder.Services.AddSingleton<InMemorySseHub>();
 builder.Services.AddSingleton<ISseHub>(sp => sp.GetRequiredService<InMemorySseHub>());
 
-// ─── Route calculator ─────────────────────────────────────────────────────────
-
-builder.Services.AddSingleton<IRouteCalculator, FakeRouteCalculator>();
-builder.Services.AddSingleton<ISubscriber, FakeSubscriber<object>>();
+// ─── Queue ─────────────────────────────────────────────────────────
 
 // ─── Kafka ────────────────────────────────────────────────────────────────────
 
@@ -60,24 +55,19 @@ if (kafkaSection.Exists())
 {
     var kafkaOptions = kafkaSection.Get<KafkaOptions>()!;
     builder.Services.AddSingleton(kafkaOptions);
-    builder.Services.AddSingleton<IKafkaPublisher, KafkaPublisher>();
+    builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
     builder.Services.AddSingleton<IHandler<string>, KafkaEventDispatcher>();
     builder.Services.AddSingleton<KafkaConsumerService<string>>();
     builder.Services.AddHostedService<KafkaSubscriberService>();
 }
 else
 {
-    builder.Services.AddSingleton<IKafkaPublisher, FakeKafkaPublisher>();
+    builder.Services.AddSingleton<IEventPublisher, FakeEventPublisher>();
 }
-
-// ─── Background services ──────────────────────────────────────────────────────
-
-builder.Services.AddHostedService<ResultSubscriberService>();
 
 // ─── Application handlers — Driver ───────────────────────────────────────────
 
 builder.Services.AddScoped<RegisterRouteHandler>();
-builder.Services.AddScoped<GetRouteStatusHandler>();
 builder.Services.AddScoped<ModifyRouteHandler>();
 builder.Services.AddScoped<CancelRouteHandler>();
 builder.Services.AddScoped<ConfirmationHandler>();
