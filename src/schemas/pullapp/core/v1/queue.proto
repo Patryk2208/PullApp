@@ -12,8 +12,11 @@ message ComputeMessage {
     int32  retry_count  = 5;
 
     oneof params {
-        DriverRouteParams    driver_route    = 20;
-        PassengerMatchParams passenger_match = 21;
+        BestRouteParams best_route = 20;
+        ClosestRoutesParams closest_routes = 21;
+        RideMatchingQuery ride_matching = 22;
+        //CoveringRouteParams covering_route = 23;
+        //OptimalSetParams optimal_set = 24;
     }
 }
 
@@ -32,11 +35,41 @@ message PassengerMatchConstraints {
     int32  max_results   = 2;
 }
 
-message PassengerMatchParams {
-    Point                    start       = 1;
-    Point                    end         = 2;
-    PassengerMatchConstraints constraints = 3;
+message RideMatchingQuery {
+    string passenger_id = 1;
+    Point start = 2;  // Where passenger wants to start
+    Point end = 3;    // Where passenger wants to end
+    int64 departure_date = 4;  // Unix timestamp (date only)
+    int32 seats_needed = 5;
+    // Available driver routes to search through
+    repeated DriverRoute candidate_routes = 6;
+    // Matching parameters
+    int32 max_detour_km = 7;  // Don't match if detour is larger
+    int32 time_window_minutes = 8;  // Acceptable time difference from departure_date
 }
+
+message DriverRoute {
+    string route_id = 1;
+    string driver_id = 2;
+    repeated Point route_points = 3;  // The actual road path (list of coordinates)
+    int64 departure_date = 4;  // Unix timestamp
+    int32 departure_time_minutes = 5;  // Minutes since midnight
+    int32 seats_available = 6;
+    double estimated_duration_hours = 7;
+}
+
+// message CoveringRouteParams {
+//     repeated Point driver_route = 1;
+//     Point rider_start = 2;
+//     Point rider_end = 3;
+//     double detour_penalty = 4;  // 1.0 = no penalty, 2.0 = double cost
+// }
+
+// message OptimalSetParams {
+//     repeated RiderRequest riders = 1;
+//     repeated Driver drivers = 2;
+//     int32 pareto_size = 3;
+// }
 
 // ─── Inbound: Route-Calc → Trip Planner ─────────────────────────────────────
 
@@ -47,8 +80,9 @@ message ResultMessage {
     string error    = 4;   // "no_candidates" | "routing_error" | "timeout"
 
     oneof result {
-        DriverRouteResult    driver_route    = 20;
-        PassengerMatchResult passenger_match = 21;
+        BestRouteResult best_route = 20;
+        ClosestRoutesResult closest_routes = 21;
+        RideMatchingResult ride_matching = 22;
     }
 }
 
@@ -69,3 +103,33 @@ message MatchEntry {
 message PassengerMatchResult {
     repeated MatchEntry matches = 1;
 }
+
+message RideMatchingResult {
+    repeated MatchedRoute matches = 1;
+}
+
+message MatchedRoute {
+    string route_id = 1;
+    string driver_id = 2;
+    double match_score = 3;  // 0.0 to 1.0, higher is better
+    double detour_km = 4;  // How much longer than ideal passenger route
+    int32 pickup_point_index = 5;  // Which index in driver route for pickup
+    int32 dropoff_point_index = 6;  // Which index in driver route for dropoff
+}
+
+// message CoveringRouteResult {
+//     repeated Point points = 1;
+//     double total_distance_meters = 2;
+//     double detour_distance_meters = 3;
+// }
+
+// message OptimalSetResult {
+//     repeated RouteSet solutions = 1;
+// }
+
+// message RouteSet {
+//     repeated string route_ids = 1;
+//     double coverage_score = 2;
+//     double total_deviation_meters = 3;
+//     int32 drivers_used = 4;
+// }

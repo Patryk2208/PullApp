@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 from datetime import datetime, timezone
 
-from route_calc.model.algorithms import AlgorithmUnion, BestRouteParams, ClosestRoutesParams
-from route_calc.model.results import AlgorithmResult, BestRouteResult, ClosestRoutesResult
+from route_calc.model.algorithms import AlgorithmUnion, BestRouteParams, ClosestRoutesParams, RideMatchingQuery
+from route_calc.model.results import AlgorithmResult, BestRouteResult, ClosestRoutesResult, RideMatchingResult
 from route_calc.model.common import AlgorithmType, JobStatus
 from route_calc.generated.queue_pb2 import (
     ComputeMessage as ProtoComputeMessage,
@@ -39,6 +39,10 @@ class ComputeMessage:
             params = ClosestRoutesParams.from_proto(proto.closest_routes)
             algorithm = AlgorithmType.CLOSEST_ROUTES
 
+        elif params_field == "ride_matching":
+            params = RideMatchingQuery.from_proto(proto.ride_matching)
+            algorithm = AlgorithmType.RIDE_MATCHING
+
         else:
             raise ValueError("Unknown params type in ComputeMessage")
 
@@ -64,6 +68,9 @@ class ComputeMessage:
 
         elif isinstance(self.params, ClosestRoutesParams):
             proto.closest_routes.CopyFrom(self.params.to_proto())
+
+        elif isinstance(self.params, RideMatchingQuery):
+            proto.ride_matching.CopyFrom(self.params.to_proto())
 
         else:
             raise ValueError(f"Unsupported params type: {type(self.params)}")
@@ -118,6 +125,29 @@ class ResultMessage:
         )
 
         # oneof result
+        if isinstance(self.result, RideMatchingResult):
+            proto.ride_matching.CopyFrom(self.result.to_proto())
+
+        return proto
+
+    @classmethod
+    def from_proto(cls, dto) -> "ResultMessage":
+        proto = ProtoResultMessage.FromString(dto)
+
+        result_field = proto.WhichOneof("result")
+
+        if result_field == "ride_matching":
+            result = RideMatchingResult.from_proto(proto.ride_matching)
+        else:
+            result = None
+
+        return cls(
+            job_id=proto.job_id,
+            status=JobStatus.SUCCESS if proto.success else JobStatus.FAILED,
+            result=result,
+            error=proto.error or None,
+        )
+
         if isinstance(self.result, BestRouteResult):
             proto.best_route.CopyFrom(self.result.to_proto())
 
