@@ -7,6 +7,15 @@ using Xunit;
 
 namespace TripPlanner.UnitTests.Integration;
 
+// Integration tests for PostgresRouteJobRepository. These tests require a running Postgres
+// instance with the appropriate schema.
+//
+// Main purpose is to verify that the repository correctly persists and retrieves RouteJob
+// entities and that the mapping between the database and the domain model works as expected.
+//
+// It tests flows like: creating a job, updating its status to completed,
+// retrieving by correlation ID, and querying for pending jobs older
+// than a certain timestamp.
 public class PostgresRouteJobRepositoryTests
 {
     private readonly NpgsqlDataSource _dataSource;
