@@ -6,6 +6,7 @@ using TripPlanner.Application.Features.Driver;
 using TripPlanner.Application.Features.Passenger;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
+using TripPlanner.Domain.Compute;
 using TripPlanner.Infrastructure.Fakes;
 using TripPlanner.Infrastructure.Kafka;
 using TripPlanner.Infrastructure.Postgres;
@@ -47,6 +48,13 @@ builder.Services.AddSingleton<InMemorySseHub>();
 builder.Services.AddSingleton<ISseHub>(sp => sp.GetRequiredService<InMemorySseHub>());
 
 // ─── Queue ─────────────────────────────────────────────────────────
+builder.Services.AddSingleton<ISubscriber, DatabaseInitializer>();
+builder.Services.AddSingleton<ISubscriber, ServiceAreaSeeder>();
+builder.Services.AddSingleton<ISubscriber, FakeSubscriber<ComputeJobResult>>();
+
+builder.Services.AddSingleton<
+    IComputePublisher<ComputeJob>,
+    FakeComputePublisher<ComputeJob>>();
 
 // ─── Kafka ────────────────────────────────────────────────────────────────────
 
