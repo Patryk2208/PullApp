@@ -1,5 +1,6 @@
-using TripPlanner.Application.Features.DTO.Driver;
 using TripPlanner.Application.Features.Driver;
+using TripPlanner.Application.Features.DTO;
+using TripPlanner.Application.Features.DTO.Driver;
 using TripPlanner.Infrastructure.Sse;
 
 namespace TripPlanner.Api.Endpoints.Driver;
@@ -21,6 +22,15 @@ public class RegisterRouteEndpoint : IEndpoint
         HttpContext http,
         CancellationToken ct)
     {
+        if (req.Start is null || req.End is null)
+        {
+            return Results.BadRequest(
+                new ErrorResponseDto(
+                    "invalid_request",
+                    "start and end are required",
+                    null));
+        }
+
         var driverId = HttpUtils.GetDriverId(http);
         var response = await handler.HandleAsync(new RegisterRouteCommand(driverId, req.Start, req.End), ct);
         return Results.Accepted($"/api/driver/route/{response.JobId}", response);
