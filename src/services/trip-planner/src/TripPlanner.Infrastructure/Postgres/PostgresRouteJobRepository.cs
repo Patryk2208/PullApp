@@ -9,8 +9,7 @@ public class PostgresRouteJobRepository(DbSession db) : IRouteJobRepository
 {
     public async Task AddAsync(RouteJob job, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             INSERT INTO route_jobs
                 (id, correlation_id, job_type, requester_id, status,
@@ -27,8 +26,7 @@ public class PostgresRouteJobRepository(DbSession db) : IRouteJobRepository
 
     public async Task<RouteJob?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = "SELECT * FROM route_jobs WHERE id = @id";
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -37,8 +35,7 @@ public class PostgresRouteJobRepository(DbSession db) : IRouteJobRepository
 
     public async Task<RouteJob?> GetByCorrelationIdAsync(Guid correlationId, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = "SELECT * FROM route_jobs WHERE correlation_id = @correlation_id LIMIT 1";
         cmd.Parameters.AddWithValue("correlation_id", correlationId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -47,8 +44,7 @@ public class PostgresRouteJobRepository(DbSession db) : IRouteJobRepository
 
     public async Task UpdateAsync(RouteJob job, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             UPDATE route_jobs SET
                 status       = @status,
@@ -68,8 +64,7 @@ public class PostgresRouteJobRepository(DbSession db) : IRouteJobRepository
     public async Task<IReadOnlyList<RouteJob>> GetPendingOlderThanAsync(
         DateTimeOffset threshold, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM route_jobs
             WHERE status = 'Pending' AND created_at < @threshold

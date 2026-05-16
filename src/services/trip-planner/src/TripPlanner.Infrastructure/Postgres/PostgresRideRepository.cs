@@ -9,8 +9,7 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
 {
     public async Task AddAsync(Ride ride, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             INSERT INTO rides
                 (id, request_id, driver_id, passenger_id, driver_route_id,
@@ -37,8 +36,7 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
 
     public async Task<Ride?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = "SELECT * FROM rides WHERE id = @id";
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -47,8 +45,7 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
 
     public async Task<Ride?> GetActiveByDriverIdAsync(Guid driverId, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM rides
             WHERE driver_id = @driver_id
@@ -62,8 +59,7 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
 
     public async Task<Ride?> GetActiveByPassengerIdAsync(Guid passengerId, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM rides
             WHERE passenger_id = @passenger_id
@@ -77,8 +73,7 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
 
     public async Task UpdateAsync(Ride ride, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             UPDATE rides SET
                 status                  = @status,
@@ -114,8 +109,7 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
     public async Task<IReadOnlyList<Ride>> GetRidesWithExpiringPriceFreezeAsync(
         DateTimeOffset threshold, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM rides
             WHERE status IN ('Pickup', 'AwaitingPassenger')

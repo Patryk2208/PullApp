@@ -1,11 +1,12 @@
 using Npgsql;
+using TripPlanner.Application.Repositories;
 
 namespace TripPlanner.Infrastructure.Postgres;
 
 // Scoped per-request. Holds a single open connection (lazy) and an optional
 // transaction so multiple repository calls in one handler share the same
 // connection and can be wrapped in a single atomic commit.
-public sealed class DbSession(NpgsqlDataSource dataSource) : IAsyncDisposable
+public sealed class DbSession(NpgsqlDataSource dataSource) : IUnitOfWork
 {
     private NpgsqlConnection?  _conn;
     private NpgsqlTransaction? _tx;
@@ -15,6 +16,15 @@ public sealed class DbSession(NpgsqlDataSource dataSource) : IAsyncDisposable
         if (_conn is null)
             _conn = await dataSource.OpenConnectionAsync(ct);
         return _conn;
+    }
+
+    public async ValueTask<NpgsqlCommand> CreateCommandAsync(CancellationToken ct)
+    {
+        var conn = await ConnAsync(ct);
+        var cmd  = conn.CreateCommand();
+        if (_tx is not null)
+            cmd.Transaction = _tx;
+        return cmd;
     }
 
     // Call in handlers that need atomicity across multiple repo calls.

@@ -7,8 +7,7 @@ public class PostgisGeoService(DbSession db) : IGeoService
 {
     public async Task<bool> IsWithinServiceAreaAsync(GeoPoint point, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT EXISTS (
                 SELECT 1 FROM service_areas

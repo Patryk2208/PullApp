@@ -12,8 +12,7 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
 
     public async Task AddAsync(RideRequest request, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             INSERT INTO ride_requests
                 (id, passenger_id, status,
@@ -34,8 +33,7 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
 
     public async Task<RideRequest?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = "SELECT * FROM ride_requests WHERE id = @id";
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -44,8 +42,7 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
 
     public async Task<RideRequest?> GetActiveByPassengerIdAsync(Guid passengerId, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM ride_requests
             WHERE passenger_id = @passenger_id
@@ -59,8 +56,7 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
 
     public async Task UpdateAsync(RideRequest request, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             UPDATE ride_requests SET
                 status                = @status,
@@ -83,8 +79,7 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
 
     public async Task<IReadOnlyList<RideRequest>> GetExpiredConfirmationsAsync(CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM ride_requests
             WHERE status = 'PendingDriver'

@@ -6,7 +6,7 @@ using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitSubscriber<T>(IHandler<T> handler, IConnectionFactory factory, 
+public class RabbitSubscriber<T>(IHandler<T> handler, IConnectionFactory factory, 
     IQueueDomainMapper<T> mapper, RabbitMqOptions options) : ISubscriber
 {
     private IConnection? _connection;

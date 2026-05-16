@@ -9,8 +9,7 @@ public class PostgresDriverRouteRepository(DbSession db) : IDriverRouteRepositor
 {
     public async Task AddAsync(DriverRoute route, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             INSERT INTO driver_routes
                 (id, driver_id, status,
@@ -29,8 +28,7 @@ public class PostgresDriverRouteRepository(DbSession db) : IDriverRouteRepositor
 
     public async Task<DriverRoute?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = "SELECT * FROM driver_routes WHERE id = @id";
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -39,8 +37,7 @@ public class PostgresDriverRouteRepository(DbSession db) : IDriverRouteRepositor
 
     public async Task<DriverRoute?> GetActiveByDriverIdAsync(Guid driverId, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM driver_routes
             WHERE driver_id = @driver_id AND status = 'Active'
@@ -53,8 +50,7 @@ public class PostgresDriverRouteRepository(DbSession db) : IDriverRouteRepositor
 
     public async Task UpdateAsync(DriverRoute route, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             UPDATE driver_routes SET
                 status               = @status,
@@ -78,8 +74,7 @@ public class PostgresDriverRouteRepository(DbSession db) : IDriverRouteRepositor
     public async Task<IReadOnlyList<Guid>> GetPendingRequestIdsForRouteAsync(
         Guid driverRouteId, CancellationToken ct)
     {
-        var conn = await db.ConnAsync(ct);
-        await using var cmd  = conn.CreateCommand();
+        await using var cmd = await db.CreateCommandAsync(ct);
         // Finds ride_requests whose JSON match_results array contains the given driver_route_id.
         cmd.CommandText = """
             SELECT id FROM ride_requests

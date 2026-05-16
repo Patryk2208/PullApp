@@ -6,19 +6,19 @@ using ProtoPoint = Core.V1.Point;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal interface IQueueDomainMapper<out T>
+public interface IQueueDomainMapper<out T>
 {
     T ToDomain(in ReadOnlyMemory<byte> payload);
 }
 
-internal interface IQueueDtoMapper<in T>
+public interface IQueueDtoMapper<in T>
 {
     ReadOnlyMemory<byte> ToDto(T domain);
 }
 
 // ─── ComputeJob: Trip Planner → Route-Calc ───────────────────────────────────
 
-internal class ComputeJobProtoMapper : IQueueDtoMapper<ComputeJob>
+public class ComputeJobProtoMapper : IQueueDtoMapper<ComputeJob>
 {
     public ReadOnlyMemory<byte> ToDto(ComputeJob domain)
     {
@@ -63,7 +63,7 @@ internal class ComputeJobProtoMapper : IQueueDtoMapper<ComputeJob>
 
 // ─── ComputeJobResult: Route-Calc → Trip Planner ─────────────────────────────
 
-internal class ComputeResultProtoMapper : IQueueDomainMapper<ComputeJobResult>
+public class ComputeResultProtoMapper : IQueueDomainMapper<ComputeJobResult>
 {
     public ComputeJobResult ToDomain(in ReadOnlyMemory<byte> payload)
     {

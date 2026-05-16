@@ -12,6 +12,7 @@ using TripPlanner.Infrastructure.Fakes;
 using TripPlanner.Infrastructure.Kafka;
 using TripPlanner.Infrastructure.Postgres;
 using TripPlanner.Infrastructure.Sse;
+using TripPlanner.Infrastructure.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,7 @@ var dataSource = new NpgsqlDataSourceBuilder(dbOptions.ConnectionString).Build()
 builder.Services.AddSingleton(dataSource);
 builder.Services.AddHostedService<DatabaseInitializerService>();
 builder.Services.AddScoped<DbSession>();
+builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
 
@@ -60,6 +62,10 @@ builder.Services.AddSingleton<ISubscriber, FakeSubscriber<ComputeJobResult>>();
 builder.Services.AddSingleton<
     IComputePublisher<ComputeJob>,
     FakeComputePublisher<ComputeJob>>();
+
+var config = builder.Configuration.GetSection("Rabbit");
+builder.Services.AddScoped<RabbitComputePublisher<ComputeJob>>();
+// todo add mappers
 
 // ─── Kafka ────────────────────────────────────────────────────────────────────
 
