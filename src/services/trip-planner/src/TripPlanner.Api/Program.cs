@@ -2,6 +2,7 @@ using Npgsql;
 using TripPlanner.Api;
 using TripPlanner.Api.BackgroundServices;
 using TripPlanner.Api.Middleware;
+using TripPlanner.Application.Features;
 using TripPlanner.Application.Features.Driver;
 using TripPlanner.Application.Features.Passenger;
 using TripPlanner.Application.Repositories;
@@ -46,6 +47,10 @@ builder.Services.AddSingleton<IPaymentsService,  FakePaymentsService>();
 
 builder.Services.AddSingleton<InMemorySseHub>();
 builder.Services.AddSingleton<ISseHub>(sp => sp.GetRequiredService<InMemorySseHub>());
+
+builder.Services.AddSingleton<FakeComputeQueue>();
+builder.Services.AddScoped<RouteComputedHandler>();
+builder.Services.AddHostedService<FakeComputeWorker>();
 
 // ─── Queue ─────────────────────────────────────────────────────────
 builder.Services.AddSingleton<ISubscriber, DatabaseInitializer>();
