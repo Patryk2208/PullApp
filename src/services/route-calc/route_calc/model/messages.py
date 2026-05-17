@@ -17,7 +17,7 @@ class ComputeMessage:
     job_id: str
     algorithm: AlgorithmType
     params: AlgorithmUnion
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     retry_count: int = 0
     deadline: Optional[datetime] = None
 

@@ -1,4 +1,5 @@
 ﻿#include "../include/mock_alg.hpp"
+#include "../include/osrm_client.hpp"
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -123,4 +124,46 @@ RideMatch match_single_route(
 std::vector<double> slow_algorithm(double input, int seconds) {
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
     return {input, input * 2};
+}
+
+BestRouteData get_best_route_osrm(const Point& start, const Point& end, const std::string& osrm_url) {
+    osrm::RouteResponse response = osrm::get_best_route(start, end, osrm_url);
+    return BestRouteData{
+        response.waypoints,
+        response.distance_meters,
+        response.duration_seconds
+    };
+}
+
+std::vector<BestRouteData> get_alternative_routes_osrm(const Point& start, const Point& end, int num_alternatives, const std::string& osrm_url) {
+    std::vector<osrm::RouteResponse> responses = osrm::get_alternative_routes(start, end, num_alternatives, osrm_url);
+    std::vector<BestRouteData> result;
+
+    for (const auto& resp : responses) {
+        result.push_back(BestRouteData{
+            resp.waypoints,
+            resp.distance_meters,
+            resp.duration_seconds
+        });
+    }
+
+    return result;
+}
+
+std::vector<ClosestRouteData> get_closest_routes_osrm(const Point& point, int num_routes, const std::string& osrm_url) {
+    std::vector<osrm::ClosestRouteInfo> responses = osrm::get_closest_routes(point, num_routes, osrm_url);
+    std::vector<ClosestRouteData> result;
+
+    for (const auto& resp : responses) {
+        result.push_back(ClosestRouteData{
+            resp.route_id,
+            resp.waypoints,
+            resp.distance_to_point_meters,
+            resp.access_point,
+            resp.total_distance_meters,
+            resp.total_duration_seconds
+        });
+    }
+
+    return result;
 }

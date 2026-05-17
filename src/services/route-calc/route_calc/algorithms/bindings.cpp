@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include "mock_alg.hpp"
+#include "osrm_client.hpp"
 
 namespace py = pybind11;
 
@@ -68,4 +69,96 @@ PYBIND11_MODULE(route_calc_algorithms_module, m) {
     },
           py::arg("input"), py::arg("seconds"),
           "Sleeps for N seconds (releases GIL)");
+
+    // Bind OSRM RouteResponse struct
+    py::class_<osrm::RouteResponse>(m, "OSRMRouteResponse")
+        .def(py::init<>())
+        .def_readwrite("waypoints", &osrm::RouteResponse::waypoints)
+        .def_readwrite("distance_meters", &osrm::RouteResponse::distance_meters)
+        .def_readwrite("duration_seconds", &osrm::RouteResponse::duration_seconds)
+        .def_readwrite("success", &osrm::RouteResponse::success)
+        .def_readwrite("error_message", &osrm::RouteResponse::error_message);
+
+    // Bind OSRM ClosestRouteInfo struct
+    py::class_<osrm::ClosestRouteInfo>(m, "OSRMClosestRouteInfo")
+        .def(py::init<>())
+        .def_readwrite("route_id", &osrm::ClosestRouteInfo::route_id)
+        .def_readwrite("waypoints", &osrm::ClosestRouteInfo::waypoints)
+        .def_readwrite("distance_to_point_meters", &osrm::ClosestRouteInfo::distance_to_point_meters)
+        .def_readwrite("access_point", &osrm::ClosestRouteInfo::access_point)
+        .def_readwrite("total_distance_meters", &osrm::ClosestRouteInfo::total_distance_meters)
+        .def_readwrite("total_duration_seconds", &osrm::ClosestRouteInfo::total_duration_seconds);
+
+    // Bind OSRM functions
+    m.def("get_best_route", [](const Point& start, const Point& end, const std::string& osrm_url) {
+        py::gil_scoped_release release;
+        auto result = osrm::get_best_route(start, end, osrm_url);
+        py::gil_scoped_acquire acquire;
+        return result;
+    },
+          py::arg("start"), py::arg("end"), py::arg("osrm_url") = "http://router.project-osrm.org",
+          "Query OSRM for the best route between two points");
+
+    m.def("get_alternative_routes", [](const Point& start, const Point& end, int num_alternatives, const std::string& osrm_url) {
+        py::gil_scoped_release release;
+        auto result = osrm::get_alternative_routes(start, end, num_alternatives, osrm_url);
+        py::gil_scoped_acquire acquire;
+        return result;
+    },
+          py::arg("start"), py::arg("end"), py::arg("num_alternatives") = 3, py::arg("osrm_url") = "http://router.project-osrm.org",
+          "Query OSRM for alternative routes between two points");
+
+    m.def("get_closest_routes", [](const Point& point, int num_routes, const std::string& osrm_url) {
+        py::gil_scoped_release release;
+        auto result = osrm::get_closest_routes(point, num_routes, osrm_url);
+        py::gil_scoped_acquire acquire;
+        return result;
+    },
+          py::arg("point"), py::arg("num_routes") = 3, py::arg("osrm_url") = "http://router.project-osrm.org",
+          "Find closest routes to a point");
+
+    // Bind BestRouteData struct
+    py::class_<BestRouteData>(m, "BestRouteData")
+        .def(py::init<>())
+        .def_readwrite("waypoints", &BestRouteData::waypoints)
+        .def_readwrite("distance_meters", &BestRouteData::distance_meters)
+        .def_readwrite("duration_seconds", &BestRouteData::duration_seconds);
+
+    // Bind ClosestRouteData struct
+    py::class_<ClosestRouteData>(m, "ClosestRouteData")
+        .def(py::init<>())
+        .def_readwrite("route_id", &ClosestRouteData::route_id)
+        .def_readwrite("waypoints", &ClosestRouteData::waypoints)
+        .def_readwrite("distance_to_point_meters", &ClosestRouteData::distance_to_point_meters)
+        .def_readwrite("access_point", &ClosestRouteData::access_point)
+        .def_readwrite("total_distance_meters", &ClosestRouteData::total_distance_meters)
+        .def_readwrite("total_duration_seconds", &ClosestRouteData::total_duration_seconds);
+
+    // Bind wrapper functions
+    m.def("get_best_route_osrm", [](const Point& start, const Point& end, const std::string& osrm_url) {
+        py::gil_scoped_release release;
+        auto result = get_best_route_osrm(start, end, osrm_url);
+        py::gil_scoped_acquire acquire;
+        return result;
+    },
+          py::arg("start"), py::arg("end"), py::arg("osrm_url") = "http://router.project-osrm.org",
+          "Get best route using OSRM (returns BestRouteData)");
+
+    m.def("get_alternative_routes_osrm", [](const Point& start, const Point& end, int num_alternatives, const std::string& osrm_url) {
+        py::gil_scoped_release release;
+        auto result = get_alternative_routes_osrm(start, end, num_alternatives, osrm_url);
+        py::gil_scoped_acquire acquire;
+        return result;
+    },
+          py::arg("start"), py::arg("end"), py::arg("num_alternatives") = 3, py::arg("osrm_url") = "http://router.project-osrm.org",
+          "Get alternative routes using OSRM");
+
+    m.def("get_closest_routes_osrm", [](const Point& point, int num_routes, const std::string& osrm_url) {
+        py::gil_scoped_release release;
+        auto result = get_closest_routes_osrm(point, num_routes, osrm_url);
+        py::gil_scoped_acquire acquire;
+        return result;
+    },
+          py::arg("point"), py::arg("num_routes") = 3, py::arg("osrm_url") = "http://router.project-osrm.org",
+          "Get closest routes using OSRM");
 }
