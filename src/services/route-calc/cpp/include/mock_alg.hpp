@@ -47,3 +47,25 @@ RideMatch match_single_route(
 );
 
 std::vector<double> slow_algorithm(double input, int seconds);
+
+// Get best route between two points using OSRM
+struct BestRouteData {
+    std::vector<Point> waypoints;
+    double distance_meters;
+    double duration_seconds;
+};
+BestRouteData get_best_route_osrm(const Point& start, const Point& end, const std::string& osrm_url = "http://router.project-osrm.org");
+
+// Get alternative routes between two points using OSRM
+std::vector<BestRouteData> get_alternative_routes_osrm(const Point& start, const Point& end, int num_alternatives = 3, const std::string& osrm_url = "http://router.project-osrm.org");
+
+// Get closest routes to a point using OSRM
+struct ClosestRouteData {
+    std::string route_id;
+    std::vector<Point> waypoints;
+    double distance_to_point_meters;
+    Point access_point;
+    double total_distance_meters;
+    double total_duration_seconds;
+};
+std::vector<ClosestRouteData> get_closest_routes_osrm(const Point& point, int num_routes = 3, const std::string& osrm_url = "http://router.project-osrm.org");

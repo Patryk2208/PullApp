@@ -3,17 +3,27 @@ from .route_calc_algorithms_module import (
     distance_km,
     find_closest_point_on_route,
     match_single_route,
+    get_best_route_osrm,
+    get_alternative_routes_osrm,
+    get_closest_routes_osrm,
     Point,
     ClosestPointResult,
-    RideMatch
+    RideMatch,
+    BestRouteData,
+    ClosestRouteData
 )
 
 __all__ = [
-    "slow_algorithm"
+    "slow_algorithm",
     "distance_km",
     "find_closest_point_on_route",
     "match_single_route",
+    "get_best_route_osrm",
+    "get_alternative_routes_osrm",
+    "get_closest_routes_osrm",
     "Point",
     "ClosestPointResult",
-    "RideMatch"
+    "RideMatch",
+    "BestRouteData",
+    "ClosestRouteData"
 ]

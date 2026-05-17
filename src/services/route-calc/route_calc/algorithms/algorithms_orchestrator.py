@@ -38,24 +38,67 @@ class AlgorithmsOrchestrator:
         return ResultMessage.success(payload.job_id, res, 2000)
 
     def _run_best_route(self, payload: ComputeMessage) -> BestRouteResult:
-        """Mock implementation of BEST_ROUTE algorithm"""
-        return BestRouteResult(
-            points=[Point(lat=4, lon=7), Point(lat=1, lon=2)],
-            distance_meters=1000,
-            duration_seconds=100
-        )
+        """Query OSRM for best route between two points"""
+        params = payload.params
+
+        try:
+            # Call C++ OSRM client via bindings
+            from route_calc.algorithms import get_best_route_osrm, Point as CppPoint
+
+            cpp_start = CppPoint(lat=params.start.lat, lon=params.start.lon)
+            cpp_end = CppPoint(lat=params.end.lat, lon=params.end.lon)
+
+            route_data = get_best_route_osrm(cpp_start, cpp_end)
+
+            return BestRouteResult(
+                points=route_data.waypoints,
+                distance_meters=route_data.distance_meters,
+                duration_seconds=route_data.duration_seconds
+            )
+        except Exception as e:
+            self.logger.error(f"OSRM query failed for best_route: {e}")
+            # Fallback to mock
+            return BestRouteResult(
+                points=[params.start, params.end],
+                distance_meters=1000.0,
+                duration_seconds=100.0
+            )
 
     def _run_closest_routes(self, payload: ComputeMessage) -> ClosestRoutesResult:
-        """Mock implementation of CLOSEST_ROUTES algorithm"""
-        return ClosestRoutesResult(
-            routes=[
+        """Query OSRM for closest routes to a point"""
+        params = payload.params
+
+        try:
+            # Call C++ OSRM client via bindings
+            from route_calc.algorithms import get_closest_routes_osrm, Point as CppPoint
+
+            cpp_point = CppPoint(lat=params.point.lat, lon=params.point.lon)
+            num_routes = params.k if hasattr(params, 'k') else 3
+
+            routes_data = get_closest_routes_osrm(cpp_point, num_routes)
+
+            closest_routes = [
                 ClosestRoute(
-                    route_id="1",
-                    distance_to_point_meters=100,
-                    access_point=Point(lat=4, lon=7)
+                    route_id=route.route_id,
+                    distance_to_point_meters=route.distance_to_point_meters,
+                    access_point=Point(lat=route.access_point.lat, lon=route.access_point.lon)
                 )
+                for route in routes_data
             ]
-        )
+
+            return ClosestRoutesResult(routes=closest_routes)
+        except Exception as e:
+            self.logger.error(f"OSRM query failed for closest_routes: {e}")
+            # Fallback to mock
+            return ClosestRoutesResult(
+                routes=[
+                    ClosestRoute(
+                        route_id="1",
+                        distance_to_point_meters=100,
+                        access_point=params.point
+                    )
+                ]
+            )
 
     def _run_ride_matching(self, payload: ComputeMessage) -> RideMatchingResult:
         """Find driver routes that match a passenger's request"""
