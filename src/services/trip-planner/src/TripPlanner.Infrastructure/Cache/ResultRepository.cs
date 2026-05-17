@@ -5,7 +5,7 @@ using TripPlanner.Domain.Compute;
 
 namespace TripPlanner.Infrastructure.Cache;
 
-internal class RedisResultRepository(IConnectionMultiplexer redis, RedisOptions options) : IResultRepository
+public class RedisResultRepository(IConnectionMultiplexer redis, RedisOptions options) : IResultRepository
 {
     private readonly IDatabase _db = redis.GetDatabase();
     private const string Prefix = "compute-results";

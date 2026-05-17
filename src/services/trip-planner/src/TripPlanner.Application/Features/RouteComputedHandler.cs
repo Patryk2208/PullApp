@@ -4,11 +4,11 @@ using TripPlanner.Domain.Compute;
 
 namespace TripPlanner.Application.Features;
 
-public class RouteComputedHandler(ISseHub hub) : IHandler<ComputeJob>
+public class RouteComputedHandler(ISseHub hub) : IHandler<ComputeJobResult>
 {
-    public async Task HandleAsync(ComputeJob result, CancellationToken ct)
+    public async Task HandleAsync(ComputeJobResult result, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(result);
-        await hub.PushAsync(result.RequestingUserId, "drier_route_computed", json, ct);
+        await hub.PushAsync(result.JobId, "drier_route_computed", json, ct);
     }
 }

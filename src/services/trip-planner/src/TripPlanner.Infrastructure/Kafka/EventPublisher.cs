@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Confluent.Kafka;
+using Microsoft.Extensions.Options;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
 
@@ -9,20 +10,22 @@ public class EventPublisher : IEventPublisher, IDisposable
 {
     private readonly IProducer<Null, string> _producer;
 
-    public EventPublisher(KafkaOptions options)
+    public EventPublisher(IOptions<KafkaOptions> options)
     {
+        var kafkaOptions = options.Value;
+        
         var config = new ProducerConfig
         {
-            BootstrapServers = options.BootstrapServers,
+            BootstrapServers = kafkaOptions.BootstrapServers,
             Acks             = Acks.Leader,
         };
 
-        if (!string.IsNullOrEmpty(options.SaslUsername))
+        if (!string.IsNullOrEmpty(kafkaOptions.SaslUsername))
         {
             config.SecurityProtocol = SecurityProtocol.SaslPlaintext;
             config.SaslMechanism    = SaslMechanism.Plain;
-            config.SaslUsername     = options.SaslUsername;
-            config.SaslPassword     = options.SaslPassword;
+            config.SaslUsername     = kafkaOptions.SaslUsername;
+            config.SaslPassword     = kafkaOptions.SaslPassword;
         }
 
         _producer = new ProducerBuilder<Null, string>(config).Build();

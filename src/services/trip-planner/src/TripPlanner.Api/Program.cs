@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Options;
 using Npgsql;
+using RabbitMQ.Client;
 using TripPlanner.Api;
 using TripPlanner.Api.BackgroundServices;
 using TripPlanner.Api.Middleware;
@@ -18,13 +20,24 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ─── Database ─────────────────────────────────────────────────────────────────
 
-var dbOptions = builder.Configuration
-    .GetSection("Database")
-    .Get<TripPlannerDbOptions>() ?? new TripPlannerDbOptions();
+var dbConfig = builder.Configuration.GetSection("TripPlannerDb");
+builder.Services.AddOptions<TripPlannerDbOptions>().Bind(dbConfig);
 
-var dataSource = new NpgsqlDataSourceBuilder(dbOptions.ConnectionString).Build();
-builder.Services.AddSingleton(dataSource);
-builder.Services.AddHostedService<DatabaseInitializerService>();
+builder.Services.AddSingleton(sp =>
+{
+    var opts =  sp.GetRequiredService<IOptions<TripPlannerDbOptions>>();
+    return new NpgsqlDataSourceBuilder(opts.Value.BuildConnectionString()).Build();
+});
+
+// init services
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<ServiceAreaSeeder>();
+
+builder.Services.AddHostedService<MultipleHostedServiceWrapper>(sp =>
+    new MultipleHostedServiceWrapper([
+        sp.GetRequiredService<DatabaseInitializer>(), sp.GetRequiredService<ServiceAreaSeeder>()
+    ]));
+
 builder.Services.AddScoped<DbSession>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
 
@@ -45,44 +58,53 @@ builder.Services.AddSingleton<IAccountsService, FakeAccountsService>();
 builder.Services.AddSingleton<IChatService,      FakeChatService>();
 builder.Services.AddSingleton<IPaymentsService,  FakePaymentsService>();
 
+// ─── Cache ──────────────────────────────────────────────────────────────────
+
+// builder.Services.AddScoped<IResultRepository, RedisResultRepository>();
+
 // ─── SSE hub ──────────────────────────────────────────────────────────────────
 
 builder.Services.AddSingleton<InMemorySseHub>();
 builder.Services.AddSingleton<ISseHub>(sp => sp.GetRequiredService<InMemorySseHub>());
 
-builder.Services.AddSingleton<FakeComputeQueue>();
-builder.Services.AddScoped<RouteComputedHandler>();
-builder.Services.AddHostedService<FakeComputeWorker>();
-
 // ─── Queue ─────────────────────────────────────────────────────────
-builder.Services.AddSingleton<ISubscriber, DatabaseInitializer>();
-builder.Services.AddSingleton<ISubscriber, ServiceAreaSeeder>();
-builder.Services.AddSingleton<ISubscriber, FakeSubscriber<ComputeJobResult>>();
+var config = builder.Configuration.GetSection("ComputeQueue");
+builder.Services.AddOptions<RabbitMqOptions>().Bind(config);
+builder.Services.AddSingleton<IConnectionFactory>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+    return new ConnectionFactory
+    {
+        HostName    = options.Host,
+        Port        = options.Port,
+        UserName    = options.Username,
+        Password    = options.Password,
+        VirtualHost = options.Vhost,
+    };
+});
+builder.Services.AddSingleton<RabbitConnection>();
 
-builder.Services.AddSingleton<
-    IComputePublisher<ComputeJob>,
-    FakeComputePublisher<ComputeJob>>();
+builder.Services.AddSingleton<IQueueDtoMapper<ComputeJob>, ComputeJobProtoMapper>();
+builder.Services.AddSingleton<IQueueDomainMapper<ComputeJobResult>, ComputeResultProtoMapper>();
 
-var config = builder.Configuration.GetSection("Rabbit");
-builder.Services.AddScoped<RabbitComputePublisher<ComputeJob>>();
-// todo add mappers
+builder.Services.AddScoped<IComputePublisher<ComputeJob>, RabbitComputePublisher<ComputeJob>>();
+
+builder.Services.AddSingleton<IHandler<ComputeJobResult>, RouteComputedHandler>();
+builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
+builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+    new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
 
 // ─── Kafka ────────────────────────────────────────────────────────────────────
 
-var kafkaSection = builder.Configuration.GetSection("Kafka");
-if (kafkaSection.Exists())
-{
-    var kafkaOptions = kafkaSection.Get<KafkaOptions>()!;
-    builder.Services.AddSingleton(kafkaOptions);
-    builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
-    builder.Services.AddSingleton<IHandler<string>, KafkaEventDispatcher>();
-    builder.Services.AddSingleton<KafkaConsumerService<string>>();
-    builder.Services.AddHostedService<KafkaSubscriberService>();
-}
-else
-{
-    builder.Services.AddSingleton<IEventPublisher, FakeEventPublisher>();
-}
+var kafkaSection = builder.Configuration.GetSection("EventBus");
+builder.Services.AddOptions<KafkaOptions>().Bind(kafkaSection);
+
+builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
+
+// builder.Services.AddSingleton<IHandler<string>, KafkaEventDispatcher>();
+// builder.Services.AddSingleton<KafkaConsumerService<string>>();
+// builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+//     new HostedServiceWrapper(sp.GetRequiredService<KafkaConsumerService<string>>()));
 
 // ─── Application handlers — Driver ───────────────────────────────────────────
 

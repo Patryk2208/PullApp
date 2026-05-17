@@ -76,12 +76,11 @@ public class KafkaConsumerService<T>(
     }
 }
 
-// todo
 // Routes inbound Kafka events by event_type to the right handler.
 public class KafkaEventDispatcher(ILogger<KafkaEventDispatcher> logger) : IHandler<string>
 {
     public async Task HandleAsync(string rawJson, CancellationToken ct)
     {
-        
+        logger.LogTrace($"Handling Kafka event {rawJson}");
     }
 }

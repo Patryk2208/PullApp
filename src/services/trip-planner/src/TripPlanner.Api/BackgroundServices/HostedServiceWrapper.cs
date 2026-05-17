@@ -1,9 +1,8 @@
-using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 
 namespace TripPlanner.Api.BackgroundServices;
 
-public class ResultSubscriberService(ISubscriber subscriber) : BackgroundService
+public class HostedServiceWrapper(ISubscriber subscriber) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

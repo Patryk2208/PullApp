@@ -26,9 +26,10 @@ namespace TripPlanner.Infrastructure.Fakes
                     scope.ServiceProvider
                         .GetRequiredService<RouteComputedHandler>();
 
-                await handler.HandleAsync(
-                    job,
-                    stoppingToken);
+                // todo fix
+                // await handler.HandleAsync(
+                //     job,
+                //     stoppingToken);
             }
         }
     }

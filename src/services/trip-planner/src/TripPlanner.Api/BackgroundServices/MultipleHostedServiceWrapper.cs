@@ -1,10 +1,8 @@
-using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
-using TripPlanner.Infrastructure.Postgres;
 
 namespace TripPlanner.Api.BackgroundServices;
 
-public class DatabaseInitializerService(IEnumerable<ISubscriber> subscribers) : BackgroundService
+public class MultipleHostedServiceWrapper(IEnumerable<ISubscriber> subscribers) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

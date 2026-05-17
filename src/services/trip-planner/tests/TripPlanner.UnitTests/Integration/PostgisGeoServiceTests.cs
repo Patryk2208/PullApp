@@ -20,10 +20,8 @@ namespace TripPlanner.UnitTests.Integration
 
         public PostgisGeoServiceTests()
         {
-            var connectionString =
-                "Host=localhost;Port=5433;Database=trip-planner;Username=pullapp;Password=ABCDEF";
-
-            _dataSource = new NpgsqlDataSourceBuilder(connectionString).Build();
+            var cs = Environment.GetEnvironmentVariable("TRIP_PLANNER_TEST_DB");
+            _dataSource = new NpgsqlDataSourceBuilder(cs).Build();
         }
 
         [Fact]
