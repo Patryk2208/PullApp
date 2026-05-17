@@ -1,5 +1,9 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using TripPlanner.Api;
 using TripPlanner.Api.BackgroundServices;
@@ -125,6 +129,26 @@ builder.Services.AddScoped<CancelRouteRequestHandler>();
 builder.Services.AddScoped<PassengerStartRideHandler>();
 builder.Services.AddScoped<ConfirmPriceHandler>();
 builder.Services.AddScoped<PassengerCancelRideHandler>();
+
+// ─── Observability ────────────────────────────────────────────────────────────
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("trip-planner"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddOtlpExporter());
+
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.IncludeFormattedMessage = true;
+    o.AddOtlpExporter();
+});
 
 // ─── OpenAPI ──────────────────────────────────────────────────────────────────
 

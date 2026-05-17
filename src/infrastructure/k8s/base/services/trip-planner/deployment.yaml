@@ -47,6 +47,10 @@ spec:
             secretKeyRef:
               name: pullapp-secrets
               key: COMPUTE_QUEUE_PASSWORD
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.monitoring.svc.cluster.local:4317
+        - name: OTEL_SERVICE_NAME
+          value: trip-planner
 
         livenessProbe:
           httpGet:

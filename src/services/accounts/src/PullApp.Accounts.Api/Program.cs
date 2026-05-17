@@ -1,4 +1,8 @@
 using Microsoft.EntityFrameworkCore; // TODO: Violates Clean Architecture (I think). For development only.
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using PullApp.Accounts.Application;
 using PullApp.Accounts.Api;
 using PullApp.Accounts.Infrastructure;
@@ -9,6 +13,24 @@ builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddApi(builder.Configuration);
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("accounts"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddOtlpExporter());
+
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.IncludeFormattedMessage = true;
+    o.AddOtlpExporter();
+});
 
 var app = builder.Build();
 
@@ -25,7 +47,7 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AccountsDbContext>();
-    db.Database.Migrate(); 
+    db.Database.Migrate();
 }
 
 app.MapEndpoints();

@@ -5,9 +5,11 @@ from route_calc.api.consumer import Consumer
 from route_calc.infra.config import load_config
 from route_calc.infra.logger import setup_logging
 from route_calc.infra.queue import ComputeQueue
+from route_calc.infra.telemetry import setup_telemetry
 
 async def main():
     cfg = load_config() #cfg = load_config("generated/config.json")
+    setup_telemetry()
     logger = setup_logging(cfg["logging"])
     logger.info("Starting route-calc")
     a_o = AlgorithmsOrchestrator(config=cfg["algorithms"], logger=logger)

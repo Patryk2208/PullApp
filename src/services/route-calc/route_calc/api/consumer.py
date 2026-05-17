@@ -4,9 +4,16 @@ import signal
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
 
+from opentelemetry import metrics, trace
+
 from route_calc.algorithms.algorithms_orchestrator import AlgorithmsOrchestrator
 from route_calc.model.job_context import JobContext
 from route_calc.infra.queue import ComputeQueue, BaseQueueException, RequeueException, NonRequeueException
+
+_tracer = trace.get_tracer(__name__)
+_meter = metrics.get_meter(__name__)
+_jobs_processed = _meter.create_counter("route_calc.jobs.processed", description="Total compute jobs processed")
+_jobs_failed = _meter.create_counter("route_calc.jobs.failed", description="Total compute jobs failed")
 
 
 class Consumer:
@@ -58,7 +65,13 @@ class Consumer:
         ctx.useless_mutex.release_lock()
 
         self.logger.info(f"Processing job {ctx.job_id}")
-        result = self.algorithms_orchestrator.compute(ctx.payload)
+        with _tracer.start_as_current_span("route_calc.compute", attributes={"job.id": ctx.job_id}):
+            try:
+                result = self.algorithms_orchestrator.compute(ctx.payload)
+                _jobs_processed.add(1)
+            except Exception:
+                _jobs_failed.add(1)
+                raise
         self.logger.info(f"Job {ctx.job_id} processed, now scheduling callback")
         ctx.result = result
 
