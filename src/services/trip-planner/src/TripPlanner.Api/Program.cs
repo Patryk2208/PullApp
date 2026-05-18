@@ -6,6 +6,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using TripPlanner.Api;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Api.BackgroundServices;
 using TripPlanner.Api.Middleware;
 using TripPlanner.Application.Features;
@@ -22,6 +23,12 @@ using TripPlanner.Infrastructure.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile("appsettings.Development.json", optional: true)
+    .AddJsonFile("/app/config/appsettings.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 var dbConfig = builder.Configuration.GetSection("TripPlannerDb");
@@ -29,7 +36,12 @@ builder.Services.AddOptions<TripPlannerDbOptions>().Bind(dbConfig);
 
 builder.Services.AddSingleton(sp =>
 {
+    Console.WriteLine("lwajalsjdflaskjdflkasjdflkjasdlj");
+    Console.WriteLine(builder.Configuration.Sources.Count);
+    foreach (var source in builder.Configuration.Sources)
+        Console.WriteLine($"[SOURCE] {source.GetType().Name}: {source}");
     var opts =  sp.GetRequiredService<IOptions<TripPlannerDbOptions>>();
+    Console.WriteLine(opts.Value.BuildConnectionString());
     return new NpgsqlDataSourceBuilder(opts.Value.BuildConnectionString()).Build();
 });
 
@@ -132,6 +144,8 @@ builder.Services.AddScoped<PassengerCancelRideHandler>();
 
 // ─── Observability ────────────────────────────────────────────────────────────
 
+builder.Services.AddSingleton<TripPlannerMetrics>();
+
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("trip-planner"))
     .WithTracing(t => t
@@ -142,6 +156,7 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
+        .AddMeter(TripPlannerMetrics.MeterName)
         .AddOtlpExporter());
 
 builder.Logging.AddOpenTelemetry(o =>

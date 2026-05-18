@@ -4,6 +4,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using PullApp.Accounts.Application;
+using PullApp.Accounts.Application.Metrics;
 using PullApp.Accounts.Api;
 using PullApp.Accounts.Infrastructure;
 using PullApp.Accounts.Infrastructure.Persistence;
@@ -13,6 +14,8 @@ builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddApi(builder.Configuration);
+
+builder.Services.AddSingleton<AccountsMetrics>();
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("accounts"))
@@ -24,6 +27,7 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
+        .AddMeter(AccountsMetrics.MeterName)
         .AddOtlpExporter());
 
 builder.Logging.AddOpenTelemetry(o =>

@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
@@ -17,15 +19,22 @@ public record PassengerStartRideCommand(Guid PassengerId, Guid RideId);
 public class PassengerStartRideHandler(
     IRideRepository rides,
     IEventPublisher @event,
-    ISseHub sseHub)
+    ISseHub sseHub,
+    ILogger<PassengerStartRideHandler> logger)
 {
     public async Task HandleAsync(PassengerStartRideCommand cmd, CancellationToken ct)
     {
+        logger.LogDebug("PassengerStartRide: passengerId={PassengerId} rideId={RideId}", cmd.PassengerId, cmd.RideId);
+
         var ride = await rides.GetByIdAsync(cmd.RideId, ct)
             ?? throw new NotFoundException("not_found");
 
         if (ride.PassengerId != cmd.PassengerId) throw new ForbiddenException("forbidden");
-        if (ride.Status != RideStatus.AwaitingPassenger) throw new InvalidStateTransitionException("invalid_state_transition");
+        if (ride.Status != RideStatus.AwaitingPassenger)
+        {
+            logger.LogWarning("PassengerStartRide: invalid state {Status} rideId={RideId}", ride.Status, cmd.RideId);
+            throw new InvalidStateTransitionException("invalid_state_transition");
+        }
 
         ride.Start();
         await rides.UpdateAsync(ride, ct);
@@ -35,6 +44,8 @@ public class PassengerStartRideHandler(
 
         await sseHub.PushAsync(ride.PassengerId, "ride_started",
             JsonSerializer.Serialize(new RideStartedEvent(ride.Id, ride.DriverId, ride.PassengerId, ride.StartedAt.Value)), ct);
+
+        logger.LogInformation("Passenger {PassengerId} confirmed ride start, rideId={RideId}", cmd.PassengerId, cmd.RideId);
     }
 }
 
@@ -42,20 +53,26 @@ public class PassengerStartRideHandler(
 
 public record ConfirmPriceCommand(Guid PassengerId, Guid RideId);
 
-public class ConfirmPriceHandler(IRideRepository rides)
+public class ConfirmPriceHandler(
+    IRideRepository rides,
+    ILogger<ConfirmPriceHandler> logger)
 {
     public async Task HandleAsync(ConfirmPriceCommand cmd, CancellationToken ct)
     {
+        logger.LogDebug("ConfirmPrice: passengerId={PassengerId} rideId={RideId}", cmd.PassengerId, cmd.RideId);
+
         var ride = await rides.GetByIdAsync(cmd.RideId, ct)
             ?? throw new NotFoundException("not_found");
 
         if (ride.PassengerId != cmd.PassengerId) throw new ForbiddenException("forbidden");
 
         if (ride.Status is not (RideStatus.Pickup or RideStatus.AwaitingPassenger))
+        {
+            logger.LogWarning("ConfirmPrice: invalid state {Status} rideId={RideId}", ride.Status, cmd.RideId);
             throw new InvalidStateTransitionException("invalid_state_transition");
+        }
 
-        // Price is already updated by PriceFreezeMonitorWorker before this endpoint is called.
-        // This endpoint just records that the passenger acknowledged the new fare.
+        logger.LogInformation("Passenger {PassengerId} confirmed updated price for rideId={RideId}", cmd.PassengerId, cmd.RideId);
         // TODO: persist a "price_confirmed_at" timestamp on the ride record.
     }
 }
@@ -68,10 +85,15 @@ public class PassengerCancelRideHandler(
     IRideRepository rides,
     IRideRequestRepository rideRequests,
     IEventPublisher @event,
-    ISseHub sseHub)
+    ISseHub sseHub,
+    TripPlannerMetrics metrics,
+    ILogger<PassengerCancelRideHandler> logger)
 {
     public async Task HandleAsync(PassengerCancelRideCommand cmd, CancellationToken ct)
     {
+        logger.LogDebug("PassengerCancelRide: passengerId={PassengerId} rideId={RideId} reason={Reason}",
+            cmd.PassengerId, cmd.RideId, cmd.Reason);
+
         var ride = await rides.GetByIdAsync(cmd.RideId, ct)
             ?? throw new NotFoundException("not_found");
 
@@ -105,5 +127,9 @@ public class PassengerCancelRideHandler(
 
         await sseHub.PushAsync(ride.DriverId, "ride_cancelled",
             JsonSerializer.Serialize(new RideCancelledSseEvent(ride.Id, "passenger", cmd.Reason)), ct);
+
+        metrics.RideCancelled("passenger");
+        logger.LogInformation("Passenger {PassengerId} cancelled rideId={RideId} phase={Phase} reason={Reason}",
+            cmd.PassengerId, cmd.RideId, phase, cmd.Reason);
     }
 }

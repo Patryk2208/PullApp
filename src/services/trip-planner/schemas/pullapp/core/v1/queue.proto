@@ -7,7 +7,7 @@ package core.v1;
 message ComputeMessage {
     string job_id       = 1;   // UUID
     string job_type     = 2;   // "driver_route" | "passenger_match"
-    string requester_id = 3;   // driver_id or passenger_id UUID
+    string requesting_user_id = 3;   // driver_id or passenger_id UUID
     int64  created_at   = 4;   // Unix timestamp millis
     int32  retry_count  = 5;
 

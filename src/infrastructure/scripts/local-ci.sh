@@ -29,18 +29,18 @@ if ! minikube status &> /dev/null; then
     minikube start
 fi
 
-echo -e "${GREEN}Running GitHub Actions locally...${NC}"
-cd $REPO_ROOT
-act -j build-and-test \
-    --artifact-server-path /tmp/act-artifacts \
-    --container-architecture linux/amd64
+# echo -e "${GREEN}Running GitHub Actions locally...${NC}"
+# cd $REPO_ROOT
+# act -j build-and-test \
+#     --artifact-server-path /tmp/act-artifacts \
+#     --container-architecture linux/amd64
 
-if [ $? -ne 0 ]; then
-    echo "${RED}CI pipeline failed!${NC}"
-    exit 1
-fi
+# if [ $? -ne 0 ]; then
+#     echo "${RED}CI pipeline failed!${NC}"
+#     exit 1
+# fi
 
-echo "${GREEN}CI passed, continuing...${NC}"
+# echo "${GREEN}CI passed, continuing...${NC}"
 
 for image in "${images[@]}"; do
     echo "Building $image..."

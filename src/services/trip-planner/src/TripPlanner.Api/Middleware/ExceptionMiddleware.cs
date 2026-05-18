@@ -38,8 +38,26 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             _                                    => (500, "internal_error", "An unexpected error occurred"),
         };
 
-        if (status == 500)
-            logger.LogError(ex, "Unhandled exception");
+        switch (status)
+        {
+            case 500:
+                logger.LogError(ex, "Unhandled exception on {Method} {Path}", ctx.Request.Method, ctx.Request.Path);
+                break;
+            case 503:
+                logger.LogWarning("Downstream unavailable ({Code}) on {Method} {Path}: {Message}",
+                    code, ctx.Request.Method, ctx.Request.Path, ex.Message);
+                break;
+            case 409 or 422:
+                logger.LogWarning("Business rule violation ({Code}) on {Method} {Path}: {Message}",
+                    code, ctx.Request.Method, ctx.Request.Path, ex.Message);
+                break;
+            case 404:
+                logger.LogDebug("Not found ({Code}) on {Method} {Path}", code, ctx.Request.Method, ctx.Request.Path);
+                break;
+            case 401 or 403:
+                logger.LogWarning("Auth failure ({Status}) on {Method} {Path}", status, ctx.Request.Method, ctx.Request.Path);
+                break;
+        }
 
         ctx.Response.StatusCode = status;
         ctx.Response.ContentType = "application/json";
