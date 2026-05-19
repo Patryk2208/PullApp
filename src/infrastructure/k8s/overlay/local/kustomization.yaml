@@ -47,13 +47,13 @@ patches:
 images:
 - name: accounts
   newName: pullapp/accounts
-  newTag: f793c1bs
+  newTag: 8143fd6s
 - name: gateway
   newName: pullapp/gateway
-  newTag: f793c1bs
+  newTag: 8143fd6s
 - name: route-calc
   newName: pullapp/route-calc
-  newTag: f793c1bs
+  newTag: 8143fd6s
 - name: trip-planner
   newName: pullapp/trip-planner
-  newTag: f793c1bs
+  newTag: 8143fd6s

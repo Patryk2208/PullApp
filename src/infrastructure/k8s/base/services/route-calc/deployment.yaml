@@ -55,22 +55,22 @@ spec:
               name: pullapp-secrets
               key: COMPUTE_QUEUE_PASSWORD
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: http://otel-collector.monitoring.svc.cluster.local:4317
+          value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
         - name: OTEL_SERVICE_NAME
           value: route-calc
 
         livenessProbe:
           httpGet:
-            path: /health
-            port: 8000
+            path: /health/live
+            port: 8080
           initialDelaySeconds: 20
           periodSeconds: 10
           failureThreshold: 3
-        
+
         readinessProbe:
           httpGet:
-            path: /ready
-            port: 8000
+            path: /health/ready
+            port: 8080
           initialDelaySeconds: 30
           periodSeconds: 5
           failureThreshold: 3

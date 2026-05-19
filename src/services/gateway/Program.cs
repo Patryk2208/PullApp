@@ -28,5 +28,14 @@ builder.Logging.AddOpenTelemetry(o =>
 });
 
 var app = builder.Build();
+
+app.MapGet("/health", (ILogger<Program> logger) =>
+{
+    logger.LogInformation("Health check called");
+    return Results.Ok(new { status = "ok" });
+});
+app.MapGet("/health/live",  () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health/ready", () => Results.Ok(new { status = "ok" }));
+
 app.MapReverseProxy();
 app.Run();

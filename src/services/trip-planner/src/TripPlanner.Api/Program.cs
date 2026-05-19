@@ -36,12 +36,7 @@ builder.Services.AddOptions<TripPlannerDbOptions>().Bind(dbConfig);
 
 builder.Services.AddSingleton(sp =>
 {
-    Console.WriteLine("lwajalsjdflaskjdflkasjdflkjasdlj");
-    Console.WriteLine(builder.Configuration.Sources.Count);
-    foreach (var source in builder.Configuration.Sources)
-        Console.WriteLine($"[SOURCE] {source.GetType().Name}: {source}");
     var opts =  sp.GetRequiredService<IOptions<TripPlannerDbOptions>>();
-    Console.WriteLine(opts.Value.BuildConnectionString());
     return new NpgsqlDataSourceBuilder(opts.Value.BuildConnectionString()).Build();
 });
 

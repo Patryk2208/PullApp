@@ -42,19 +42,17 @@ fi
 
 # echo "${GREEN}CI passed, continuing...${NC}"
 
+COMMIT_HASH=$(git rev-parse --short HEAD)
+
 for image in "${images[@]}"; do
     echo "Building $image..."
     cd $REPO_ROOT/src/services/$image
     docker build -f Dockerfile  -t "pullapp/${image}:latest" .
     echo "Loading $image..."
     minikube image load "pullapp/${image}:latest"
-done
 
-COMMIT_HASH=$(git rev-parse --short HEAD)
+    cd $REPO_ROOT/src/infrastructure/k8s/overlay/local
 
-
-cd $REPO_ROOT/src/infrastructure/k8s/overlay/local
-for image in "${images[@]}"; do
     echo -e "${GREEN}Tagging images with commit: $COMMIT_HASH${NC}"
     minikube ssh "docker tag pullapp/${image}:latest pullapp/${image}:${COMMIT_HASH}"
     echo -e "${GREEN}Updating kustomize overlay...${NC}"
