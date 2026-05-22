@@ -71,6 +71,7 @@ public class SelectRouteHandler(
             JsonSerializer.Serialize(new AwaitingDriverEvent(cmd.RequestId, deadline)), ct);
 
         metrics.RouteSelected();
+        metrics.RecordAcceptanceStarted(cmd.RequestId);
         logger.LogInformation("Passenger {PassengerId} selected route driverRouteId={DriverRouteId} requestId={RequestId}",
             cmd.PassengerId, cmd.DriverRouteId, cmd.RequestId);
     }

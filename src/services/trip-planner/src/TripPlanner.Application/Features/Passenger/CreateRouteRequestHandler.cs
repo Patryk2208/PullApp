@@ -37,6 +37,7 @@ public class CreateRouteRequestHandler(
         if (!await accounts.IsPassengerActiveAsync(cmd.PassengerId, ct))
         {
             logger.LogWarning("CreateRouteRequest: accounts unavailable for passengerId={PassengerId}", cmd.PassengerId);
+            metrics.MatchingRequestRecorded("failed_validation");
             throw new AccountsUnavailableException();
         }
 
@@ -46,12 +47,14 @@ public class CreateRouteRequestHandler(
         if (!await geo.IsWithinServiceAreaAsync(start, ct) || !await geo.IsWithinServiceAreaAsync(end, ct))
         {
             logger.LogWarning("CreateRouteRequest: points outside service area for passengerId={PassengerId}", cmd.PassengerId);
+            metrics.MatchingRequestRecorded("no_area_coverage");
             throw new OutsideServiceAreaException();
         }
 
         if (await rideRequests.GetActiveByPassengerIdAsync(cmd.PassengerId, ct) is not null)
         {
             logger.LogWarning("CreateRouteRequest: active request already exists for passengerId={PassengerId}", cmd.PassengerId);
+            metrics.MatchingRequestRecorded("failed_validation");
             throw new InvalidStateTransitionException("active_request_exists");
         }
 
@@ -92,6 +95,8 @@ public class CreateRouteRequestHandler(
         await queue.PublishAsync(computeJob, ct);
         logger.LogDebug("CreateRouteRequest: published compute job correlationId={CorrelationId}", correlationId);
 
+        metrics.MatchingRequestRecorded("queued");
+        metrics.RecordMatchingJobPublished(correlationId);
         metrics.RouteRequestCreated();
         logger.LogInformation("Passenger {PassengerId} created route request {RequestId}", cmd.PassengerId, request.Id);
 

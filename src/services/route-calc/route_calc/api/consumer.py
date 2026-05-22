@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import signal
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
 
@@ -13,7 +14,8 @@ from route_calc.infra.queue import ComputeQueue, BaseQueueException, RequeueExce
 _tracer = trace.get_tracer(__name__)
 _meter = metrics.get_meter(__name__)
 _jobs_processed = _meter.create_counter("route_calc.jobs.processed", description="Total compute jobs processed")
-_jobs_failed = _meter.create_counter("route_calc.jobs.failed", description="Total compute jobs failed")
+_jobs_failed    = _meter.create_counter("route_calc.jobs.failed",     description="Total compute jobs failed")
+_job_duration   = _meter.create_histogram("route_calc.duration.seconds", unit="s", description="Compute job duration")
 
 
 class Consumer:
@@ -65,12 +67,18 @@ class Consumer:
         ctx.useless_mutex.release_lock()
 
         self.logger.info(f"Processing job {ctx.job_id}")
+        job_type = ctx.payload.algorithm.name.lower()
         with _tracer.start_as_current_span("route_calc.compute", attributes={"job.id": ctx.job_id}):
+            start = time.perf_counter()
             try:
                 result = self.algorithms_orchestrator.compute(ctx.payload)
+                elapsed = time.perf_counter() - start
                 _jobs_processed.add(1)
+                _job_duration.record(elapsed, {"job_type": job_type, "result": "success"})
             except Exception:
+                elapsed = time.perf_counter() - start
                 _jobs_failed.add(1)
+                _job_duration.record(elapsed, {"job_type": job_type, "result": "error"})
                 raise
         self.logger.info(f"Job {ctx.job_id} processed, now scheduling callback")
         ctx.result = result

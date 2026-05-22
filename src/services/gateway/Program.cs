@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetry.Logs;
@@ -5,6 +6,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Text.Json;
+using Yarp.ReverseProxy.Model;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,7 @@ builder.Services
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton<GatewayMetrics>();
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("gateway"))
@@ -24,6 +27,7 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
+        .AddMeter(GatewayMetrics.MeterName)
         .AddOtlpExporter());
 
 builder.Logging.AddOpenTelemetry(o =>
@@ -50,6 +54,19 @@ Task WriteHealthJson(HttpContext ctx, HealthReport report)
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = WriteHealthJson });
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false, ResponseWriter = WriteHealthJson });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => false, ResponseWriter = WriteHealthJson });
+
+var gatewayMetrics = app.Services.GetRequiredService<GatewayMetrics>();
+app.Use(async (ctx, next) =>
+{
+    var sw = Stopwatch.StartNew();
+    await next();
+    var proxyFeature = ctx.Features.Get<IReverseProxyFeature>();
+    if (proxyFeature is not null)
+    {
+        var service = proxyFeature.Route.Config.ClusterId ?? "unknown";
+        gatewayMetrics.RecordRequest(service, ctx.Request.Method, ctx.Response.StatusCode, sw.Elapsed.TotalSeconds);
+    }
+});
 
 app.MapReverseProxy();
 app.Run();

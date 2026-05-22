@@ -47,6 +47,9 @@ public class ConfirmationHandler(
         {
             logger.LogInformation("Driver {DriverId} declined match for requestId={RequestId}", cmd.DriverId, cmd.RequestId);
             metrics.MatchDeclined();
+            metrics.DriverDeclined("explicit");
+            metrics.RecordAcceptanceEnded(cmd.RequestId);
+            metrics.RideTransition("pending_driver", "searching", "driver_declined");
 
             var isEmpty = request.RemoveDriverFromResults(selectedEntry.DriverRouteId);
             if (isEmpty) request.ReSearch(Guid.NewGuid()); // TODO: re-dispatch
@@ -121,6 +124,9 @@ public class ConfirmationHandler(
             ct);
 
         metrics.MatchConfirmed();
+        metrics.RecordAcceptanceEnded(cmd.RequestId);
+        metrics.RideTransition("pending_driver", "pickup", "driver_accepted");
+        metrics.RideActiveAdd(1);
         logger.LogInformation("Driver {DriverId} confirmed match, rideId={RideId} passengerId={PassengerId}",
             cmd.DriverId, ride.Id, ride.PassengerId);
     }

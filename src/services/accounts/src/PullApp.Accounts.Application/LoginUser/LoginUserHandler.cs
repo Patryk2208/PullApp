@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using PullApp.Accounts.Application.Metrics;
@@ -17,11 +18,14 @@ public class LoginUserHandler(
 	{
 		logger.LogDebug("Login attempt for email={Email}", request.Email);
 
+		var sw = Stopwatch.StartNew();
+
 		var user = await userRepository.GetByEmailAsync(request.Email, ct);
 
 		if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
 		{
 			metrics.LoginFailed();
+			metrics.RecordLoginDuration(sw.Elapsed.TotalSeconds, success: false);
 			logger.LogWarning("Login failed for email={Email} reason={Reason}",
 				request.Email, user is null ? "user_not_found" : "wrong_password");
 			throw new UnauthorizedAccessException("Błędne dane logowania");
@@ -30,6 +34,7 @@ public class LoginUserHandler(
 		var token = jwtProvider.Generate(user);
 
 		metrics.LoginSucceeded();
+		metrics.RecordLoginDuration(sw.Elapsed.TotalSeconds, success: true);
 		logger.LogInformation("Login succeeded userId={UserId} email={Email}", user.Id, request.Email);
 
 		return token;

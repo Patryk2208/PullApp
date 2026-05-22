@@ -19,6 +19,23 @@ public class RouteComputedHandler(
         await hub.PushAsync(result.JobId, "drier_route_computed", json, ct);
 
         metrics.ComputeResultReceived();
+
+        var matchingOutcome = result switch
+        {
+            PassengerMatchComputeResult r when r.Result.Matches.Count == 0 => "no_drivers",
+            PassengerMatchComputeResult                                     => "matched",
+            FailedComputeResult                                             => "error",
+            _                                                               => null
+        };
+
+        if (matchingOutcome is not null)
+        {
+            metrics.MatchingResultRecorded(matchingOutcome);
+            metrics.RecordMatchingJobResult(result.JobId, matchingOutcome);
+            if (matchingOutcome == "no_drivers")
+                metrics.MatchingNoDriversFound();
+        }
+
         logger.LogInformation("Compute result received for jobId={JobId} success={Success}", result.JobId, result.Success);
     }
 }
