@@ -1,16 +1,48 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.Text.Json;
+
 namespace PullApp.Accounts.Api.Endpoints;
 
 public class HealthEndpoint : IEndpoint
 {
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapGet("/health", (ILogger<HealthEndpoint> logger) =>
+        app.MapHealthChecks("/health", new HealthCheckOptions
         {
-            logger.LogInformation("Health check called");
-            return Results.Ok(new { status = "ok" });
+            ResponseWriter = HealthJson.Write
         });
 
-        app.MapGet("/health/live",  () => Results.Ok(new { status = "ok" }));
-        app.MapGet("/health/ready", () => Results.Ok(new { status = "ok" }));
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = _ => false,
+            ResponseWriter = HealthJson.Write
+        });
+
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = r => r.Tags.Contains("ready"),
+            ResponseWriter = HealthJson.Write
+        });
+    }
+}
+
+internal static class HealthJson
+{
+    internal static Task Write(HttpContext ctx, HealthReport report)
+    {
+        ctx.Response.ContentType = "application/json";
+        var body = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString().ToLowerInvariant(),
+            checks = report.Entries.ToDictionary(
+                e => e.Key,
+                e => (object)new
+                {
+                    status = e.Value.Status.ToString().ToLowerInvariant(),
+                    description = e.Value.Description
+                })
+        });
+        return ctx.Response.WriteAsync(body);
     }
 }

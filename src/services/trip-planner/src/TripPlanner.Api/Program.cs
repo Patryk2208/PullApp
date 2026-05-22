@@ -6,6 +6,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using TripPlanner.Api;
+using TripPlanner.Api.Checks;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Api.BackgroundServices;
 using TripPlanner.Api.Middleware;
@@ -140,6 +141,10 @@ builder.Services.AddScoped<PassengerCancelRideHandler>();
 // ─── Observability ────────────────────────────────────────────────────────────
 
 builder.Services.AddSingleton<TripPlannerMetrics>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
+    .AddCheck<RabbitHealthCheck>("rabbitmq", tags: ["ready"]);
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("trip-planner"))

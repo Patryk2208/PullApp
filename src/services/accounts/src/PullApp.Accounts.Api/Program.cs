@@ -6,6 +6,7 @@ using OpenTelemetry.Trace;
 using PullApp.Accounts.Application;
 using PullApp.Accounts.Application.Metrics;
 using PullApp.Accounts.Api;
+using PullApp.Accounts.Api.Checks;
 using PullApp.Accounts.Infrastructure;
 using PullApp.Accounts.Infrastructure.Persistence;
 
@@ -16,6 +17,9 @@ builder.Services
     .AddApi(builder.Configuration);
 
 builder.Services.AddSingleton<AccountsMetrics>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"]);
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("accounts"))

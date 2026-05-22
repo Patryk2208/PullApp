@@ -13,9 +13,9 @@ async def main():
     logger = setup_logging(cfg["logging"])
     setup_telemetry()
     logger.info("Starting route-calc")
-    await start_health_server()
-    a_o = AlgorithmsOrchestrator(config=cfg["algorithms"], logger=logger)
     q = ComputeQueue(config=cfg["queue"], logger=logger)
+    await start_health_server(queue=q)
+    a_o = AlgorithmsOrchestrator(config=cfg["algorithms"], logger=logger)
     c = Consumer(config=cfg, queue=q, alg_orchestrator=a_o, logger=logger)
     try:
         await c.run()
