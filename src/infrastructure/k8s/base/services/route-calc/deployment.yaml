@@ -48,7 +48,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: pullapp-secrets
-              key: CACHE_PASSWORD
+              key: TRIP_CACHE_PASSWORD
         - name: COMPUTE_QUEUE_PASSWORD
           valueFrom:
             secretKeyRef:
