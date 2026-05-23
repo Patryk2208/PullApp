@@ -16,5 +16,8 @@ export interface RegisterUserCommand {
     surname: string;
     email: string;
     password: string;
-    birthDate: Date;
+	
+	// `Date` serializowało się w stylu "2000-01-01T00:00:00.000Z",
+	// co było odrzucane przez back-end oczekujący `DateOnly`
+    birthDate: string;
 }
