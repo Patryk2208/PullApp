@@ -28,7 +28,7 @@ func setupRedis(t *testing.T) (*redisrepo.Client, func()) {
 		t.Fatalf("redis endpoint: %v", err)
 	}
 
-	client := redisrepo.NewClient(addr)
+	client := redisrepo.NewClient(addr, "")
 	if err := client.Start(ctx); err != nil {
 		t.Fatalf("redis ping: %v", err)
 	}

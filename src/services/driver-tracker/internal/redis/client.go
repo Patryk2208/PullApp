@@ -11,8 +11,8 @@ type Client struct {
 	rdb *redis.Client
 }
 
-func NewClient(addr string) *Client {
-	return &Client{rdb: redis.NewClient(&redis.Options{Addr: addr})}
+func NewClient(addr, password string) *Client {
+	return &Client{rdb: redis.NewClient(&redis.Options{Addr: addr, Password: password})}
 }
 
 func (c *Client) Start(ctx context.Context) error {

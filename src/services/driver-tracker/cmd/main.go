@@ -17,7 +17,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	rdb := redisrepo.NewClient(cfg.RedisAddr)
+	rdb := redisrepo.NewClient(cfg.RedisAddr, cfg.RedisPassword)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := rdb.Start(ctx); err != nil {

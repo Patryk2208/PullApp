@@ -15,6 +15,8 @@ resources:
   - services/accounts/service.yaml
   - services/gateway/deployment.yaml
   - services/gateway/service.yaml
+  - services/driver-tracker/deployment.yaml
+  - services/driver-tracker/service.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize
@@ -29,6 +31,8 @@ images:
     newName: pullapp/accounts
   - name: gateway
     newName: pullapp/gateway
+  - name: driver-tracker
+    newName: pullapp/driver-tracker
 
 configMapGenerator:
 - name: trip-planner-config
@@ -46,5 +50,6 @@ secretGenerator:
   - CACHE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_SCALING_URL=PLACEHOLDER
+  - DRIVER_TRACKER_REDIS_PASSWORD=PLACEHOLDER
   options:
     disableNameSuffixHash: true
