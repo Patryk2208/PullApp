@@ -1,1 +1,1 @@
-export {};
+export { AuthRepository } from './auth/AuthRepository';
