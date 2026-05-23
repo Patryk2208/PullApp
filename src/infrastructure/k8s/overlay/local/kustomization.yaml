@@ -12,6 +12,14 @@ secretGenerator:
   name: pullapp-secrets
   options:
     disableNameSuffixHash: true
+# TODO: replace secrets/firebase.json with a real Firebase service account JSON before testing push notifications
+# (Firebase Console → Project Settings → Service Accounts → Generate new private key)
+- behavior: replace
+  name: firebase-credentials
+  files:
+  - firebase.json=secrets/firebase.json
+  options:
+    disableNameSuffixHash: true
   
 patches:
 - path: patches/probes.yaml
@@ -44,6 +52,12 @@ patches:
     kind: Deployment
     name: driver-tracker
     version: v1
+- path: patches/probes.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: notifications
+    version: v1
 - path: patches/gateway.yaml
   target:
     kind: Service
@@ -64,6 +78,9 @@ images:
   newTag: latest
 - name: gateway
   newName: pullapp/gateway
+  newTag: latest
+- name: notifications
+  newName: pullapp/notifications
   newTag: latest
 - name: route-calc
   newName: pullapp/route-calc

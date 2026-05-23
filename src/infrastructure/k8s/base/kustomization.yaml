@@ -17,6 +17,8 @@ resources:
   - services/gateway/service.yaml
   - services/driver-tracker/deployment.yaml
   - services/driver-tracker/service.yaml
+  - services/notifications/deployment.yaml
+  - services/notifications/service.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize
@@ -33,6 +35,8 @@ images:
     newName: pullapp/gateway
   - name: driver-tracker
     newName: pullapp/driver-tracker
+  - name: notifications
+    newName: pullapp/notifications
 
 configMapGenerator:
 - name: trip-planner-config
@@ -51,5 +55,12 @@ secretGenerator:
   - COMPUTE_QUEUE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_SCALING_URL=PLACEHOLDER
   - DRIVER_TRACKER_REDIS_PASSWORD=PLACEHOLDER
+  - NOTIFICATIONS_POSTGRES_URL=PLACEHOLDER
+  - FIREBASE_PROJECT_ID=PLACEHOLDER
+  options:
+    disableNameSuffixHash: true
+- name: firebase-credentials
+  literals:
+  - firebase.json=PLACEHOLDER
   options:
     disableNameSuffixHash: true
