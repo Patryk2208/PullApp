@@ -4,7 +4,7 @@ export BASH_ENV :=
 REPO_ROOT  := $(shell git rev-parse --show-toplevel)
 COMMIT     := $(shell git rev-parse --short HEAD)
 
-SERVICES   := accounts gateway route-calc trip-planner driver-tracker
+SERVICES   := accounts gateway route-calc trip-planner driver-tracker notifications
 NAMESPACE  := pullapp
 OBS_NS     := monitoring
 
@@ -50,6 +50,9 @@ help:
 	@printf "  make obs-upgrade        Upgrade all obs Helm releases to pinned versions\n"
 	@printf "  make obs-uninstall      Remove all obs Helm releases\n"
 	@printf "  make obs-status         Show obs pod status\n"
+	@printf "\n$(CYAN)KEDA$(RESET)\n"
+	@printf "  make keda-install       Install KEDA $(KEDA_VERSION) (required for route-calc autoscaling)\n"
+	@printf "  make keda-uninstall     Remove KEDA\n"
 	@printf "\n$(CYAN)Build (Docker images)$(RESET)\n"
 	@printf "  make build              Build all service images\n"
 	@printf "  make build-<svc>        Build a single service image\n"
@@ -117,7 +120,7 @@ _cluster-ensure: _check-minikube
 
 .PHONY: start cluster-start cluster-stop cluster-delete cluster-status
 
-start: cluster-start obs-install
+start: cluster-start obs-install keda-install
 	@printf "$(GREEN)Cluster ready. Run 'make run' to build and deploy services.$(RESET)\n"
 
 cluster-start: _check-minikube
@@ -193,6 +196,23 @@ obs-uninstall: _check-helm
 obs-status: _check-kubectl
 	@printf "$(BOLD)--- Observability pods ($(OBS_NS)) ---$(RESET)\n"
 	kubectl get pods -n $(OBS_NS)
+
+# ── KEDA ──────────────────────────────────────────────────────────────────────
+
+KEDA_VERSION := 2.16.0
+
+.PHONY: keda-install keda-uninstall
+
+keda-install: _check-helm _check-kubectl
+	@helm repo add kedacore https://kedacore.github.io/charts 2>/dev/null || true
+	@helm repo update
+	helm upgrade --install keda kedacore/keda \
+		--namespace keda --create-namespace \
+		--version $(KEDA_VERSION)
+	@printf "$(GREEN)KEDA $(KEDA_VERSION) installed.$(RESET)\n"
+
+keda-uninstall: _check-helm
+	helm uninstall keda --namespace keda 2>/dev/null || true
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 

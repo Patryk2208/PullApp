@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package core.v1;
+
+// ─── Outbound: Trip Planner → Route-Calc ────────────────────────────────────
+
+message ComputeMessage {
+    string job_id       = 1;   // UUID
+    string job_type     = 2;   // "driver_route" | "passenger_match"
+    string requesting_user_id = 3;   // driver_id or passenger_id UUID
+    int64  created_at   = 4;   // Unix timestamp millis
+    int32  retry_count  = 5;
+
+    oneof params {
+        DriverRouteParams    driver_route    = 20;
+        PassengerMatchParams passenger_match = 21;
+    }
+}
+
+message Point {
+    double lat = 1;
+    double lon = 2;
+}
+
+message DriverRouteParams {
+    Point start = 1;
+    Point end   = 2;
+}
+
+message PassengerMatchConstraints {
+    double max_detour_km = 1;
+    int32  max_results   = 2;
+}
+
+message PassengerMatchParams {
+    Point                    start       = 1;
+    Point                    end         = 2;
+    PassengerMatchConstraints constraints = 3;
+}
+
+// ─── Inbound: Route-Calc → Trip Planner ─────────────────────────────────────
+
+message ResultMessage {
+    string job_id   = 1;
+    string job_type = 2;
+    bool   success  = 3;
+    string error    = 4;   // "no_candidates" | "routing_error" | "timeout"
+
+    oneof result {
+        DriverRouteResult    driver_route    = 20;
+        PassengerMatchResult passenger_match = 21;
+    }
+}
+
+message DriverRouteResult {
+    string route_geom_json  = 1;   // GeoJSON LineString serialised as string
+    int32  eta_seconds      = 2;
+    int32  distance_meters  = 3;
+}
+
+message MatchEntry {
+    string driver_route_id             = 1;
+    string driver_id                   = 2;
+    int32  eta_to_passenger_seconds    = 3;
+    int32  detour_meters               = 4;
+    double score                       = 5;
+}
+
+message PassengerMatchResult {
+    repeated MatchEntry matches = 1;
+}
