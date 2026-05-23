@@ -4,7 +4,7 @@ using PullApp.Accounts.Domain;
 namespace PullApp.Accounts.Application.LoginUser;
 
 public class LoginUserHandler
-	: IRequestHandler<LoginUserCommand, string>
+	: IRequestHandler<LoginUserCommand, LoginUserResponse>
 {
 	private readonly IUserRepository _userRepository;
 	private readonly IPasswordHasher _passwordHasher;
@@ -17,7 +17,7 @@ public class LoginUserHandler
 		_jwtProvider = jwtProvider;
 	}
 
-	public async Task<string> Handle(LoginUserCommand request, CancellationToken ct)
+	public async Task<LoginUserResponse> Handle(LoginUserCommand request, CancellationToken ct)
 	{
 		var user = await _userRepository.GetByEmailAsync(request.Email, ct);
         
@@ -27,6 +27,8 @@ public class LoginUserHandler
 			throw new UnauthorizedAccessException("Błędne dane logowania");
 		}
 
-		return _jwtProvider.Generate(user);
+		return new LoginUserResponse(
+			Token: _jwtProvider.Generate(user)
+		);
 	}
 }

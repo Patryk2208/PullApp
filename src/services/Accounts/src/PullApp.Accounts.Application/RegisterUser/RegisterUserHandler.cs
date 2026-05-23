@@ -6,9 +6,9 @@ namespace PullApp.Accounts.Application.RegisterUser;
 public class RegisterUserHandler(
 	IUserRepository repository,
 	IPasswordHasher hasher)
-	: IRequestHandler<RegisterUserCommand, int>
+	: IRequestHandler<RegisterUserCommand, RegisterUserResponse>
 {
-	public async Task<int> Handle(RegisterUserCommand request, CancellationToken ct)
+	public async Task<RegisterUserResponse> Handle(RegisterUserCommand request, CancellationToken ct)
 	{
 		if (!await repository.IsEmailUniqueAsync(request.Email, ct))
 			throw new Exception("Email already taken");
@@ -26,6 +26,6 @@ public class RegisterUserHandler(
 
 		await repository.AddAsync(user, ct);
 
-		return user.Id;
+		return new RegisterUserResponse(UserId: user.Id);
 	}
 }
