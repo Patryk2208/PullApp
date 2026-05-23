@@ -30,7 +30,7 @@ graph TB
 
     subgraph RealTime["Real-Time Services"]
         direction LR
-        DriverTracker["<b>Driver Tracker</b><br/>Go<br/><br/>WebSocket Hub<br/>GPS Ingestion<br/>Geospatial Index"]
+        DriverTracker["<b>Driver Tracker</b><br/>Go<br/><br/>HTTP POST /position<br/>WS /track/{routeId}<br/>Goroutine per passenger<br/>Redis R/W only"]
     end
 
     subgraph AccountService["Account Service"]
@@ -47,8 +47,8 @@ graph TB
 
     subgraph ChatService["Chat Service"]
         direction LR
-        Chat["<b>Chat</b><br/>Go<br/>WebSocket Hub<br/>Room-based Routing<br/>Message Delivery<br/>Offline Queue"]
-        ChatDb[(<b>Message Store</b><br/>MongoDB<br/><br/>Messages · Rooms<br/>Retention: 30d<br/>No E2E Encryption)]
+        Chat["<b>Chat</b><br/>Go<br/>gRPC room lifecycle<br/>WebSocket hub<br/>Hash-routed by rideId<br/>(TODO: YARP/nginx)"]
+        ChatDb[("<b>Message Store</b><br/>MongoDB<br/><br/>Messages per ride<br/>Retention: 30d TTL")]
     end
 
     subgraph TileService["Map Tile Service"]
@@ -61,7 +61,8 @@ graph TB
     end
 
     subgraph NotificationService["Notification Service"]
-        Notifications["<b>Notifications</b><br/>Go<br/>Push (FCM)<br/>SMS Gateway<br/>Email Service<br/>Template Management"]
+        Notifications["<b>Notifications</b><br/>Go<br/>Kafka consumer<br/>FCM push only<br/>Device token registry<br/>Idempotency log"]
+        NotificationsDb[("<b>Notification Store</b><br/>PostgreSQL<br/><br/>device_tokens<br/>sent_notifications")]
     end
 
     subgraph Cache["Cache Layer"]
@@ -82,7 +83,7 @@ graph TB
     API --> Payments
     API <--> Chat
     API --> TileServer
-    API <---> DriverTracker
+    API --> DriverTracker
     
     TripPlanner --> TripPlannerDb
     TripPlanner --> Redis
@@ -101,17 +102,19 @@ graph TB
     Payments --> PaymentsDb
     Payments --> PaymentGateway
     
+    TripPlanner -->|gRPC CreateRoom / CloseRoom| Chat
     Chat --> ChatDb
     Chat --> Redis
     
     TripPlanner --> EventQueue
     Accounts --> EventQueue
     Payments --> EventQueue
-    Chat --> EventQueue
     
     EventQueue --> Notifications
-    Notifications --> Clients
+    Notifications --> NotificationsDb
+    API --> Notifications
 
+    Driver --> DriverTracker
+    Passenger <--> DriverTracker
     DriverTracker --> Redis
-    DriverTracker --> TripPlannerDb
-    DriverTracker --> EventQueue
+    %% Trip Planner deletes position:{routeId} from Redis on ride end/cancel
