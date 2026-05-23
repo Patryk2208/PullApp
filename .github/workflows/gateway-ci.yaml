@@ -2,11 +2,12 @@ name: CI — gateway
 
 on:
   push:
-    branches: [master]
+    branches: [master, develop]
     paths:
       - 'src/services/gateway/**'
       - '.github/workflows/gateway-ci.yaml'
   pull_request:
+    branches: [master, develop]
     paths:
       - 'src/services/gateway/**'
       - '.github/workflows/gateway-ci.yaml'

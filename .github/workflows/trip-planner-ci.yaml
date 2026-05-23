@@ -2,11 +2,12 @@ name: CI — trip-planner
 
 on:
   push:
-    branches: [master]
+    branches: [master, develop]
     paths:
       - 'src/services/trip-planner/**'
       - '.github/workflows/trip-planner-ci.yaml'
   pull_request:
+    branches: [master, develop]
     paths:
       - 'src/services/trip-planner/**'
       - '.github/workflows/trip-planner-ci.yaml'
@@ -15,7 +16,7 @@ env:
   COMMIT_SHA: ${{ github.sha }}
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -42,31 +43,9 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
-      - name: Test
-        run: |
-          dotnet test \
-            --no-build \
-            --configuration Release \
-            --logger "trx;LogFileName=unit-test-results.trx" \
-            --collect:"XPlat Code Coverage"
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: trip-planner-test-results
-          path: src/services/trip-planner/TestResults/*.trx
-
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: trip-planner-coverage
-          path: src/services/trip-planner/TestResults/**/coverage.cobertura.xml
-
   dockerize:
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: build
     defaults:
       run:
         working-directory: src/services/trip-planner

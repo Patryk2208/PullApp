@@ -1,0 +1,51 @@
+name: CI — notifications
+
+on:
+  push:
+    branches: [master, develop]
+    paths:
+      - 'src/services/notifications/**'
+      - '.github/workflows/notifications-ci.yaml'
+  pull_request:
+    branches: [master, develop]
+    paths:
+      - 'src/services/notifications/**'
+      - '.github/workflows/notifications-ci.yaml'
+
+env:
+  COMMIT_SHA: ${{ github.sha }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/services/notifications
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/services/notifications/go.mod
+          cache-dependency-path: src/services/notifications/go.sum
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
+
+  dockerize:
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: src/services/notifications
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker build
+        run: docker build -f Dockerfile -t pullapp/notifications:${{ env.COMMIT_SHA }} .

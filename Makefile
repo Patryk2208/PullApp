@@ -85,6 +85,10 @@ help:
 	@printf "  make pf-loki            :3100 → Loki\n"
 	@printf "  make pf-tempo           :4317 → Tempo (OTLP gRPC)\n"
 	@printf "  make pf-rabbit          :15672 → RabbitMQ management UI\n"
+	@printf "\n$(CYAN)CI — GitHub Actions locally (act)$(RESET)\n"
+	@printf "  make ci-full            Run all service workflows via act\n"
+	@printf "  make ci-full-<svc>      Run a single service workflow via act\n"
+	@for svc in $(SERVICES); do printf "                          ci-full-$$svc\n"; done
 	@printf "\n$(CYAN)Combined workflows$(RESET)\n"
 	@printf "  make run                Full from scratch: start → obs → ci → cd\n"
 	@printf "\n$(CYAN)Visibility$(RESET)\n"
@@ -95,7 +99,10 @@ help:
 
 # ── Prereq checks ─────────────────────────────────────────────────────────────
 
-.PHONY: _check-docker _check-minikube _check-kubectl _check-kustomize _check-helm
+.PHONY: _check-docker _check-minikube _check-kubectl _check-kustomize _check-helm _check-act
+
+_check-act:
+	@command -v act >/dev/null 2>&1 || (printf "$(RED)act not found — https://github.com/nektos/act$(RESET)\n" && exit 1)
 
 _check-docker:
 	@command -v docker >/dev/null 2>&1 || (printf "$(RED)docker not found$(RESET)\n" && exit 1)
@@ -391,6 +398,24 @@ logs: _check-kubectl
 
 logs-%: _check-kubectl
 	kubectl logs -n $(NAMESPACE) -l app=$* --all-containers --follow
+
+# ── CI — GitHub Actions via act ──────────────────────────────────────────────
+
+ACT_FLAGS := --pull=false
+
+.PHONY: ci-full FORCE
+
+FORCE:
+
+ci-full: _check-act
+	@for svc in $(SERVICES); do \
+		printf "$(CYAN)act: running $$svc workflow...$(RESET)\n"; \
+		act push -W .github/workflows/$$svc-ci.yaml $(ACT_FLAGS); \
+	done
+	@printf "$(GREEN)act: all workflows done.$(RESET)\n"
+
+ci-full-%: _check-act FORCE
+	act push -W .github/workflows/$*-ci.yaml $(ACT_FLAGS)
 
 # ── Full workflow ─────────────────────────────────────────────────────────────
 

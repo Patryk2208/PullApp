@@ -2,11 +2,12 @@ name: CI — accounts
 
 on:
   push:
-    branches: [master]
+    branches: [master, develop]
     paths:
       - 'src/services/accounts/**'
       - '.github/workflows/accounts-ci.yaml'
   pull_request:
+    branches: [master, develop]
     paths:
       - 'src/services/accounts/**'
       - '.github/workflows/accounts-ci.yaml'

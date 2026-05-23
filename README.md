@@ -19,10 +19,11 @@ Documentation is in [`./docs`](./docs):
 | `kubectl` | Cluster management | https://kubernetes.io/docs/tasks/tools |
 | `kustomize` | K8s overlay rendering | https://kubectl.docs.kubernetes.io/installation/kustomize |
 | `helm` | Observability stack install | https://helm.sh/docs/intro/install |
+| `act` | Run GitHub Actions workflows locally (`make ci-full`) | https://github.com/nektos/act |
 
 Verify everything is in place:
 ```bash
-docker info && minikube version && kubectl version --client && kustomize version && helm version
+docker info && minikube version && kubectl version --client && kustomize version && helm version && act --version
 ```
 
 ---
@@ -114,7 +115,36 @@ cp src/infrastructure/compose/.env.example src/infrastructure/compose/.env
 | `CHAT_MONGO_PASSWORD` | chat DB | — |
 | `CHAT_MONGO_DB` | chat DB | `chat` |
 
-Kubernetes secrets are managed separately via Kustomize `secretGenerator` in `src/infrastructure/k8s/overlay/local/secrets/secrets.env`.
+Kubernetes secrets are managed separately — see the [Kubernetes secrets](#kubernetes-secrets) section below.
+
+---
+
+## Kubernetes secrets
+
+Cluster secrets live in `src/infrastructure/k8s/overlay/local/secrets/` and are **not committed** — the files in the repo contain placeholder values only. Fill them in before running `make cd` or `make run`.
+
+### `secrets/secrets.env`
+
+Consumed by the `pullapp-secrets` Kustomize `secretGenerator`:
+
+| Variable | Used by |
+|----------|---------|
+| `TRIP_PLANNER_DB_PASSWORD` | trip-planner → PostgreSQL |
+| `ACCOUNTS_DB_PASSWORD` | accounts → PostgreSQL |
+| `TRIP_CACHE_PASSWORD` | trip-planner / route-calc → Redis |
+| `COMPUTE_QUEUE_PASSWORD` | route-calc → RabbitMQ |
+| `COMPUTE_QUEUE_SCALING_URL` | KEDA → RabbitMQ management API (format: `http://user:pass@compute-queue.pullapp.svc.cluster.local:15672`) |
+| `DRIVER_TRACKER_REDIS_PASSWORD` | driver-tracker → Redis |
+| `NOTIFICATIONS_POSTGRES_URL` | notifications → PostgreSQL (full DSN: `postgres://user:pass@host:5432/db`) |
+| `FIREBASE_PROJECT_ID` | notifications → Firebase |
+
+### `secrets/firebase.json`
+
+A Firebase service account key for push notifications. To generate one:
+
+1. Firebase Console → Project Settings → Service Accounts
+2. Click **Generate new private key** → download the JSON
+3. Replace `src/infrastructure/k8s/overlay/local/secrets/firebase.json` with the downloaded file
 
 ---
 
