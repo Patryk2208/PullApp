@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifications
+  labels:
+    app: notifications
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: notifications
+  template:
+    metadata:
+      labels:
+        app: notifications
+        version: v1
+    spec:
+      containers:
+      - name: app
+        image: notifications
+        imagePullPolicy: IfNotPresent
+
+        env:
+        - name: POSTGRES_URL
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: NOTIFICATIONS_POSTGRES_URL
+        - name: KAFKA_BROKERS
+          value: "event-bus:9092"
+        - name: KAFKA_TOPIC
+          value: "notifications"
+        - name: KAFKA_GROUP_ID
+          value: "notifications"
+        - name: HTTP_ADDR
+          value: ":8080"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+        - name: FIREBASE_CREDENTIALS_FILE
+          value: "/secrets/firebase.json"
+        - name: FIREBASE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: FIREBASE_PROJECT_ID
+        - name: OTEL_SERVICE_NAME
+          value: notifications
+
+        volumeMounts:
+        - name: firebase-credentials
+          mountPath: /secrets
+          readOnly: true
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+      volumes:
+      - name: firebase-credentials
+        secret:
+          secretName: firebase-credentials
+
+      terminationGracePeriodSeconds: 15

@@ -1,0 +1,9 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: compute-queue-auth
+spec:
+  secretTargetRef:
+    - parameter: host
+      name: pullapp-secrets
+      key: COMPUTE_QUEUE_SCALING_URL

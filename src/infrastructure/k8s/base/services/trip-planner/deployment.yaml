@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trip-planner
+  labels:
+    app: trip-planner
+    tier: core
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: trip-planner
+  template:
+    metadata:
+      labels:
+        app: trip-planner
+        version: v1
+    spec:
+      containers:
+      - name: trip-planner
+        image: trip-planner
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: TRIPPLANNERDB__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: TRIP_PLANNER_DB_PASSWORD
+        - name: CACHE__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: TRIP_CACHE_PASSWORD
+        - name: COMPUTEQUEUE__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: COMPUTE_QUEUE_PASSWORD
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+        - name: OTEL_SERVICE_NAME
+          value: trip-planner
+        - name: OTEL_LOG_LEVEL
+          value: "debug"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "grpc"
+         
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+      
+      volumes:
+      - name: config
+        configMap:
+          name: trip-planner-config
+      
+      terminationGracePeriodSeconds: 30

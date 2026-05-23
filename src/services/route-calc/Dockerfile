@@ -1,25 +1,32 @@
-FROM python:3.14-slim AS base
+FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1
+ENV POETRY_VIRTUALENVS_CREATE=false
 ENV POETRY_VERSION=2.1.4
 
 WORKDIR /app
 
-FROM base AS builder
-
-RUN apt-get update && apt-get install -y curl build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl build-essential cmake protobuf-compiler && rm -rf /var/lib/apt/lists/*
 
 RUN pip install "poetry==$POETRY_VERSION"
-
 COPY pyproject.toml poetry.lock* ./
 
-RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --no-root
+RUN poetry install --no-interaction --no-ansi --no-root
 
-FROM base AS runtime
+COPY schemas/ ./schemas/
+COPY route_calc/ ./route_calc/
 
-COPY --from=builder /usr/local/lib/python3.14 /usr/local/lib/python3.14
-COPY --from=builder /usr/local/bin /usr/local/bin
+RUN mkdir -p route_calc/generated && \
+    protoc --proto_path=schemas/pullapp/core/v1/ \
+           --python_out=route_calc/generated/ \
+           schemas/pullapp/core/v1/queue.proto && \
+    touch route_calc/generated/__init__.py
 
-COPY . .
+COPY CMakeLists.txt .
+COPY cpp .
 
-CMD ["python", "main.py"]
+RUN poetry build
+
+RUN pip install --no-cache-dir dist/*.whl
+
+CMD ["python", "-m", "route_calc.main"]

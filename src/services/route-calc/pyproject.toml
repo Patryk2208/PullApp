@@ -5,7 +5,6 @@ description = ""
 authors = [
     {name = "Patryk Pol"}
 ]
-readme = "../../../docs/04-components/route-calc.md"
 requires-python = ">=3.13"
 
 
@@ -27,7 +26,11 @@ aio-pika = ">=9.6.2,<9.7"
 pybind11 = ">=3.0.2,<3.1"
 
 # --- schema generation ---
-protobuf = "^7.34.1"
+protobuf = ">=5.0,<7.0"
+
+# --- observability ---
+opentelemetry-sdk = ">=1.41.0,<2.0"
+opentelemetry-exporter-otlp-proto-grpc = ">=1.41.0,<2.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -40,9 +43,14 @@ pythonpath = ["src"]
 
 
 [tool.poetry]
-packages = [{ include = "route_calc", from = "src" }]
+name = "route-calc"
+version = "0.1.0"
+packages = [{ include = "route_calc" }]
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["scikit-build-core>=0.12,<0.13", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+wheel.packages = ["route_calc"]

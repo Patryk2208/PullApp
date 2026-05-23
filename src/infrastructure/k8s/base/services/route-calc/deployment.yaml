@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-calc
+  labels:
+    app: route-calc
+    tier: compute
+    scaler: keda
+spec:
+  selector:
+    matchLabels:
+      app: route-calc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: route-calc
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: route-calc
+        image: route-calc
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8000
+          name: metrics
+          protocol: TCP
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+
+        env:
+        - name: TRIP_PLANNER_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: TRIP_PLANNER_DB_PASSWORD
+        - name: CACHE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: TRIP_CACHE_PASSWORD
+        - name: COMPUTE_QUEUE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: COMPUTE_QUEUE_PASSWORD
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+        - name: OTEL_SERVICE_NAME
+          value: route-calc
+
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+        
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+      
+      volumes:
+      - name: config
+        configMap:
+          name: route-calc-config
+        
+      #   volumeMounts:
+      #   - name: osrm-data
+      #     mountPath: /data
+      #     readOnly: true
+      
+      # volumes:
+      # - name: osrm-data
+      #   persistentVolumeClaim:
+      #     claimName: osrm-data-pvc
+      
+      terminationGracePeriodSeconds: 30

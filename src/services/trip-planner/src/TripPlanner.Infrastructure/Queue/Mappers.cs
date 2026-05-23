@@ -1,96 +1,102 @@
 using Core.V1;
 using Google.Protobuf;
 using TripPlanner.Domain.Compute;
-using ClosestRoutesParams = TripPlanner.Domain.Compute.ClosestRoutesParams;
-using ProtoClosestRoutesParams = Core.V1.ClosestRoutesParams;
-using BestRouteParams = TripPlanner.Domain.Compute.BestRouteParams;
-using ClosestRoutesResult = TripPlanner.Domain.Compute.ClosestRoutesResult;
-using Point = Core.V1.Point;
-using ProtoBestRouteParams = Core.V1.BestRouteParams;
+using MatchEntry = TripPlanner.Domain.Compute.MatchEntry;
+using ProtoPoint = Core.V1.Point;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal interface IQueueDomainMapper<out T>
+public interface IQueueDomainMapper<out T>
 {
     T ToDomain(in ReadOnlyMemory<byte> payload);
 }
 
-internal interface IQueueDtoMapper<in T>
+public interface IQueueDtoMapper<in T>
 {
     ReadOnlyMemory<byte> ToDto(T domain);
-} 
+}
 
+// ─── ComputeJob: Trip Planner → Route-Calc ───────────────────────────────────
 
-internal class ComputeProtoQueueMapper : IQueueDomainMapper<ComputePayload>, IQueueDtoMapper<ComputePayload>
+public class ComputeJobProtoMapper : IQueueDtoMapper<ComputeJob>
 {
-    public ComputePayload ToDomain(in ReadOnlyMemory<byte> payload)
+    public ReadOnlyMemory<byte> ToDto(ComputeJob domain)
     {
-        throw new NotImplementedException();
-    }
-
-    public ReadOnlyMemory<byte> ToDto(ComputePayload domain)
-    {
-        var alg = domain.Algorithm switch
-        {
-            AlgorithmType.BestRoute => "best_route",
-            AlgorithmType.ClosestRoutes => "closest_routes",
-            _ => throw new ArgumentOutOfRangeException()
-        };
         var msg = new ComputeMessage
         {
-            JobId = domain.Id.ToString(),
-            Algorithm = alg,
-            CreatedAt = domain.RequestedAt.Ticks,
-            RetryCount = 0
-
+            JobId       = domain.JobId.ToString(),
+            JobType     = domain.JobType == JobType.DriverRoute ? "driver_route" : "passenger_match",
+            RequestingUserId = domain.RequestingUserId.ToString(),
+            CreatedAt   = domain.CreatedAt.ToUnixTimeMilliseconds(),
+            RetryCount  = domain.RetryCount,
         };
-        switch (domain.Algorithm)
+
+        switch (domain)
         {
-            case AlgorithmType.BestRoute:
-                msg.BestRoute = new ProtoBestRouteParams
+            case DriverRouteComputeJob drj:
+                msg.DriverRoute = new DriverRouteParams
                 {
-                    Start = new Point
-                    {
-                        Lat = ((BestRouteParams)domain.Params).From.Latitude,
-                        Lon = ((BestRouteParams)domain.Params).From.Longitude
-                    },
-                    End = new Point
-                    {
-                        Lat = ((BestRouteParams)domain.Params).To.Latitude,
-                        Lon = ((BestRouteParams)domain.Params).To.Longitude
-                    },
-                    CostType = ((BestRouteParams)domain.Params).Criteria switch
-                    {
-                        _ => "distance"
-                    },
+                    Start = ToProtoPoint(drj.Payload.Start),
+                    End   = ToProtoPoint(drj.Payload.End),
                 };
                 break;
-            case AlgorithmType.ClosestRoutes:
-                msg.ClosestRoutes = new ProtoClosestRoutesParams
+
+            case PassengerMatchComputeJob pmj:
+                msg.PassengerMatch = new PassengerMatchParams
                 {
-                    Point = new Point
+                    Start = ToProtoPoint(pmj.Payload.Start),
+                    End   = ToProtoPoint(pmj.Payload.End),
+                    Constraints = new PassengerMatchConstraints
                     {
-                        Lat = ((ClosestRoutesParams)domain.Params).P.Latitude,
-                        Lon = ((ClosestRoutesParams)domain.Params).P.Longitude
+                        MaxDetourKm = pmj.Payload.Constraints.MaxDetourKm,
+                        MaxResults  = pmj.Payload.Constraints.MaxResults,
                     },
-                    K = 0, //todo
-                    RadiusMeters = ((ClosestRoutesParams)domain.Params).Radius,
                 };
                 break;
         }
+
         return msg.ToByteArray();
     }
+
+    private static ProtoPoint ToProtoPoint(GeoPoint p) => new() { Lat = p.Latitude, Lon = p.Longitude };
 }
 
-internal class ResultProtoQueueMapper : IQueueDomainMapper<ComputeResult>, IQueueDtoMapper<ComputeResult>
-{
-    public ComputeResult ToDomain(in ReadOnlyMemory<byte> payload)
-    {
-        throw new NotImplementedException();
-    }
+// ─── ComputeJobResult: Route-Calc → Trip Planner ─────────────────────────────
 
-    public ReadOnlyMemory<byte> ToDto(ComputeResult domain)
+public class ComputeResultProtoMapper : IQueueDomainMapper<ComputeJobResult>
+{
+    public ComputeJobResult ToDomain(in ReadOnlyMemory<byte> payload)
     {
-        throw new NotImplementedException();
+        var msg = ResultMessage.Parser.ParseFrom(payload.Span);
+
+        var jobId   = Guid.Parse(msg.JobId);
+        var jobType = msg.JobType == "driver_route" ? JobType.DriverRoute : JobType.PassengerMatch;
+
+        if (!msg.Success)
+            return new FailedComputeResult(jobId, jobType, msg.Error);
+
+        return msg.ResultCase switch
+        {
+            ResultMessage.ResultOneofCase.DriverRoute => new DriverRouteComputeResult(
+                jobId,
+                new DriverRouteJobResult(
+                    msg.DriverRoute.RouteGeomJson,
+                    msg.DriverRoute.EtaSeconds,
+                    msg.DriverRoute.DistanceMeters)),
+
+            ResultMessage.ResultOneofCase.PassengerMatch => new PassengerMatchComputeResult(
+                jobId,
+                new PassengerMatchJobResult(
+                    msg.PassengerMatch.Matches
+                       .Select(m => new MatchEntry(
+                           Guid.Parse(m.DriverRouteId),
+                           Guid.Parse(m.DriverId),
+                           m.EtaToPassengerSeconds,
+                           m.DetourMeters,
+                           m.Score))
+                       .ToList())),
+
+            _ => new FailedComputeResult(jobId, jobType, "unknown_result_type"),
+        };
     }
 }

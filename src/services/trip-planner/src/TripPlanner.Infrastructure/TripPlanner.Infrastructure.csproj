@@ -17,12 +17,24 @@
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
+      <PackageReference Include="Confluent.Kafka" Version="2.6.0" />
+      <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+      <PackageReference Include="Npgsql" Version="9.0.3" />
       <PackageReference Include="RabbitMQ.Client" Version="7.2.1" />
       <PackageReference Include="StackExchange.Redis" Version="2.12.14" />
     </ItemGroup>
-    
+
+    <PropertyGroup>
+      <ContainerBuild Condition="'$(ContainerBuild)' == ''">false</ContainerBuild>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <ProtoRoot Condition="'$(ContainerBuild)' == 'true'">/app/protos</ProtoRoot>
+      <ProtoRoot Condition="'$(ContainerBuild)' != 'true'">../../../../schemas</ProtoRoot>
+    </PropertyGroup>
+
     <ItemGroup>
-        <Protobuf Include="../../../../schemas/pullapp/core/v1/queue.proto" />
+      <Protobuf Include="$(ProtoRoot)/pullapp/core/v1/queue.proto" />
     </ItemGroup>
 
 </Project>

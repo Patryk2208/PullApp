@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: accounts-db
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trip-planner-db
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compute-queue
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driver-tracker-cache
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifications-db
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-bus
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
