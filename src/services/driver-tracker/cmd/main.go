@@ -5,13 +5,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"driver-tracker/internal/config"
 	"driver-tracker/internal/handler"
 	"driver-tracker/internal/health"
 	redisrepo "driver-tracker/internal/redis"
 	"driver-tracker/internal/service"
-
-	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -25,18 +25,19 @@ func main() {
 	}
 
 	repo := redisrepo.NewRepository(rdb)
-	updateService := service.NewTrackerService(repo)
-	trackerService := service.NewTrackerService(repo)
+	svc := service.NewTrackerService(repo)
 
-	positionHandler := handler.NewPostPositionHandler(updateService)
-	trackHandler := handler.NewTrackRouteHandler(trackerService)
+	positionHandler := handler.NewPostPositionHandler(svc)
+	trackRouteHandler := handler.NewTrackRouteHandler(svc)
+	// todo: trackNearbyHandler := handler.NewTrackNearbyHandler(svc)
 	healthHandler := health.NewHandler(rdb)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	r.POST("/position", positionHandler.Handle)
-	r.GET("/track/:routeId", trackHandler.Handle)
+	r.POST("/position/:routeId", positionHandler.Handle)
+	r.GET("/track/:routeId", trackRouteHandler.Handle)
+	// todo: r.GET("/track", trackNearbyHandler.Handle)
 	r.GET("/health", healthHandler.Handle)
 
 	log.Printf("driver-tracker listening on %s", cfg.HTTPAddr)

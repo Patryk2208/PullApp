@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -16,4 +17,8 @@ func NewClient(addr string) *Client {
 
 func (c *Client) Start(ctx context.Context) error {
 	return c.rdb.Ping(ctx).Err()
+}
+
+func (c *Client) TTL(ctx context.Context, key string) time.Duration {
+	return c.rdb.TTL(ctx, key).Val()
 }
