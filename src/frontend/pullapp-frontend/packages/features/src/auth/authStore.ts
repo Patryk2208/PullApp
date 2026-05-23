@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import * as Zustand from 'zustand';
 
 interface AuthState {
 	token: string | null;
@@ -6,7 +6,8 @@ interface AuthState {
 	clearToken: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+// TODO this is Infrastructure, isn't it?
+export const useAuthStore = Zustand.create<AuthState>((set) => ({
 	token: null,
 	setToken: (token) => set({ token }),
 	clearToken: () => set({ token: null }),
