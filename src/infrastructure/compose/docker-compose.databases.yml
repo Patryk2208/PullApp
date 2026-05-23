@@ -1,0 +1,76 @@
+services:
+  trip-planner-db:
+    image: postgis/postgis:17-3.5-alpine
+    container_name: trip-planner-db
+    environment:
+      POSTGRES_DB: ${TRIP_PLANNER_POSTGRES_DB}
+      POSTGRES_USER: ${TRIP_PLANNER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TRIP_PLANNER_POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - trip-planner-data:/var/lib/postgresql/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TRIP_PLANNER_POSTGRES_USER} -d ${TRIP_PLANNER_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  accounts-db:
+    image: postgres:17-alpine
+    container_name: accounts-db
+    environment:
+      POSTGRES_USER: ${ACCOUNTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ACCOUNTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ACCOUNTS_POSTGRES_DB}
+    ports:
+      - "5434:5432"
+    volumes:
+      - accounts-data:/var/lib/postgresql/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ACCOUNTS_POSTGRES_USER} -d ${ACCOUNTS_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notifications-db:
+    image: postgres:17-alpine
+    container_name: notifications-db
+    environment:
+      POSTGRES_USER: ${NOTIFICATIONS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${NOTIFICATIONS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${NOTIFICATIONS_POSTGRES_DB}
+    ports:
+      - "5435:5432"
+    volumes:
+      - notifications-data:/var/lib/postgresql/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NOTIFICATIONS_POSTGRES_USER} -d ${NOTIFICATIONS_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chat-db:
+    image: mongo:8-noble
+    container_name: chat-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${CHAT_MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${CHAT_MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${CHAT_MONGO_DB}
+    ports:
+      - "27017:27017"
+    volumes:
+      - chat-db-data:/data/db
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

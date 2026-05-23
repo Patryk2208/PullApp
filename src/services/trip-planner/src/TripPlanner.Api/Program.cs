@@ -1,7 +1,13 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using TripPlanner.Api;
+using TripPlanner.Api.Checks;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Api.BackgroundServices;
 using TripPlanner.Api.Middleware;
 using TripPlanner.Application.Features;
@@ -17,6 +23,11 @@ using TripPlanner.Infrastructure.Sse;
 using TripPlanner.Infrastructure.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile("/app/config/appsettings.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
 
 // ─── Database ─────────────────────────────────────────────────────────────────
 
@@ -126,6 +137,33 @@ builder.Services.AddScoped<PassengerStartRideHandler>();
 builder.Services.AddScoped<ConfirmPriceHandler>();
 builder.Services.AddScoped<PassengerCancelRideHandler>();
 
+// ─── Observability ────────────────────────────────────────────────────────────
+
+builder.Services.AddSingleton<TripPlannerMetrics>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
+    .AddCheck<RabbitHealthCheck>("rabbitmq", tags: ["ready"]);
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("trip-planner"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter(TripPlannerMetrics.MeterName)
+        .AddOtlpExporter());
+
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.IncludeFormattedMessage = true;
+    o.AddOtlpExporter();
+});
+
 // ─── OpenAPI ──────────────────────────────────────────────────────────────────
 
 builder.Services.AddOpenApi();
@@ -133,6 +171,8 @@ builder.Services.AddOpenApi();
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 var app = builder.Build();
+
+app.Services.GetRequiredService<TripPlannerMetrics>();
 
 app.UseMiddleware<ExceptionMiddleware>();
 

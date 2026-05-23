@@ -32,22 +32,30 @@ spec:
           protocol: TCP
         
         env:
-        - name: TRIP_PLANNER_DB_PASSWORD
+        - name: TRIPPLANNERDB__PASSWORD
           valueFrom:
             secretKeyRef:
               name: pullapp-secrets
               key: TRIP_PLANNER_DB_PASSWORD
-        - name: CACHE_PASSWORD
+        - name: CACHE__PASSWORD
           valueFrom:
             secretKeyRef:
               name: pullapp-secrets
-              key: CACHE_PASSWORD
-        - name: COMPUTE_QUEUE_PASSWORD
+              key: TRIP_CACHE_PASSWORD
+        - name: COMPUTEQUEUE__PASSWORD
           valueFrom:
             secretKeyRef:
               name: pullapp-secrets
               key: COMPUTE_QUEUE_PASSWORD
-
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+        - name: OTEL_SERVICE_NAME
+          value: trip-planner
+        - name: OTEL_LOG_LEVEL
+          value: "debug"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "grpc"
+         
         livenessProbe:
           httpGet:
             path: /health/live

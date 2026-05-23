@@ -1,0 +1,13 @@
+networks:
+  pullapp-network:
+    driver: bridge
+
+volumes:
+  trip-planner-data:
+  accounts-data:
+  notifications-data:
+  trip-cache-data:
+  driver-tracker-cache-data:
+  rabbitmq-data:
+  event-bus-data:
+  chat-db-data:

@@ -1,0 +1,34 @@
+services:
+  trip-cache:
+    image: redis:8-alpine
+    container_name: trip-cache
+    command: redis-server --appendonly yes --requirepass ${TRIP_REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - ../cache/redis.conf:/usr/local/etc/redis/redis.conf
+      - trip-cache-data:/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${TRIP_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  driver-tracker-cache:
+    image: redis:8-alpine
+    container_name: driver-tracker-cache
+    command: redis-server --appendonly yes --requirepass ${DRIVER_TRACKER_REDIS_PASSWORD}
+    ports:
+      - "6380:6379"
+    volumes:
+      - ../cache/redis.conf:/usr/local/etc/redis/redis.conf
+      - driver-tracker-cache-data:/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${DRIVER_TRACKER_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
