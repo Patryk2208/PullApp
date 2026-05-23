@@ -65,6 +65,59 @@ public sealed class TripPlannerMetrics : IDisposable
         _routeRequestsCancelled= _meter.CreateCounter<long>("trip_planner.requests.cancelled",      "requests");
         _routesSelected        = _meter.CreateCounter<long>("trip_planner.requests.route_selected", "requests");
         _computeResultsReceived= _meter.CreateCounter<long>("trip_planner.compute.results",         "results");
+
+        Initialize();
+    }
+
+    private void Initialize()
+    {
+        foreach (var status in new[] { "queued", "failed_validation", "no_area_coverage" })
+            _matchingRequests.Add(0, new KeyValuePair<string, object?>("status", status));
+
+        foreach (var result in new[] { "matched", "no_drivers", "timeout", "error" })
+        {
+            _matchingResults.Add(0, new KeyValuePair<string, object?>("result", result));
+            _matchingQueueDuration.Record(0, new KeyValuePair<string, object?>("result", result));
+        }
+
+        _matchingNoDrivers.Add(0);
+        _acceptanceDuration.Record(0);
+        _rideActive.Add(0);
+
+        foreach (var reason in new[] { "explicit", "timeout" })
+            _driverDeclines.Add(0, new KeyValuePair<string, object?>("reason", reason));
+
+        foreach (var (from, to, reason) in new[]
+        {
+            ("pending_driver",    "searching",        "driver_declined"),
+            ("pending_driver",    "pickup",           "driver_accepted"),
+            ("pickup",            "awaiting_passenger","driver_arrived"),
+            ("awaiting_passenger","in_ride",          "driver_started"),
+            ("awaiting_passenger","in_ride",          "passenger_started"),
+            ("in_ride",           "completed",        "normal"),
+            ("in_ride",           "cancelled",        "driver_cancel"),
+            ("in_ride",           "cancelled",        "passenger_cancel"),
+            ("pre_pickup",        "cancelled",        "driver_cancel"),
+            ("pre_pickup",        "cancelled",        "passenger_cancel"),
+        })
+            _rideTransitions.Add(0,
+                new KeyValuePair<string, object?>("from_state", from),
+                new KeyValuePair<string, object?>("to_state",   to),
+                new KeyValuePair<string, object?>("reason",     reason));
+
+        foreach (var by in new[] { "driver", "passenger" })
+            _ridesCancelled.Add(0, new KeyValuePair<string, object?>("cancelled_by", by));
+
+        _routesRegistered.Add(0);
+        _routesModified.Add(0);
+        _routesCancelled.Add(0);
+        _matchConfirmed.Add(0);
+        _matchDeclined.Add(0);
+        _ridesCompleted.Add(0);
+        _routeRequestsCreated.Add(0);
+        _routeRequestsCancelled.Add(0);
+        _routesSelected.Add(0);
+        _computeResultsReceived.Add(0);
     }
 
     // ─── Existing ─────────────────────────────────────────────────────────────

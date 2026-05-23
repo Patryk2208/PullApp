@@ -21,6 +21,13 @@ public sealed class AccountsMetrics : IDisposable
         _loginFailed        = _meter.CreateCounter<long>("accounts.login.failed",         "attempts");
         _validationFailures = _meter.CreateCounter<long>("accounts.validation.failures",  "failures");
         _loginDuration      = _meter.CreateHistogram<double>("accounts.login_duration_seconds", "s");
+
+        _registrations.Add(0);
+        _loginSuccess.Add(0);
+        _loginFailed.Add(0);
+        _validationFailures.Add(0);
+        foreach (var result in new[] { "success", "failed" })
+            _loginDuration.Record(0, new KeyValuePair<string, object?>("result", result));
     }
 
     public void UserRegistered()      => _registrations.Add(1);

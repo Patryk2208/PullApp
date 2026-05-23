@@ -1,18 +1,17 @@
-name: CI pipeline for accounts service
+name: CI — accounts
 
-# We only want to run this CI pipeline for changes to the accounts service
 on:
   push:
-    branches: [ master ]
+    branches: [master]
     paths:
       - 'src/services/accounts/**'
       - '.github/workflows/accounts-ci.yaml'
   pull_request:
     paths:
-      - src/accounts/**'
+      - 'src/services/accounts/**'
+      - '.github/workflows/accounts-ci.yaml'
 
 env:
-  BUILD_ID: ${{ github.run_id }}-${{ github.run_number }}
   COMMIT_SHA: ${{ github.sha }}
 
 jobs:
@@ -21,54 +20,59 @@ jobs:
     defaults:
       run:
         working-directory: src/services/accounts
+
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0
+          dotnet-version: '10.0.x'
 
-      - name: Cache packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
-          restore-keys: ${{ runner.os }}-nuget-
-
-      - name: Restore
-        run: dotnet restore
-
-      - name: Run unit tests
-        run: |
-            dotnet test \
-            --configuration Release
-
-  dockerize:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/services/accounts
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0
-
-      - name: Cache packages
-        uses: actions/cache@v5
+      - name: Cache NuGet
+        uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
-          restore-keys: ${{ runner.os }}-nuget-
+          key: ${{ runner.os }}-nuget-accounts-${{ hashFiles('src/services/accounts/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-accounts-
 
       - name: Restore
         run: dotnet restore
 
       - name: Build
         run: dotnet build --no-restore --configuration Release
-      
+
+      - name: Test
+        run: |
+          dotnet test \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=unit-test-results.trx" \
+            --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accounts-test-results
+          path: src/services/accounts/TestResults/*.trx
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accounts-coverage
+          path: src/services/accounts/TestResults/**/coverage.cobertura.xml
+
+  dockerize:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    defaults:
+      run:
+        working-directory: src/services/accounts
+
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Docker build
-        run: docker build -f Dockerfile -t accounts:${{ env.COMMIT_SHA }} .
+        run: docker build -f Dockerfile -t pullapp/accounts:${{ env.COMMIT_SHA }} .

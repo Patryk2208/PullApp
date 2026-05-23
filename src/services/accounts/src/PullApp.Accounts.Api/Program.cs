@@ -42,6 +42,8 @@ builder.Logging.AddOpenTelemetry(o =>
 
 var app = builder.Build();
 
+app.Services.GetRequiredService<AccountsMetrics>();
+
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

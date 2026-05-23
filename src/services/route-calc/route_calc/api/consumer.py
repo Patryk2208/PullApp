@@ -17,6 +17,11 @@ _jobs_processed = _meter.create_counter("route_calc.jobs.processed", description
 _jobs_failed    = _meter.create_counter("route_calc.jobs.failed",     description="Total compute jobs failed")
 _job_duration   = _meter.create_histogram("route_calc.duration.seconds", unit="s", description="Compute job duration")
 
+_jobs_processed.add(0)
+_jobs_failed.add(0)
+for _r in ("success", "error"):
+    _job_duration.record(0, {"job_type": "passenger_match", "result": _r})
+
 
 class Consumer:
     def __init__(self, config: dict, logger: logging.Logger, queue: Optional[ComputeQueue], alg_orchestrator: Optional[AlgorithmsOrchestrator]):

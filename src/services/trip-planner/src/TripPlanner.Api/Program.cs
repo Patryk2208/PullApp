@@ -172,6 +172,8 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+app.Services.GetRequiredService<TripPlannerMetrics>();
+
 app.UseMiddleware<ExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())

@@ -43,17 +43,22 @@ patches:
     kind: Service
     name: gateway
     version: v1
+- path: patches/image-pull-policy.yaml
+  target:
+    group: apps
+    kind: Deployment
+    version: v1
 
 images:
 - name: accounts
   newName: pullapp/accounts
-  newTag: 8143fd6s
+  newTag: latest
 - name: gateway
   newName: pullapp/gateway
-  newTag: 8143fd6s
+  newTag: latest
 - name: route-calc
   newName: pullapp/route-calc
-  newTag: 8143fd6s
+  newTag: latest
 - name: trip-planner
   newName: pullapp/trip-planner
-  newTag: e21b31bs
+  newTag: latest
