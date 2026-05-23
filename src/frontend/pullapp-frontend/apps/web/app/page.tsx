@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@repo/ui";
+import { Button } from "@pullapp/ui";
 
 import styles from "../styles/index.module.css";
 
@@ -12,3 +12,15 @@ export default function Web() {
     </div>
   );
 }
+
+// TODO
+// import { useLogin } from '@pullapp/features';
+// import { AuthRepository } from '@pullapp/api-client';
+//
+// const repository = new AuthRepository();
+//
+// export default function LoginScreen() {
+// 	const { login, isLoading, error } = useLogin(repository);
+//	
+// 	// ... formularz wywołuje login({ email, password })
+// }

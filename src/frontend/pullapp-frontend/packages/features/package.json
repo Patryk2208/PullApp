@@ -5,7 +5,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
+    "@pullapp/api-client": "workspace:*",
     "@pullapp/domain": "workspace:*",
-    "@pullapp/api-client": "workspace:*"
+    "zustand": "^5.0.13"
   }
 }

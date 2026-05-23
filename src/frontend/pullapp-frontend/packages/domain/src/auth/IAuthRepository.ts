@@ -1,3 +1,4 @@
+import { Result } from "../shared/result";
 import {
     LoginUserCommand,
     RegisterUserCommand,
@@ -6,6 +7,6 @@ import {
 } from './models';
 
 export interface IAuthRepository {
-    login(credentials: LoginUserCommand): Promise<LoginUserResponse>;
-    register(credentials: RegisterUserCommand): Promise<RegisterUserResponse>;
+    login(credentials: LoginUserCommand): Promise<Result<LoginUserResponse>>;
+    register(credentials: RegisterUserCommand): Promise<Result<RegisterUserResponse>>;
 }
