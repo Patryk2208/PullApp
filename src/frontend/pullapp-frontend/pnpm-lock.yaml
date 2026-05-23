@@ -20,7 +20,16 @@ importers:
 
   apps/native:
     dependencies:
-      '@repo/ui':
+      '@pullapp/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@pullapp/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@pullapp/features':
+        specifier: workspace:*
+        version: link:../../packages/features
+      '@pullapp/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       expo:
@@ -69,7 +78,16 @@ importers:
 
   apps/web:
     dependencies:
-      '@repo/ui':
+      '@pullapp/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@pullapp/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@pullapp/features':
+        specifier: workspace:*
+        version: link:../../packages/features
+      '@pullapp/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -85,7 +103,7 @@ importers:
         specifier: ^0.21.0
         version: 0.21.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
     devDependencies:
-      '@repo/typescript-config':
+      '@pullapp/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/minimatch':
@@ -113,6 +131,23 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
+  packages/api-client:
+    dependencies:
+      '@pullapp/domain':
+        specifier: workspace:*
+        version: link:../domain
+
+  packages/domain: {}
+
+  packages/features:
+    dependencies:
+      '@pullapp/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@pullapp/domain':
+        specifier: workspace:*
+        version: link:../domain
+
   packages/typescript-config: {}
 
   packages/ui:
@@ -124,7 +159,7 @@ importers:
         specifier: 0.83.2
         version: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.15)(react@19.2.0)
     devDependencies:
-      '@repo/typescript-config':
+      '@pullapp/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/minimatch':
