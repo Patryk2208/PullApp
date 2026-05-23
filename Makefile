@@ -1,7 +1,10 @@
+SHELL      := /bin/bash
+export BASH_ENV :=
+
 REPO_ROOT  := $(shell git rev-parse --show-toplevel)
 COMMIT     := $(shell git rev-parse --short HEAD)
 
-SERVICES   := accounts gateway route-calc trip-planner
+SERVICES   := accounts gateway route-calc trip-planner driver-tracker
 NAMESPACE  := pullapp
 OBS_NS     := monitoring
 
@@ -49,16 +52,12 @@ help:
 	@printf "  make obs-status         Show obs pod status\n"
 	@printf "\n$(CYAN)Build (Docker images)$(RESET)\n"
 	@printf "  make build              Build all service images\n"
-	@printf "  make build-accounts     Build a single service image\n"
-	@printf "  make build-gateway\n"
-	@printf "  make build-route-calc\n"
-	@printf "  make build-trip-planner\n"
+	@printf "  make build-<svc>        Build a single service image\n"
+	@for svc in $(SERVICES); do printf "                          build-$$svc\n"; done
 	@printf "\n$(CYAN)CI — build + load into minikube$(RESET)\n"
 	@printf "  make ci                 Build all, load into minikube, update kustomize tags\n"
-	@printf "  make ci-accounts        CI for a single service\n"
-	@printf "  make ci-gateway\n"
-	@printf "  make ci-route-calc\n"
-	@printf "  make ci-trip-planner\n"
+	@printf "  make ci-<svc>           CI for a single service\n"
+	@for svc in $(SERVICES); do printf "                          ci-$$svc\n"; done
 	@printf "\n$(CYAN)CD — deploy to cluster$(RESET)\n"
 	@printf "  make cd                 kubectl apply kustomize overlay + wait for rollouts\n"
 	@printf "  make reset              Delete + re-apply all k8s resources (after infra changes)\n"
@@ -74,10 +73,8 @@ help:
 	@printf "  make infra-messaging    Start messaging only\n"
 	@printf "\n$(CYAN)Rollout management$(RESET)\n"
 	@printf "  make restart            Rolling restart all deployments\n"
-	@printf "  make restart-accounts   Rolling restart a single service\n"
-	@printf "  make restart-gateway\n"
-	@printf "  make restart-route-calc\n"
-	@printf "  make restart-trip-planner\n"
+	@printf "  make restart-<svc>      Rolling restart a single service\n"
+	@for svc in $(SERVICES); do printf "                          restart-$$svc\n"; done
 	@printf "\n$(CYAN)Port-forwards$(RESET)\n"
 	@printf "  make pf-gateway         :8080 → gateway\n"
 	@printf "  make pf-grafana         :3000 → Grafana\n"
@@ -90,10 +87,8 @@ help:
 	@printf "\n$(CYAN)Visibility$(RESET)\n"
 	@printf "  make status             Cluster + pod + compose summary\n"
 	@printf "  make logs               Follow logs for all pullapp pods\n"
-	@printf "  make logs-accounts      Follow logs for a single service\n"
-	@printf "  make logs-gateway\n"
-	@printf "  make logs-route-calc\n"
-	@printf "  make logs-trip-planner\n"
+	@printf "  make logs-<svc>         Follow logs for a single service\n"
+	@for svc in $(SERVICES); do printf "                          logs-$$svc\n"; done
 
 # ── Prereq checks ─────────────────────────────────────────────────────────────
 
