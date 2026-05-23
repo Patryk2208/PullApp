@@ -1,65 +1,144 @@
-using TripPlanner.Application;
-using TripPlanner.Application.Features.Routes;
-using TripPlanner.Application.Features.Validation;
-using TripPlanner.Application.Features.Validation.Validators;
-using TripPlanner.Application.RouteCalculator;
-using TripPlanner.Domain;
-using TripPlanner.Infrastructure;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using RabbitMQ.Client;
+using TripPlanner.Api;
+using TripPlanner.Api.BackgroundServices;
+using TripPlanner.Api.Middleware;
+using TripPlanner.Application.Features;
+using TripPlanner.Application.Features.Driver;
+using TripPlanner.Application.Features.Passenger;
+using TripPlanner.Application.Repositories;
+using TripPlanner.Application.Services;
+using TripPlanner.Domain.Compute;
 using TripPlanner.Infrastructure.Fakes;
+using TripPlanner.Infrastructure.Kafka;
+using TripPlanner.Infrastructure.Postgres;
+using TripPlanner.Infrastructure.Sse;
+using TripPlanner.Infrastructure.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DI
-builder.Services.AddSingleton<IRouteJobRepository, InMemoryRouteJobRepository>();
+// ─── Database ─────────────────────────────────────────────────────────────────
 
-// Fake accounts service
+var dbConfig = builder.Configuration.GetSection("TripPlannerDb");
+builder.Services.AddOptions<TripPlannerDbOptions>().Bind(dbConfig);
+
+builder.Services.AddSingleton(sp =>
+{
+    var opts =  sp.GetRequiredService<IOptions<TripPlannerDbOptions>>();
+    return new NpgsqlDataSourceBuilder(opts.Value.BuildConnectionString()).Build();
+});
+
+// init services
+builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddSingleton<ServiceAreaSeeder>();
+
+builder.Services.AddHostedService<MultipleHostedServiceWrapper>(sp =>
+    new MultipleHostedServiceWrapper([
+        sp.GetRequiredService<DatabaseInitializer>(), sp.GetRequiredService<ServiceAreaSeeder>()
+    ]));
+
+builder.Services.AddScoped<DbSession>();
+builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
+
+// ─── Repositories ─────────────────────────────────────────────────────────────
+
+builder.Services.AddScoped<IRouteJobRepository,    PostgresRouteJobRepository>();
+builder.Services.AddScoped<IDriverRouteRepository, PostgresDriverRouteRepository>();
+builder.Services.AddScoped<IRideRequestRepository, PostgresRideRequestRepository>();
+builder.Services.AddScoped<IRideRepository,        PostgresRideRepository>();
+
+// ─── Geo service ──────────────────────────────────────────────────────────────
+
+builder.Services.AddScoped<IGeoService, PostgisGeoService>();
+
+// ─── Service fakes (swap with real impls in prod via config/env) ──────────────
+
 builder.Services.AddSingleton<IAccountsService, FakeAccountsService>();
-// Fake geo service
-builder.Services.AddSingleton<IGeoService, FakeGeoService>();
-// Fake route calculator
-builder.Services.AddSingleton<IRouteCalculator, FakeRouteCalculator>();
+builder.Services.AddSingleton<IChatService,      FakeChatService>();
+builder.Services.AddSingleton<IPaymentsService,  FakePaymentsService>();
 
-builder.Services.AddScoped<CreateRouteHandler>();
-builder.Services.AddScoped<GetRouteHandler>();
+// ─── Cache ──────────────────────────────────────────────────────────────────
 
-// Validators
-builder.Services.AddScoped<IValidator<CreateRouteCommand>, CreateRouteInputValidator>();
-builder.Services.AddScoped<IValidator<CreateRouteCommand>, AccountsValidator>();
-builder.Services.AddScoped<IValidator<CreateRouteCommand>, GeoValidator>();
+// builder.Services.AddScoped<IResultRepository, RedisResultRepository>();
 
-builder.Services.AddScoped<ValidatorChain<CreateRouteCommand>>();
+// ─── SSE hub ──────────────────────────────────────────────────────────────────
+
+builder.Services.AddSingleton<InMemorySseHub>();
+builder.Services.AddSingleton<ISseHub>(sp => sp.GetRequiredService<InMemorySseHub>());
+
+// ─── Queue ─────────────────────────────────────────────────────────
+var config = builder.Configuration.GetSection("ComputeQueue");
+builder.Services.AddOptions<RabbitMqOptions>().Bind(config);
+builder.Services.AddSingleton<IConnectionFactory>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+    return new ConnectionFactory
+    {
+        HostName    = options.Host,
+        Port        = options.Port,
+        UserName    = options.Username,
+        Password    = options.Password,
+        VirtualHost = options.Vhost,
+    };
+});
+builder.Services.AddSingleton<RabbitConnection>();
+
+builder.Services.AddSingleton<IQueueDtoMapper<ComputeJob>, ComputeJobProtoMapper>();
+builder.Services.AddSingleton<IQueueDomainMapper<ComputeJobResult>, ComputeResultProtoMapper>();
+
+builder.Services.AddScoped<IComputePublisher<ComputeJob>, RabbitComputePublisher<ComputeJob>>();
+
+builder.Services.AddSingleton<IHandler<ComputeJobResult>, RouteComputedHandler>();
+builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
+builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+    new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
+
+// ─── Kafka ────────────────────────────────────────────────────────────────────
+
+var kafkaSection = builder.Configuration.GetSection("EventBus");
+builder.Services.AddOptions<KafkaOptions>().Bind(kafkaSection);
+
+builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
+
+// builder.Services.AddSingleton<IHandler<string>, KafkaEventDispatcher>();
+// builder.Services.AddSingleton<KafkaConsumerService<string>>();
+// builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+//     new HostedServiceWrapper(sp.GetRequiredService<KafkaConsumerService<string>>()));
+
+// ─── Application handlers — Driver ───────────────────────────────────────────
+
+builder.Services.AddScoped<RegisterRouteHandler>();
+builder.Services.AddScoped<ModifyRouteHandler>();
+builder.Services.AddScoped<CancelRouteHandler>();
+builder.Services.AddScoped<ConfirmationHandler>();
+builder.Services.AddScoped<DriverArrivedHandler>();
+builder.Services.AddScoped<DriverStartRideHandler>();
+builder.Services.AddScoped<CompleteRideHandler>();
+builder.Services.AddScoped<DriverCancelRideHandler>();
+
+// ─── Application handlers — Passenger ────────────────────────────────────────
+
+builder.Services.AddScoped<CreateRouteRequestHandler>();
+builder.Services.AddScoped<SelectRouteHandler>();
+builder.Services.AddScoped<CancelRouteRequestHandler>();
+builder.Services.AddScoped<PassengerStartRideHandler>();
+builder.Services.AddScoped<ConfirmPriceHandler>();
+builder.Services.AddScoped<PassengerCancelRideHandler>();
+
+// ─── OpenAPI ──────────────────────────────────────────────────────────────────
+
+builder.Services.AddOpenApi();
+
+// ─── Build ────────────────────────────────────────────────────────────────────
 
 var app = builder.Build();
 
-// POST
-app.MapPost("/api/route", async (
-    CreateRouteCommand cmd,
-    CreateRouteHandler handler,
-    CancellationToken ct) =>
-{
-    try
-    {
-        var jobId = await handler.Handle(cmd, ct);
+app.UseMiddleware<ExceptionMiddleware>();
 
-        return Results.Accepted($"/api/route/{jobId}", new {jobId});
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new
-        {
-            error = ex.Message
-        });
-    }
-});
+if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
 
-// GET
-app.MapGet("/api/route/{id}", async (
-    Guid id,
-    GetRouteHandler handler,
-    CancellationToken ct) =>
-{
-    var result = await handler.Handle(new GetRouteQuery { JobId = id }, ct);
-    return Results.Ok(result);
-});
+app.MapEndpoints();
 
 app.Run();

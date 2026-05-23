@@ -1,22 +1,23 @@
-using System.Text.Json;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using TripPlanner.Application.RouteCalculator;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactory factory, 
-    IQueueDomainMapper<T> mapper, RabbitMqOptions options) : IQueueSubscriber<T>
+public class RabbitSubscriber<T>(IHandler<T> handler, IConnectionFactory factory, 
+    IQueueDomainMapper<T> mapper, IOptions<RabbitMqOptions> options) : ISubscriber
 {
-    private IConnection? _connection;
     private IChannel? _channel;
+    
+    private readonly RabbitMqOptions _options = options.Value;
 
     public async Task StartAsync(CancellationToken ct)
     {
-        _connection = await factory.CreateConnectionAsync(ct);
-        _channel = await _connection.CreateChannelAsync(null, ct);
+        var connection = await factory.CreateConnectionAsync(ct);
+        _channel = await connection.CreateChannelAsync(new CreateChannelOptions(false, false), ct);
         var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (model, ea) =>
+        consumer.ReceivedAsync += async (_, ea) =>
         {
             var domainModel = mapper.ToDomain(ea.Body);
             try
@@ -40,12 +41,14 @@ internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactor
             }
         };
         
-        await _channel.BasicConsumeAsync(queue: options.ResultQueueName, false, consumer, ct);
+        await _channel.QueueDeclareAsync(_options.Results, true, false, false, cancellationToken: ct);
+        await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: (ushort)_options.PrefetchCount, global: false, ct);
+        await _channel.BasicConsumeAsync(queue: _options.Results, false, consumer, ct);
     }
 
-    public void Dispose()
+    public Task StopAsync(CancellationToken ct)
     {
         _channel?.Dispose();
-        _connection?.Dispose();
+        return Task.CompletedTask;
     }
 }
