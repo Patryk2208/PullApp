@@ -96,6 +96,8 @@ services:
     networks:
       - pullapp-network
     command: pytest tests/rabbitmq_integration_test.py -v
+    profiles:
+      - tests
 
 networks:
   pullapp-network:
