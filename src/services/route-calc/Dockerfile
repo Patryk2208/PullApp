@@ -6,7 +6,12 @@ ENV POETRY_VERSION=2.1.4
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl build-essential cmake && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    cmake \
+    libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./

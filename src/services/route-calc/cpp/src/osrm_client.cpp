@@ -44,8 +44,8 @@ double extract_json_number(const std::string& json, const std::string& key) {
 }
 
 // Extract waypoints from OSRM geometry
-std::vector<osrm::Point> parse_geometry(const std::string& json) {
-    std::vector<osrm::Point> points;
+std::vector<Point> parse_geometry(const std::string& json) {
+    std::vector<Point> points;
     size_t coords_start = json.find("\"coordinates\"");
     if (coords_start == std::string::npos) return points;
     size_t array_start = json.find("[", coords_start);
@@ -225,49 +225,3 @@ std::vector<ClosestRouteInfo> get_closest_routes(const Point& point, int num_rou
 
 }  // namespace osrm
 
-#else  // OSRM_CURL_DISABLED - Mock implementation fallback
-
-namespace osrm {
-
-RouteResponse get_best_route(const Point& start, const Point& end, const std::string& osrm_url) {
-    RouteResponse response;
-    response.success = true;
-    response.waypoints = {start, end};
-    response.distance_meters = 50000.0;
-    response.duration_seconds = 1800.0;
-    response.error_message = "Mock OSRM (libcurl not available)";
-    return response;
-}
-
-std::vector<RouteResponse> get_alternative_routes(const Point& start, const Point& end, int num_alternatives, const std::string& osrm_url) {
-    std::vector<RouteResponse> routes;
-    for (int i = 0; i < num_alternatives; ++i) {
-        RouteResponse route;
-        route.success = true;
-        route.waypoints = {start, end};
-        route.distance_meters = 50000.0 + (i + 1) * 5000.0;
-        route.duration_seconds = 1800.0 + (i + 1) * 300.0;
-        route.error_message = "Mock OSRM (libcurl not available)";
-        routes.push_back(route);
-    }
-    return routes;
-}
-
-std::vector<ClosestRouteInfo> get_closest_routes(const Point& point, int num_routes, const std::string& osrm_url) {
-    std::vector<ClosestRouteInfo> result;
-    for (int i = 0; i < num_routes; ++i) {
-        ClosestRouteInfo info;
-        info.route_id = "mock_route_" + std::to_string(i);
-        info.waypoints = {point, {point.lat + 0.01, point.lon + 0.01}};
-        info.distance_to_point_meters = 1000.0 * (i + 1);
-        info.access_point = point;
-        info.total_distance_meters = 50000.0;
-        info.total_duration_seconds = 1800.0;
-        result.push_back(info);
-    }
-    return result;
-}
-
-}  // namespace osrm
-
-#endif  // OSRM_CURL_DISABLED
