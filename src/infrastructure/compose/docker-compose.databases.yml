@@ -74,3 +74,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  route-calc-tests:
+    build:
+      context: ../services/route-calc
+      dockerfile: Dockerfile.test
+    container_name: route-calc-tests
+    depends_on:
+      compute-queue:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: compute-queue
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - ../services/route-calc:/app
+    networks:
+      - pullapp-network
+    command: pytest tests/rabbitmq_integration_test.py -v
+
+networks:
+  pullapp-network:
+    driver: bridge
+
+volumes:
+  trip-planner-data:
+  accounts-data:
+  redis-data:
+  rabbitmq-data:
