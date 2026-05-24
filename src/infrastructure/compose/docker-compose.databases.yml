@@ -75,6 +75,50 @@ services:
       timeout: 5s
       retries: 5
 
+  queue-setup:
+    build:
+      context: ../services/route-calc
+      dockerfile: Dockerfile.test
+    container_name: queue-setup
+    depends_on:
+      compute-queue:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: compute-queue
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    networks:
+      - pullapp-network
+    command: python tests/purge_queues.py
+    profiles:
+      - e2e
+
+  route-calc:
+    build:
+      context: ../services/route-calc
+      dockerfile: Dockerfile
+    container_name: route-calc
+    depends_on:
+      compute-queue:
+        condition: service_healthy
+      queue-setup:
+        condition: service_completed_successfully
+    environment:
+      COMPUTE_QUEUE_PASSWORD: ${RABBITMQ_PASS}
+      ROUTE_CALC_SLOW_ALGORITHM_SECONDS: "0"
+      ROUTE_CALC_MOCK_FAILURE_PROBABILITY: "0"
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "from route_calc.algorithms import distance_km, Point; distance_km(Point(0,0), Point(0,1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    profiles:
+      - e2e
+
   route-calc-tests:
     build:
       context: ../services/route-calc
@@ -95,6 +139,29 @@ services:
     command: pytest tests/rabbitmq_integration_test.py -v
     profiles:
       - tests
+
+  route-calc-e2e-tests:
+    build:
+      context: ../services/route-calc
+      dockerfile: Dockerfile.test
+    container_name: route-calc-e2e-tests
+    depends_on:
+      compute-queue:
+        condition: service_healthy
+      route-calc:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: compute-queue
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - ../services/route-calc:/app
+    networks:
+      - pullapp-network
+    command: pytest tests/rabbitmq_e2e_test.py -v
+    profiles:
+      - e2e
 
 networks:
   pullapp-network:

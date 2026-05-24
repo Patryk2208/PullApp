@@ -138,36 +138,10 @@ class ResultMessage:
 
         if result_field == "ride_matching":
             result = RideMatchingResult.from_proto(proto.ride_matching)
-        else:
-            result = None
-
-        return cls(
-            job_id=proto.job_id,
-            status=JobStatus.SUCCESS if proto.success else JobStatus.FAILED,
-            result=result,
-            error=proto.error or None,
-        )
-
-        if isinstance(self.result, BestRouteResult):
-            proto.best_route.CopyFrom(self.result.to_proto())
-
-        elif isinstance(self.result, ClosestRoutesResult):
-            proto.closest_routes.CopyFrom(self.result.to_proto())
-
-        return proto
-
-    @classmethod
-    def from_proto(cls, dto) -> "ResultMessage":
-        proto = ProtoResultMessage.FromString(dto)
-
-        result_field = proto.WhichOneof("result")
-
-        if result_field == "best_route":
+        elif result_field == "best_route":
             result = BestRouteResult.from_proto(proto.best_route)
-
         elif result_field == "closest_routes":
             result = ClosestRoutesResult.from_proto(proto.closest_routes)
-
         else:
             result = None
 

@@ -26,4 +26,4 @@ COPY cpp ./cpp/
 # Install package (Python models/protobuf); C++ extension built via scikit-build
 RUN poetry install --no-interaction --no-ansi
 
-CMD ["pytest", "tests/rabbitmq_integration_test.py", "-v"]
+CMD ["pytest", "tests/rabbitmq_e2e_test.py", "-v"]
