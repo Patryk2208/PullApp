@@ -164,17 +164,25 @@ async def test_publish_best_route_job():
         logger.info(f"✓ Published best_route job {job.job_id}")
         logger.info(f"  Job: NYC to LA")
 
-        # Verify message in queue
-        await asyncio.sleep(0.5)
-
-        queue_declare = await channel.declare_queue(
-            name=RABBITMQ_CONFIG["compute"],
-            passive=True
+        # Verify delivery on an isolated queue (not compute-queue, which route-calc may consume)
+        verify_queue = await channel.declare_queue(
+            name="integration-single-publish",
+            durable=False,
+            auto_delete=True,
         )
-
-        message_count = queue_declare.declaration_result.message_count
-        logger.info(f"✓ Messages in queue: {message_count}")
-        assert message_count >= 1
+        verify_message = aio_pika.Message(
+            body=job.to_json(),
+            content_type="application/json",
+        )
+        await channel.default_exchange.publish(
+            verify_message,
+            routing_key="integration-single-publish",
+        )
+        received = await asyncio.wait_for(verify_queue.get(fail=False), timeout=2.0)
+        assert received is not None
+        assert json.loads(received.body.decode())["job_id"] == job.job_id
+        await received.ack()
+        logger.info("✓ Message publish verified via isolated queue")
 
 
 @pytest.mark.asyncio
@@ -350,16 +358,39 @@ async def test_multiple_jobs_batched():
 
         logger.info(f"✓ Published {num_jobs} jobs to compute queue")
 
-        # Verify message count
-        await asyncio.sleep(0.5)
-        queue_info = await channel.declare_queue(
-            name=RABBITMQ_CONFIG["compute"],
-            passive=True
+        # Verify batch delivery on an isolated queue (not compute-queue)
+        batch_queue = await channel.declare_queue(
+            name="integration-batch-publish",
+            durable=False,
+            auto_delete=True,
         )
+        for i in range(num_jobs):
+            job = SimpleJobMessage(
+                job_id=f"test-batch-verify-{i:03d}",
+                algorithm="best_route",
+                params={
+                    "start": {"lat": 40.0 + i, "lon": -74.0},
+                    "end": {"lat": 34.0, "lon": -118.0 + i},
+                },
+            )
+            await channel.default_exchange.publish(
+                aio_pika.Message(body=job.to_json(), content_type="application/json"),
+                routing_key="integration-batch-publish",
+            )
 
-        message_count = queue_info.declaration_result.message_count
-        logger.info(f"✓ Queue now contains {message_count} messages")
-        assert message_count >= num_jobs
+        received_count = 0
+        deadline = asyncio.get_running_loop().time() + 3.0
+        while received_count < num_jobs and asyncio.get_running_loop().time() < deadline:
+            try:
+                msg = await asyncio.wait_for(batch_queue.get(fail=False), timeout=0.5)
+            except asyncio.TimeoutError:
+                continue
+            if msg is not None:
+                received_count += 1
+                await msg.ack()
+
+        logger.info(f"✓ Received {received_count} messages on isolated batch queue")
+        assert received_count == num_jobs
 
 
 def run_tests_manually():

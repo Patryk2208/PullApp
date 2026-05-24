@@ -59,7 +59,15 @@ class ComputeQueue:
 
     async def _make_handler(self):
         async def handler(msg: AbstractIncomingMessage):
-            payload = ComputeMessage.from_proto(msg.body)
+            try:
+                payload = ComputeMessage.from_proto(msg.body)
+            except Exception as e:
+                self.logger.warning(
+                    "Dropping message with invalid protobuf payload: %s", e
+                )
+                await msg.nack(requeue=False)
+                return
+
             ctx = JobContext(
                 queue_msg=msg,
                 payload=payload,

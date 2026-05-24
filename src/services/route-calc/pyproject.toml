@@ -36,6 +36,9 @@ pytest-asyncio = ">=0.23,<0.24"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "e2e: end-to-end tests requiring route-calc service (docker-compose tests profile)",
+]
 
 
 [tool.poetry]

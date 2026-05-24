@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 from time import sleep
 from typing import Callable, Dict
@@ -26,8 +27,11 @@ class AlgorithmsOrchestrator:
 
     def compute(self, payload: ComputeMessage) -> ResultMessage:
         self.logger.info(f"Computing {payload.algorithm} for job {payload.job_id}")
-        slow_algorithm(0, 2)
-        if random.random() < 0.1:
+        slow_seconds = int(os.getenv("ROUTE_CALC_SLOW_ALGORITHM_SECONDS", "2"))
+        if slow_seconds > 0:
+            slow_algorithm(0, slow_seconds)
+        failure_prob = float(os.getenv("ROUTE_CALC_MOCK_FAILURE_PROBABILITY", "0.1"))
+        if failure_prob > 0 and random.random() < failure_prob:
             return ResultMessage.failure(payload.job_id, "Mocked failure", 500)
 
         algorithm_handler = self.algorithms.get(payload.algorithm)
