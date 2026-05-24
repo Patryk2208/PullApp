@@ -9,10 +9,14 @@ This test verifies:
 
 Run with: pytest tests/rabbitmq_integration_test.py -v
 Or manually: python tests/rabbitmq_integration_test.py
+
+To run inside Docker:
+  docker-compose -f src/infrastructure/docker-compose.yaml run route-calc-tests
 """
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -25,12 +29,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Test configuration
+# Test configuration - read from environment or use defaults
 RABBITMQ_CONFIG = {
-    "host": "localhost",
-    "port": 5672,
-    "username": "pullapp",
-    "password": "pullapp-secret",
+    "host": os.getenv("RABBITMQ_HOST", "localhost"),
+    "port": int(os.getenv("RABBITMQ_PORT", "5672")),
+    "username": os.getenv("RABBITMQ_USER", "pullapp"),
+    "password": os.getenv("RABBITMQ_PASS", "pullapp-secret"),
     "vhost": "/",
     "compute": "compute-queue",
     "results": "results-queue",
