@@ -16,18 +16,13 @@ RUN apt-get update && apt-get install -y \
 RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./
 
-RUN poetry install --no-interaction --no-ansi --no-root
+RUN poetry install --no-interaction --no-ansi
 
 COPY route_calc/ ./route_calc/
 COPY tests/ ./tests/
-
 COPY CMakeLists.txt .
 COPY cpp ./cpp/
 
-RUN poetry build
-
-COPY dist/ ./dist/
-
-RUN pip install --no-cache-dir dist/*.whl
+RUN pip install -e .
 
 CMD ["pytest", "tests/rabbitmq_integration_test.py", "-v"]
