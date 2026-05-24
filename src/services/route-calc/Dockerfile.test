@@ -16,13 +16,14 @@ RUN apt-get update && apt-get install -y \
 RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./
 
-RUN poetry install --no-interaction --no-ansi
+RUN poetry install --no-interaction --no-ansi --no-root
 
 COPY route_calc/ ./route_calc/
 COPY tests/ ./tests/
 COPY CMakeLists.txt .
 COPY cpp ./cpp/
 
-RUN pip install -e .
+# Install package (Python models/protobuf); C++ extension built via scikit-build
+RUN poetry install --no-interaction --no-ansi
 
 CMD ["pytest", "tests/rabbitmq_integration_test.py", "-v"]

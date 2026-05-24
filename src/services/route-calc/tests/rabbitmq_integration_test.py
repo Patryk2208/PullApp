@@ -172,7 +172,9 @@ async def test_publish_best_route_job():
             passive=True
         )
 
-        logger.info(f"✓ Messages in queue: {queue_declare.message_count}")
+        message_count = queue_declare.declaration_result.message_count
+        logger.info(f"✓ Messages in queue: {message_count}")
+        assert message_count >= 1
 
 
 @pytest.mark.asyncio
@@ -355,7 +357,9 @@ async def test_multiple_jobs_batched():
             passive=True
         )
 
-        logger.info(f"✓ Queue now contains {queue_info.message_count} messages")
+        message_count = queue_info.declaration_result.message_count
+        logger.info(f"✓ Queue now contains {message_count} messages")
+        assert message_count >= num_jobs
 
 
 def run_tests_manually():
