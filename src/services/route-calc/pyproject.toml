@@ -5,11 +5,11 @@ description = ""
 authors = [
     {name = "Patryk Pol"}
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.15"
 
 
 [tool.poetry.dependencies]
-python = ">=3.13,<=3.14"
+python = ">=3.13,<3.15"
 
 # validation
 pydantic = ">=2.12.5,<2.13"
