@@ -5,6 +5,8 @@ resources:
 - ../../base
 - state.yaml
 
+# TODO: replace secrets/firebase.json with a real Firebase service account JSON before testing push notifications
+# (Firebase Console → Project Settings → Service Accounts → Generate new private key)
 secretGenerator:
 - behavior: replace
   envs:
@@ -12,12 +14,10 @@ secretGenerator:
   name: pullapp-secrets
   options:
     disableNameSuffixHash: true
-# TODO: replace secrets/firebase.json with a real Firebase service account JSON before testing push notifications
-# (Firebase Console → Project Settings → Service Accounts → Generate new private key)
 - behavior: replace
-  name: firebase-credentials
   files:
   - firebase.json=secrets/firebase.json
+  name: firebase-credentials
   options:
     disableNameSuffixHash: true
   

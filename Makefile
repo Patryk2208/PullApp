@@ -381,7 +381,11 @@ pf-rabbit:
 
 # ── Status + logs ─────────────────────────────────────────────────────────────
 
-.PHONY: status logs $(addprefix logs-,$(SERVICES))
+.PHONY: status logs \
+	logs-accounts logs-gateway logs-trip-planner logs-route-calc \
+	logs-driver-tracker logs-notifications \
+	env-accounts env-gateway env-trip-planner env-route-calc \
+	env-driver-tracker env-notifications
 
 status: _check-kubectl
 	@printf "$(BOLD)=== Cluster ===$(RESET)\n"

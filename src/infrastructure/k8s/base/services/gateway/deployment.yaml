@@ -61,5 +61,15 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-      
+
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+
+      volumes:
+      - name: config
+        configMap:
+          name: gateway-config
+
       terminationGracePeriodSeconds: 15

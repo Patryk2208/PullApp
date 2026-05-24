@@ -45,12 +45,18 @@ configMapGenerator:
 - name: route-calc-config
   files:
   - services/route-calc/config.json
+- name: gateway-config
+  files:
+  - services/gateway/appsettings.json
 
 secretGenerator:
 - name: pullapp-secrets
   literals:
   - TRIP_PLANNER_DB_PASSWORD=PLACEHOLDER
   - ACCOUNTS_DB_PASSWORD=PLACEHOLDER
+  - ACCOUNTS_JWT_SECRET=PLACEHOLDER
+  - ACCOUNTS_JWT_ISSUER=PLACEHOLDER
+  - ACCOUNTS_JWT_AUDIENCE=PLACEHOLDER
   - CACHE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_SCALING_URL=PLACEHOLDER

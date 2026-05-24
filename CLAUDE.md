@@ -10,8 +10,12 @@ PullApp is a ride-sharing platform built as a monorepo of microservices. The ser
 - **trip-planner** — .NET 10, ride orchestration and state, owns PostGIS DB
 - **route-calc** — Python 3.13 + C++20 (pybind11/OSRM), compute-heavy matching engine, KEDA-autoscaled
 - **gateway** — .NET 10, API gateway (YARP), stateless
+- **notifications** — Go, push notifications via Firebase, owns its PostgreSQL DB, consumes from Kafka
+- **driver-tracker** — Go, real-time driver location tracking, owns its Redis instance
 
-Services not yet implemented: chat (Go), notifications (Go), payments (.NET), tile-server (Node.js/TileServer GL), driver-tracker (Go).
+Services not yet implemented: chat (Go), payments (.NET), tile-server (Node.js/TileServer GL).
+
+Frontend: React app at `src/frontend/pullapp-frontend/`.
 
 ## Commands
 
@@ -52,24 +56,56 @@ poetry run pytest tests/autoscaling_test.py::test_name
 
 ### Local full-stack (Kubernetes via minikube)
 
-Run from `src/infrastructure`:
+Run from the repo root using the `Makefile`:
 
 ```bash
-./scripts/run-local.sh        # CI (act) + build images + load into minikube + deploy
-./scripts/local-ci.sh         # CI only (runs GitHub Actions locally via act)
-./scripts/local-cd.sh         # Deploy to minikube only
+make start       # start minikube + install observability stack (first-time only)
+make run         # build all images + load into minikube + deploy (idempotent)
 
-# Access the stack after deploy
-kubectl port-forward service/gateway 8080:80 -n pullapp
+make ci          # rebuild all service images and load into minikube
+make cd          # deploy (kubectl apply + rollout wait)
+make ci-gateway  # rebuild a single service image
+make restart     # rolling restart all deployments (no rebuild)
+
+make pf-gateway  # port-forward gateway → http://localhost:8080
+make help        # full target list
 ```
 
-Prerequisites: `act`, `minikube`, `kubectl`, `kustomize`, `docker`.
+Prerequisites: `act`, `minikube`, `kubectl`, `kustomize`, `helm`, `docker`.
 
-### Infrastructure (docker-compose for local dependencies)
+### Infrastructure (compose — backing services only)
 
 ```bash
-docker compose -f src/infrastructure/docker-compose.yaml up -d
+make infra           # start all backing services (db + cache + messaging)
+make infra-db        # databases only
+make infra-cache     # Redis only
+make infra-messaging # RabbitMQ + Kafka only
+make infra-down      # stop containers
+make infra-clean     # stop + delete volumes (destructive)
 ```
+
+Compose files live in `src/infrastructure/compose/` (split by concern: databases, cache, messaging).
+
+### E2E tests (cluster-level)
+
+Run from `src/tests/e2e` against a live cluster (gateway must be reachable):
+
+```bash
+# Setup
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run all tests
+pytest
+
+# Run only full-cluster flow tests
+pytest -m cluster
+
+# Run a specific flow
+pytest flows/test_full_ride_flow.py
+```
+
+Requires `BASE_URL` env var pointing at the gateway (default: `http://localhost:8080`). Tests tagged `requires_route_calc` need route-calc running and consuming from RabbitMQ.
 
 ## Architecture
 

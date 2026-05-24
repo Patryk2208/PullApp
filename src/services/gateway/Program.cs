@@ -10,6 +10,10 @@ using Yarp.ReverseProxy.Model;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile("/app/config/appsettings.json", optional: true, reloadOnChange: true);
+
 builder.Services
     .AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
@@ -69,4 +73,5 @@ app.Use(async (ctx, next) =>
 });
 
 app.MapReverseProxy();
+
 app.Run();

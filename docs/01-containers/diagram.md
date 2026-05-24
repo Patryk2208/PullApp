@@ -10,7 +10,7 @@ graph TB
     end
 
     subgraph Gateway["API Gateway"]
-        API["<b>Entry Point</b><br/>Authentication<br/>Rate Limiting<br/>Load Balancing<br/>SSL Termination"]
+        API["<b>Entry Point</b><br/>.NET 10 · YARP<br/>Authentication<br/>Rate Limiting<br/>Load Balancing<br/>SSL Termination"]
     end
 
     subgraph Core["Core Services"]

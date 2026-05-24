@@ -20,7 +20,7 @@
 | Attribute | Description |
 |-----------|-------------|
 | **Purpose** | Compute distance matrices, score drivers, find optimal matches |
-| **Technology** | C++20 with linked OSRM library |
+| **Technology** | Python 3.13 (FastAPI + aio-pika) + C++20 (pybind11/OSRM) |
 | **Communication** | AMQP (RabbitMQ consumer), gRPC (results), HTTP (OSRM internal) |
 | **Scaling** | KEDA auto-scaling based on queue depth |
 | **Data** | Reads PostGIS (candidate drivers), reads OSM data (in-memory), writes Redis cache |

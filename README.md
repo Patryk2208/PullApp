@@ -7,6 +7,8 @@ Documentation is in [`./docs`](./docs):
 - [`02-bounded-contexts`](./docs/02-bounded-contexts) — context division and use-cases
 - [`03-flows`](./docs/03-flows) — main system flows
 - [`04-components`](./docs/04-components) — detailed service descriptions
+- [`06-observability`](./docs/06-observability) — metrics, dashboards, monitoring setup
+- [`07-cluster-e2e`](./docs/07-cluster-e2e) — end-to-end cluster test suite
 
 ---
 
