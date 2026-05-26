@@ -9,6 +9,9 @@ using TripPlanner.Api;
 using TripPlanner.Api.BackgroundServices;
 using TripPlanner.Api.Checks;
 using TripPlanner.Api.Middleware;
+using TripPlanner.Application.Features.Background;
+using TripPlanner.Application.Features.Driver;
+using TripPlanner.Application.Features.Passenger;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
@@ -85,11 +88,10 @@ builder.Services.AddSingleton<IQueueDtoMapper<ComputeJob>, ComputeJobProtoMapper
 builder.Services.AddSingleton<IQueueDomainMapper<ComputeJobResult>, ComputeResultProtoMapper>();
 builder.Services.AddScoped<IComputePublisher<ComputeJob>, RabbitComputePublisher<ComputeJob>>();
 
-// TODO: register RouteComputedHandler and RabbitSubscriber once Application handlers are in place
-// builder.Services.AddSingleton<IHandler<ComputeJobResult>, RouteComputedHandler>();
-// builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
-// builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
-//     new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
+builder.Services.AddScoped<IHandler<ComputeJobResult>, RouteComputedHandler>();
+builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
+builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+    new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
 
 // ─── Kafka (domain events) ────────────────────────────────────────────────────
 
@@ -98,13 +100,23 @@ builder.Services.AddOptions<KafkaOptions>().Bind(kafkaSection);
 
 // builder.Services.AddSingleton<IEventPublisher, EventPublisher>();  // swap fake above when Kafka is ready
 
-// ─── Application handlers (TODO: register in Application phase) ───────────────
-// driver: CreateRouteHandler, ActivateRouteHandler, DeleteRouteHandler,
-//         AcceptRideRequestHandler, RejectRideRequestHandler,
-//         DeclarePickupHandler (driver), EndRideHandler (driver)
-// passenger: CreateRideRequestHandler, CancelRideRequestHandler,
-//            DeclarePickupHandler (passenger), EndRideHandler (passenger)
-// background: RouteComputedHandler
+// ─── Application handlers ─────────────────────────────────────────────────────
+
+// Driver
+builder.Services.AddScoped<CreateRouteHandler>();
+builder.Services.AddScoped<ActivateRouteHandler>();
+builder.Services.AddScoped<DeleteRouteHandler>();
+builder.Services.AddScoped<AcceptRideRequestHandler>();
+builder.Services.AddScoped<RejectRideRequestHandler>();
+builder.Services.AddScoped<DeclareDriverPickupHandler>();
+builder.Services.AddScoped<DeclareDriverEndHandler>();
+
+// Passenger
+builder.Services.AddScoped<SubmitRouteSearchHandler>();
+builder.Services.AddScoped<CreateRideRequestHandler>();
+builder.Services.AddScoped<CancelRideHandler>();
+builder.Services.AddScoped<DeclarePassengerPickupHandler>();
+builder.Services.AddScoped<DeclarePassengerEndHandler>();
 
 // ─── Observability ────────────────────────────────────────────────────────────
 

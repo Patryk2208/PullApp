@@ -6,8 +6,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TripPlanner.Domain", "src\T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TripPlanner.Infrastructure", "src\TripPlanner.Infrastructure\TripPlanner.Infrastructure.csproj", "{832D3675-EB53-419A-95EC-2D0057BF5300}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TripPlanner.UnitTests", "tests\TripPlanner.UnitTests\TripPlanner.UnitTests.csproj", "{B643A1D7-E410-4D18-9D03-B669843AD249}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TripPlanner.Api", "src\TripPlanner.Api\TripPlanner.Api.csproj", "{8769A93C-A104-4A76-A32D-4125560CFA8F}"
 EndProject
 Global
@@ -28,13 +26,12 @@ Global
 		{832D3675-EB53-419A-95EC-2D0057BF5300}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{832D3675-EB53-419A-95EC-2D0057BF5300}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{832D3675-EB53-419A-95EC-2D0057BF5300}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B643A1D7-E410-4D18-9D03-B669843AD249}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B643A1D7-E410-4D18-9D03-B669843AD249}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B643A1D7-E410-4D18-9D03-B669843AD249}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B643A1D7-E410-4D18-9D03-B669843AD249}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8769A93C-A104-4A76-A32D-4125560CFA8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8769A93C-A104-4A76-A32D-4125560CFA8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8769A93C-A104-4A76-A32D-4125560CFA8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8769A93C-A104-4A76-A32D-4125560CFA8F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal

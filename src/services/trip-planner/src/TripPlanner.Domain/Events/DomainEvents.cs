@@ -15,7 +15,7 @@ public record Envelope<T>(
 
 public static class Topics
 {
-    public const string NotificationTriggers = "notification-triggers";
+public const string NotificationTriggers = "notification-triggers";
     public const string RideCompletions      = "ride-completions";
 }
 
@@ -73,6 +73,26 @@ public record RideEndedEvent(
     IReadOnlyList<Guid> NotifyPassengerIds) : IDomainEvent
 {
     public string EventType => "ride_ended";
+}
+
+// Flow 0 completion: route geometry computed → notify driver their route is ready.
+public record RouteReadyEvent(
+    Guid RouteId,
+    Guid DriverId,
+    string GeometryJson,
+    int EtaSeconds,
+    int DistanceMeters) : IDomainEvent
+{
+    public string EventType => "route_ready";
+}
+
+// Flow 2 completion: passenger match computed → push results to passenger.
+public record RouteSearchCompletedEvent(
+    Guid JobId,
+    Guid PassengerId,
+    IReadOnlyList<MatchEntry> Matches) : IDomainEvent
+{
+    public string EventType => "route_search_completed";
 }
 
 // ─── ride-completions ─────────────────────────────────────────────────────────

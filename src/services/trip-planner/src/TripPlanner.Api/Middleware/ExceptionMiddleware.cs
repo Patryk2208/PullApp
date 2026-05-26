@@ -31,6 +31,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             InvalidRouteStatusException e    => (409, "invalid_status", e.Message),
             OutsideServiceAreaException e    => (422, "outside_service_area", e.Message),
             UnauthorizedException e          => (403, "forbidden", e.Message),
+            DeclarationOrderException e      => (403, "declaration_order", e.Message),
             DownstreamUnavailableException e => (503, "downstream_unavailable", e.Message),
             UnauthorizedAccessException      => (401, "unauthorized", ex.Message),
             _                                => (500, "internal_error", "An unexpected error occurred"),
