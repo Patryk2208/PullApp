@@ -6,20 +6,15 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RabbitMQ.Client;
 using TripPlanner.Api;
-using TripPlanner.Api.Checks;
-using TripPlanner.Application.Metrics;
 using TripPlanner.Api.BackgroundServices;
+using TripPlanner.Api.Checks;
 using TripPlanner.Api.Middleware;
-using TripPlanner.Application.Features;
-using TripPlanner.Application.Features.Driver;
-using TripPlanner.Application.Features.Passenger;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
 using TripPlanner.Infrastructure.Fakes;
 using TripPlanner.Infrastructure.Kafka;
 using TripPlanner.Infrastructure.Postgres;
-using TripPlanner.Infrastructure.Sse;
 using TripPlanner.Infrastructure.Queue;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,51 +31,43 @@ builder.Services.AddOptions<TripPlannerDbOptions>().Bind(dbConfig);
 
 builder.Services.AddSingleton(sp =>
 {
-    var opts =  sp.GetRequiredService<IOptions<TripPlannerDbOptions>>();
+    var opts = sp.GetRequiredService<IOptions<TripPlannerDbOptions>>();
     return new NpgsqlDataSourceBuilder(opts.Value.BuildConnectionString()).Build();
 });
 
-// init services
 builder.Services.AddSingleton<DatabaseInitializer>();
 builder.Services.AddSingleton<ServiceAreaSeeder>();
-
 builder.Services.AddHostedService<MultipleHostedServiceWrapper>(sp =>
     new MultipleHostedServiceWrapper([
-        sp.GetRequiredService<DatabaseInitializer>(), sp.GetRequiredService<ServiceAreaSeeder>()
+        sp.GetRequiredService<DatabaseInitializer>(),
+        sp.GetRequiredService<ServiceAreaSeeder>(),
     ]));
 
 builder.Services.AddScoped<DbSession>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
 
-// ─── Repositories ─────────────────────────────────────────────────────────────
+// ─── Repositories (TODO: add PostgresRouteRepository etc. in Infrastructure phase) ──
 
-builder.Services.AddScoped<IRouteJobRepository,    PostgresRouteJobRepository>();
-builder.Services.AddScoped<IDriverRouteRepository, PostgresDriverRouteRepository>();
-builder.Services.AddScoped<IRideRequestRepository, PostgresRideRequestRepository>();
-builder.Services.AddScoped<IRideRepository,        PostgresRideRepository>();
+// builder.Services.AddScoped<IRouteRepository, PostgresRouteRepository>();
+// builder.Services.AddScoped<IRideRepository, PostgresRideRepository>();
+// builder.Services.AddScoped<IRideRequestRepository, PostgresRideRequestRepository>();
+builder.Services.AddScoped<IRouteJobRepository, PostgresRouteJobRepository>();
 
 // ─── Geo service ──────────────────────────────────────────────────────────────
 
 builder.Services.AddScoped<IGeoService, PostgisGeoService>();
 
-// ─── Service fakes (swap with real impls in prod via config/env) ──────────────
+// ─── External service fakes (swap with real gRPC impls when services are ready) ─
 
 builder.Services.AddSingleton<IAccountsService, FakeAccountsService>();
-builder.Services.AddSingleton<IChatService,      FakeChatService>();
-builder.Services.AddSingleton<IPaymentsService,  FakePaymentsService>();
+builder.Services.AddSingleton<IChatService,     FakeChatService>();
+builder.Services.AddSingleton<IPaymentsService, FakePaymentsService>();
+builder.Services.AddSingleton<IEventPublisher,  FakeEventPublisher>();
 
-// ─── Cache ──────────────────────────────────────────────────────────────────
+// ─── RabbitMQ (Route-Calc compute queue) ─────────────────────────────────────
 
-// builder.Services.AddScoped<IResultRepository, RedisResultRepository>();
-
-// ─── SSE hub ──────────────────────────────────────────────────────────────────
-
-builder.Services.AddSingleton<InMemorySseHub>();
-builder.Services.AddSingleton<ISseHub>(sp => sp.GetRequiredService<InMemorySseHub>());
-
-// ─── Queue ─────────────────────────────────────────────────────────
-var config = builder.Configuration.GetSection("ComputeQueue");
-builder.Services.AddOptions<RabbitMqOptions>().Bind(config);
+var rabbitConfig = builder.Configuration.GetSection("ComputeQueue");
+builder.Services.AddOptions<RabbitMqOptions>().Bind(rabbitConfig);
 builder.Services.AddSingleton<IConnectionFactory>(sp =>
 {
     var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
@@ -94,56 +81,36 @@ builder.Services.AddSingleton<IConnectionFactory>(sp =>
     };
 });
 builder.Services.AddSingleton<RabbitConnection>();
-
 builder.Services.AddSingleton<IQueueDtoMapper<ComputeJob>, ComputeJobProtoMapper>();
 builder.Services.AddSingleton<IQueueDomainMapper<ComputeJobResult>, ComputeResultProtoMapper>();
-
 builder.Services.AddScoped<IComputePublisher<ComputeJob>, RabbitComputePublisher<ComputeJob>>();
 
-builder.Services.AddSingleton<IHandler<ComputeJobResult>, RouteComputedHandler>();
-builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
-builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
-    new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
+// TODO: register RouteComputedHandler and RabbitSubscriber once Application handlers are in place
+// builder.Services.AddSingleton<IHandler<ComputeJobResult>, RouteComputedHandler>();
+// builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
+// builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+//     new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
 
-// ─── Kafka ────────────────────────────────────────────────────────────────────
+// ─── Kafka (domain events) ────────────────────────────────────────────────────
 
 var kafkaSection = builder.Configuration.GetSection("EventBus");
 builder.Services.AddOptions<KafkaOptions>().Bind(kafkaSection);
 
-builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
+// builder.Services.AddSingleton<IEventPublisher, EventPublisher>();  // swap fake above when Kafka is ready
 
-// builder.Services.AddSingleton<IHandler<string>, KafkaEventDispatcher>();
-// builder.Services.AddSingleton<KafkaConsumerService<string>>();
-// builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
-//     new HostedServiceWrapper(sp.GetRequiredService<KafkaConsumerService<string>>()));
-
-// ─── Application handlers — Driver ───────────────────────────────────────────
-
-builder.Services.AddScoped<RegisterRouteHandler>();
-builder.Services.AddScoped<ModifyRouteHandler>();
-builder.Services.AddScoped<CancelRouteHandler>();
-builder.Services.AddScoped<ConfirmationHandler>();
-builder.Services.AddScoped<DriverArrivedHandler>();
-builder.Services.AddScoped<DriverStartRideHandler>();
-builder.Services.AddScoped<CompleteRideHandler>();
-builder.Services.AddScoped<DriverCancelRideHandler>();
-
-// ─── Application handlers — Passenger ────────────────────────────────────────
-
-builder.Services.AddScoped<CreateRouteRequestHandler>();
-builder.Services.AddScoped<SelectRouteHandler>();
-builder.Services.AddScoped<CancelRouteRequestHandler>();
-builder.Services.AddScoped<PassengerStartRideHandler>();
-builder.Services.AddScoped<ConfirmPriceHandler>();
-builder.Services.AddScoped<PassengerCancelRideHandler>();
+// ─── Application handlers (TODO: register in Application phase) ───────────────
+// driver: CreateRouteHandler, ActivateRouteHandler, DeleteRouteHandler,
+//         AcceptRideRequestHandler, RejectRideRequestHandler,
+//         DeclarePickupHandler (driver), EndRideHandler (driver)
+// passenger: CreateRideRequestHandler, CancelRideRequestHandler,
+//            DeclarePickupHandler (passenger), EndRideHandler (passenger)
+// background: RouteComputedHandler
 
 // ─── Observability ────────────────────────────────────────────────────────────
 
-builder.Services.AddSingleton<TripPlannerMetrics>();
-
 builder.Services.AddHealthChecks()
     .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
-    .AddCheck<RabbitHealthCheck>("rabbitmq", tags: ["ready"]);
+    .AddCheck<RabbitHealthCheck>("rabbitmq",   tags: ["ready"]);
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("trip-planner"))
@@ -155,7 +122,6 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
-        .AddMeter(TripPlannerMetrics.MeterName)
         .AddOtlpExporter());
 
 builder.Logging.AddOpenTelemetry(o =>
@@ -171,8 +137,6 @@ builder.Services.AddOpenApi();
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 var app = builder.Build();
-
-app.Services.GetRequiredService<TripPlannerMetrics>();
 
 app.UseMiddleware<ExceptionMiddleware>();
 

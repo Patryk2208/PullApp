@@ -4,8 +4,5 @@ public interface ISubscriber
 {
     Task StartAsync(CancellationToken ct);
 
-    Task StopAsync(CancellationToken ct)
-    {
-        return Task.CompletedTask;
-    }
+    Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }

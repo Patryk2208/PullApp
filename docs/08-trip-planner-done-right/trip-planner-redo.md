@@ -112,12 +112,13 @@ wszystko w **transakcji atomowej:**
    - `WaitingForStart` — jeśli trasa jest już aktywna
    - `WaitingForActivation` — w przeciwnym razie
 2. jeżeli po stworzeniu brakuje miejsc → trasa przechodzi w stan `full` (nie wyświetla się nowym pasażerom)
+3. tworzony jest **chat room** (wywołanie do serwisu chat) — pasażer i kierowca dostają dostęp do wspólnego kanału komunikacji
 
 po transakcji:
 
-3. jeżeli transakcja się nie powiedzie → automatycznie odrzuć pasażera (jak flow 4)
-4. jeżeli `status = full` → odrzuć **wszystkich** pozostałych oczekujących pasażerów z tej trasy
-5. system generuje event `RideAccepted` → do pasażera idzie powiadomienie (**SSE, Push**)
+4. jeżeli transakcja się nie powiedzie → automatycznie odrzuć pasażera (jak flow 4)
+5. jeżeli `status = full` → odrzuć **wszystkich** pozostałych oczekujących pasażerów z tej trasy
+6. system generuje event `RideAccepted` → do pasażera idzie powiadomienie (**SSE, Push**)
 
 ---
 
@@ -223,8 +224,10 @@ zdarzenia które triggerują powiadomienia:
 
 ## Uwagi / rzeczy do doprecyzowania
 
-- metryka zgodności trasy (flow 2) — szczegół implementacyjny, niezdefiniowany
-- co dokładnie się dzieje ze środkami po flow 6.5b — czy pobieramy tylko `cancellation_price` czy całe `price`?
-- flow 6 (TTL RideRequest 24h) oznaczony jako "opcjonalne" w notatkach
-- `WaitingForDriver` vs `WaitingForStart` — dwie różne nazwy w notatkach dla tego samego stanu, do ujednolicenia
-- powiadomienie po RideEnded do odrzuconych pasażerów — czy to powiadomienie "jest miejsce" czy "trasa skończona"? w notatkach nie doprecyzowane
+- metryka zgodności trasy (flow 2) — obliczana przez route-calc service (istniejąca infrastruktura RabbitMQ)
+- flow 6.5 (timeout Ride) — **pominięte w pierwszej implementacji**, zbyt skomplikowane
+- flow 6 (TTL RideRequest 24h) — **pominięte**, oznaczone jako "opcjonalne"
+- `WaitingForDriver` — ujednolicona nazwa stanu (zamiast `WaitingForStart`)
+- flow 6.5b (timeout wina pasażera) — pobieramy tylko `cancellation_price`, reszta odmrożona
+- powiadomienie po RideEnded do odrzuconych pasażerów — "trasa/przejazd się zakończył, może być miejsce"
+- chat room tworzony synchronicznie przy flow 5 przez trip-planner → **chat service** (Go); chat service nie jest jeszcze zaimplementowany, trip-planner używa fake/stub
