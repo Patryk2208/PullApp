@@ -46,12 +46,12 @@ builder.Services.AddHostedService<MultipleHostedServiceWrapper>(sp =>
 builder.Services.AddScoped<DbSession>();
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
 
-// ─── Repositories (TODO: add PostgresRouteRepository etc. in Infrastructure phase) ──
+// ─── Repositories ─────────────────────────────────────────────────────────────
 
-// builder.Services.AddScoped<IRouteRepository, PostgresRouteRepository>();
-// builder.Services.AddScoped<IRideRepository, PostgresRideRepository>();
-// builder.Services.AddScoped<IRideRequestRepository, PostgresRideRequestRepository>();
-builder.Services.AddScoped<IRouteJobRepository, PostgresRouteJobRepository>();
+builder.Services.AddScoped<IRouteRepository,       PostgresRouteRepository>();
+builder.Services.AddScoped<IRideRepository,        PostgresRideRepository>();
+builder.Services.AddScoped<IRideRequestRepository, PostgresRideRequestRepository>();
+builder.Services.AddScoped<IRouteJobRepository,    PostgresRouteJobRepository>();
 
 // ─── Geo service ──────────────────────────────────────────────────────────────
 
