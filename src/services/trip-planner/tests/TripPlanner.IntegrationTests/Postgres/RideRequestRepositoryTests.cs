@@ -47,6 +47,8 @@ public class RideRequestRepositoryTests(PostgresFixture db) : IAsyncLifetime
         Assert.Equal(End.Latitude,    loaded.EndPoint.Latitude,    6);
         Assert.Equal(End.Longitude,   loaded.EndPoint.Longitude,   6);
         Assert.Null(loaded.FrozenPriceId);
+        Assert.Equal(0m, loaded.Price);
+        Assert.Equal(0m, loaded.CancellationPrice);
         Assert.Null(loaded.RejectedAt);
     }
 
@@ -101,18 +103,21 @@ public class RideRequestRepositoryTests(PostgresFixture db) : IAsyncLifetime
     // ─── UpdateAsync ──────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task UpdateAsync_PersistsFrozenPriceId()
+    public async Task UpdateAsync_PersistsFrozenPrice_WithPriceFields()
     {
-        var req         = NewRequest();
-        var frozenId    = Guid.NewGuid();
-        var repo        = Repo();
+        var req      = NewRequest();
+        var frozenId = Guid.NewGuid();
+        var repo     = Repo();
 
         await repo.AddAsync(req, default);
-        req.SetFrozenPrice(frozenId);
+        req.SetFrozenPrice(frozenId, price: 18.50m, cancellationPrice: 3.75m);
         await repo.UpdateAsync(req, default);
 
         var loaded = await repo.GetByIdAsync(req.Id, default);
-        Assert.Equal(frozenId, loaded!.FrozenPriceId);
+        Assert.NotNull(loaded);
+        Assert.Equal(frozenId,  loaded.FrozenPriceId);
+        Assert.Equal(18.50m,    loaded.Price);
+        Assert.Equal(3.75m,     loaded.CancellationPrice);
     }
 
     [Fact]

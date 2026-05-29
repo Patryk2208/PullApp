@@ -170,4 +170,48 @@ public class RideRepositoryTests(PostgresFixture db) : IAsyncLifetime
         Assert.True(loaded.DriverDeclaredEnd);
         Assert.NotNull(loaded.EndedAt);
     }
+
+    [Fact]
+    public async Task UpdateAsync_Cancel_PersistsEndedAt()
+    {
+        var ride = NewRide(routeIsActive: false); // WaitingForActivation
+        var repo = Repo();
+
+        await repo.AddAsync(ride, default);
+        ride.Cancel();
+        await repo.UpdateAsync(ride, default);
+
+        var loaded = await repo.GetByIdAsync(ride.Id, default);
+        Assert.NotNull(loaded);
+        Assert.NotNull(loaded.EndedAt);
+    }
+
+    // ─── DeleteByRouteId ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DeleteByRouteId_RemovesAllRidesForRoute()
+    {
+        var routeId = Guid.NewGuid();
+        var ride1   = Ride.Create(routeId, Guid.NewGuid(), Guid.NewGuid(),
+            new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1),
+            10m, 2m, Guid.NewGuid(), routeIsActive: true);
+        var ride2   = Ride.Create(routeId, ride1.DriverId, Guid.NewGuid(),
+            new GeoPoint(52.21, 21.01), new GeoPoint(52.31, 21.11),
+            12m, 2m, Guid.NewGuid(), routeIsActive: true);
+        var repo = Repo();
+
+        await repo.AddAsync(ride1, default);
+        await repo.AddAsync(ride2, default);
+        await repo.DeleteByRouteIdAsync(routeId, default);
+
+        Assert.Null(await repo.GetByIdAsync(ride1.Id, default));
+        Assert.Null(await repo.GetByIdAsync(ride2.Id, default));
+    }
+
+    [Fact]
+    public async Task DeleteByRouteId_IsNoOp_WhenNoneExist()
+    {
+        // Should not throw when no rides match the route.
+        await Repo().DeleteByRouteIdAsync(Guid.NewGuid(), default);
+    }
 }

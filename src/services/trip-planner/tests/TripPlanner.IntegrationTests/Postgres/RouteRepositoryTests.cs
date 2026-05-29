@@ -150,4 +150,91 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
         Assert.NotNull(loaded);
         Assert.Equal(RouteStatus.Full, loaded.Status);
     }
+
+    // ─── DeleteAsync ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DeleteAsync_RemovesRoute()
+    {
+        var route = NewRoute();
+        var repo  = Repo();
+
+        await repo.AddAsync(route, default);
+        await repo.DeleteAsync(route.Id, default);
+
+        var loaded = await repo.GetByIdAsync(route.Id, default);
+        Assert.Null(loaded);
+    }
+
+    // ─── GetByIdForUpdateAsync ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetByIdForUpdateAsync_ReturnsNull_WhenNotFound()
+    {
+        var session = db.NewSession();
+        var repo    = new PostgresRouteRepository(session);
+        await session.BeginAsync(default);
+
+        var result = await repo.GetByIdForUpdateAsync(Guid.NewGuid(), default);
+
+        await session.CommitAsync(default);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByIdForUpdateAsync_ReturnsRoute_WithinTransaction()
+    {
+        var route = NewRoute(capacity: 2);
+        await Repo().AddAsync(route, default);
+
+        var session = db.NewSession();
+        var repo    = new PostgresRouteRepository(session);
+        await session.BeginAsync(default);
+
+        var loaded = await repo.GetByIdForUpdateAsync(route.Id, default);
+
+        await session.CommitAsync(default);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(route.Id,       loaded.Id);
+        Assert.Equal(route.DriverId, loaded.DriverId);
+        Assert.Equal(route.Capacity, loaded.Capacity);
+    }
+
+    [Fact]
+    public async Task GetByIdForUpdateAsync_SecondSession_SeesFirstSessionCommit()
+    {
+        // Verifies that the FOR UPDATE lock causes session 2 to read the row
+        // only after session 1 commits, and that it sees session 1's changes.
+        var route = NewRoute(capacity: 2);
+        await Repo().AddAsync(route, default);
+        route.SetGeometry("{}", 300, 5000);
+        route.Activate(new GeoPoint(52.2, 21.0));
+        await Repo().UpdateAsync(route, default);
+
+        // Session 1: lock the row, increment ride count, then commit.
+        var session1 = db.NewSession();
+        var repo1    = new PostgresRouteRepository(session1);
+        await session1.BeginAsync(default);
+        var locked = await repo1.GetByIdForUpdateAsync(route.Id, default);
+        locked!.TryAddRide();
+        await repo1.UpdateAsync(locked, default);
+
+        // Session 2: starts, tries to lock the same row (will block until session 1 commits).
+        var session2 = db.NewSession();
+        var repo2    = new PostgresRouteRepository(session2);
+        await session2.BeginAsync(default);
+
+        var readTask = repo2.GetByIdForUpdateAsync(route.Id, default);
+
+        // Commit session 1 while session 2 waits.
+        await session1.CommitAsync(default);
+
+        // Session 2 unblocks and must see the committed ActiveRideCount = 1.
+        var fromSession2 = await readTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await session2.CommitAsync(default);
+
+        Assert.NotNull(fromSession2);
+        Assert.Equal(1, fromSession2!.ActiveRideCount);
+    }
 }
