@@ -1,0 +1,12 @@
+global using Xunit;
+global using NSubstitute;
+global using TripPlanner.Application.Exceptions;
+global using TripPlanner.Application.Repositories;
+global using TripPlanner.Application.Services;
+global using TripPlanner.Domain;
+global using TripPlanner.Domain.Compute;
+global using TripPlanner.Domain.Events;
+global using TripPlanner.Domain.Ride;
+global using TripPlanner.Domain.RideRequest;
+global using TripPlanner.Domain.Route;
+global using TripPlanner.UnitTests.Helpers;
