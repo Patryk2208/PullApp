@@ -12,6 +12,9 @@ public class RideRequest
     public GeoPoint StartPoint { get; private set; } = default!;
     public GeoPoint EndPoint { get; private set; } = default!;
     public Guid? FrozenPriceId { get; private set; }
+    // Populated together with FrozenPriceId from the payments quote (flow 3).
+    public decimal Price { get; private set; }
+    public decimal CancellationPrice { get; private set; }
     public RideRequestStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? RejectedAt { get; private set; }
@@ -30,7 +33,12 @@ public class RideRequest
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
-    public void SetFrozenPrice(Guid frozenPriceId) => FrozenPriceId = frozenPriceId;
+    public void SetFrozenPrice(Guid frozenPriceId, decimal price, decimal cancellationPrice)
+    {
+        FrozenPriceId = frozenPriceId;
+        Price = price;
+        CancellationPrice = cancellationPrice;
+    }
 
     public void Accept() => Status = RideRequestStatus.Accepted;
 

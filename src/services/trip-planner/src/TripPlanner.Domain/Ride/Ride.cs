@@ -115,5 +115,8 @@ public class Ride
         EndedAt = DateTimeOffset.UtcNow;
     }
 
+    // Flow 8a/8b: passenger cancels before the ride starts.
+    public void Cancel() => EndedAt = DateTimeOffset.UtcNow;
+
     public bool IsEnded => EndedAt.HasValue;
 }

@@ -14,11 +14,13 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
             INSERT INTO ride_requests
                 (id, route_id, passenger_id, status,
                  start_lat, start_lng, end_lat, end_lng,
-                 frozen_price_id, created_at, rejected_at)
+                 frozen_price_id, price, cancellation_price,
+                 created_at, rejected_at)
             VALUES
                 (@id, @route_id, @passenger_id, @status,
                  @start_lat, @start_lng, @end_lat, @end_lng,
-                 @frozen_price_id, @created_at, @rejected_at)
+                 @frozen_price_id, @price, @cancellation_price,
+                 @created_at, @rejected_at)
             """;
         BindAll(cmd, request);
         await cmd.ExecuteNonQueryAsync(ct);
@@ -60,15 +62,19 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
         await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             UPDATE ride_requests SET
-                status          = @status,
-                frozen_price_id = @frozen_price_id,
-                rejected_at     = @rejected_at
+                status             = @status,
+                frozen_price_id    = @frozen_price_id,
+                price              = @price,
+                cancellation_price = @cancellation_price,
+                rejected_at        = @rejected_at
             WHERE id = @id
             """;
-        cmd.Parameters.AddWithValue("id",             request.Id);
-        cmd.Parameters.AddWithValue("status",         request.Status.ToString());
-        cmd.Parameters.AddWithValue("frozen_price_id", (object?)request.FrozenPriceId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("rejected_at",    (object?)request.RejectedAt     ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("id",                 request.Id);
+        cmd.Parameters.AddWithValue("status",             request.Status.ToString());
+        cmd.Parameters.AddWithValue("frozen_price_id",    (object?)request.FrozenPriceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("price",              request.Price);
+        cmd.Parameters.AddWithValue("cancellation_price", request.CancellationPrice);
+        cmd.Parameters.AddWithValue("rejected_at",        (object?)request.RejectedAt ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -85,31 +91,35 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
 
     private static void BindAll(NpgsqlCommand cmd, RideRequest r)
     {
-        cmd.Parameters.AddWithValue("id",             r.Id);
-        cmd.Parameters.AddWithValue("route_id",       r.RouteId);
-        cmd.Parameters.AddWithValue("passenger_id",   r.PassengerId);
-        cmd.Parameters.AddWithValue("status",         r.Status.ToString());
-        cmd.Parameters.AddWithValue("start_lat",      r.StartPoint.Latitude);
-        cmd.Parameters.AddWithValue("start_lng",      r.StartPoint.Longitude);
-        cmd.Parameters.AddWithValue("end_lat",        r.EndPoint.Latitude);
-        cmd.Parameters.AddWithValue("end_lng",        r.EndPoint.Longitude);
-        cmd.Parameters.AddWithValue("frozen_price_id", (object?)r.FrozenPriceId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("created_at",     r.CreatedAt);
-        cmd.Parameters.AddWithValue("rejected_at",    (object?)r.RejectedAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("id",                 r.Id);
+        cmd.Parameters.AddWithValue("route_id",           r.RouteId);
+        cmd.Parameters.AddWithValue("passenger_id",       r.PassengerId);
+        cmd.Parameters.AddWithValue("status",             r.Status.ToString());
+        cmd.Parameters.AddWithValue("start_lat",          r.StartPoint.Latitude);
+        cmd.Parameters.AddWithValue("start_lng",          r.StartPoint.Longitude);
+        cmd.Parameters.AddWithValue("end_lat",            r.EndPoint.Latitude);
+        cmd.Parameters.AddWithValue("end_lng",            r.EndPoint.Longitude);
+        cmd.Parameters.AddWithValue("frozen_price_id",    (object?)r.FrozenPriceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("price",              r.Price);
+        cmd.Parameters.AddWithValue("cancellation_price", r.CancellationPrice);
+        cmd.Parameters.AddWithValue("created_at",         r.CreatedAt);
+        cmd.Parameters.AddWithValue("rejected_at",        (object?)r.RejectedAt ?? DBNull.Value);
     }
 
     private static RideRequest Map(NpgsqlDataReader r)
     {
         var req = EntityMapper.New<RideRequest>();
-        req.Set("Id",          r.GetGuid(r.GetOrdinal("id")));
-        req.Set("RouteId",     r.GetGuid(r.GetOrdinal("route_id")));
-        req.Set("PassengerId", r.GetGuid(r.GetOrdinal("passenger_id")));
-        req.Set("Status",      Enum.Parse<RideRequestStatus>(r.GetString(r.GetOrdinal("status"))));
-        req.Set("StartPoint",  new GeoPoint(r.GetDouble(r.GetOrdinal("start_lat")), r.GetDouble(r.GetOrdinal("start_lng"))));
-        req.Set("EndPoint",    new GeoPoint(r.GetDouble(r.GetOrdinal("end_lat")),   r.GetDouble(r.GetOrdinal("end_lng"))));
-        req.Set("FrozenPriceId", NullableGuid(r, "frozen_price_id"));
-        req.Set("CreatedAt",   r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
-        req.Set("RejectedAt",  NullableDto(r, "rejected_at"));
+        req.Set("Id",                 r.GetGuid(r.GetOrdinal("id")));
+        req.Set("RouteId",            r.GetGuid(r.GetOrdinal("route_id")));
+        req.Set("PassengerId",        r.GetGuid(r.GetOrdinal("passenger_id")));
+        req.Set("Status",             Enum.Parse<RideRequestStatus>(r.GetString(r.GetOrdinal("status"))));
+        req.Set("StartPoint",         new GeoPoint(r.GetDouble(r.GetOrdinal("start_lat")), r.GetDouble(r.GetOrdinal("start_lng"))));
+        req.Set("EndPoint",           new GeoPoint(r.GetDouble(r.GetOrdinal("end_lat")),   r.GetDouble(r.GetOrdinal("end_lng"))));
+        req.Set("FrozenPriceId",      NullableGuid(r, "frozen_price_id"));
+        req.Set("Price",              r.GetDecimal(r.GetOrdinal("price")));
+        req.Set("CancellationPrice",  r.GetDecimal(r.GetOrdinal("cancellation_price")));
+        req.Set("CreatedAt",          r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
+        req.Set("RejectedAt",         NullableDto(r, "rejected_at"));
         return req;
     }
 

@@ -8,4 +8,5 @@ public interface IRideRepository
     Task<Ride?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<IReadOnlyList<Ride>> GetActiveByRouteIdAsync(Guid routeId, CancellationToken ct);
     Task UpdateAsync(Ride ride, CancellationToken ct);
+    Task DeleteByRouteIdAsync(Guid routeId, CancellationToken ct);
 }

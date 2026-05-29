@@ -39,6 +39,16 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
         return await reader.ReadAsync(ct) ? Map(reader) : null;
     }
 
+    // Must be called inside an open transaction; serializes concurrent seat-count mutations.
+    public async Task<Route?> GetByIdForUpdateAsync(Guid id, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = "SELECT * FROM routes WHERE id = @id FOR UPDATE";
+        cmd.Parameters.AddWithValue("id", id);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? Map(reader) : null;
+    }
+
     public async Task<Route?> GetActiveByDriverIdAsync(Guid driverId, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
@@ -77,6 +87,14 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
         cmd.Parameters.AddWithValue("eta_seconds",      (object?)route.EtaSeconds     ?? DBNull.Value);
         cmd.Parameters.AddWithValue("distance_meters",  (object?)route.DistanceMeters ?? DBNull.Value);
         cmd.Parameters.AddWithValue("activated_at",     (object?)route.ActivatedAt    ?? DBNull.Value);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = "DELETE FROM routes WHERE id = @id";
+        cmd.Parameters.AddWithValue("id", id);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 

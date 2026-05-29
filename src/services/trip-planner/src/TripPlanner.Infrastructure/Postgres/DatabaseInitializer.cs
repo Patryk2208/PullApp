@@ -44,17 +44,19 @@ public class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<DatabaseIn
         CREATE INDEX IF NOT EXISTS idx_routes_status    ON routes(status);
 
         CREATE TABLE IF NOT EXISTS ride_requests (
-            id              UUID        PRIMARY KEY,
-            route_id        UUID        NOT NULL,
-            passenger_id    UUID        NOT NULL,
-            status          TEXT        NOT NULL,
-            start_lat       FLOAT8      NOT NULL,
-            start_lng       FLOAT8      NOT NULL,
-            end_lat         FLOAT8      NOT NULL,
-            end_lng         FLOAT8      NOT NULL,
-            frozen_price_id UUID,
-            created_at      TIMESTAMPTZ NOT NULL,
-            rejected_at     TIMESTAMPTZ
+            id                 UUID          PRIMARY KEY,
+            route_id           UUID          NOT NULL,
+            passenger_id       UUID          NOT NULL,
+            status             TEXT          NOT NULL,
+            start_lat          FLOAT8        NOT NULL,
+            start_lng          FLOAT8        NOT NULL,
+            end_lat            FLOAT8        NOT NULL,
+            end_lng            FLOAT8        NOT NULL,
+            frozen_price_id    UUID,
+            price              NUMERIC(12,2) NOT NULL DEFAULT 0,
+            cancellation_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_at         TIMESTAMPTZ   NOT NULL,
+            rejected_at        TIMESTAMPTZ
         );
 
         CREATE INDEX IF NOT EXISTS idx_ride_requests_route_id     ON ride_requests(route_id);

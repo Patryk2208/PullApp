@@ -1,5 +1,8 @@
+using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
+using TripPlanner.Domain.Events;
+using TripPlanner.Domain.RideRequest;
 
 namespace TripPlanner.Application.Features.Driver;
 
@@ -9,6 +12,7 @@ public record RejectRideRequestCommand(Guid DriverId, Guid RequestId);
 /// Flow 4 — driver rejects a pending RideRequest.
 /// </summary>
 public class RejectRideRequestHandler(
+    IRouteRepository routes,
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
@@ -18,10 +22,31 @@ public class RejectRideRequestHandler(
     {
         // Flow 4
         // 1. Load RideRequest; verify it is Pending and belongs to the driver's route.
+        var request = await rideRequests.GetByIdAsync(cmd.RequestId, ct)
+            ?? throw new RideRequestNotFoundException(cmd.RequestId);
+
+        var route = await routes.GetByIdAsync(request.RouteId, ct)
+            ?? throw new RouteNotFoundException(request.RouteId);
+
+        if (route.DriverId != cmd.DriverId)
+            throw new UnauthorizedException($"RideRequest {cmd.RequestId} belongs to a different driver's route.");
+
+        if (request.Status != RideRequestStatus.Pending)
+            throw new InvalidRouteStatusException(
+                $"RideRequest {cmd.RequestId} is no longer pending (current: {request.Status}).");
+
         // 2. Unfreeze the passenger's funds (IPaymentsService.UnfreezeAsync on FrozenPriceId).
-        // 3. Call rideRequest.Reject().
+        if (request.FrozenPriceId.HasValue)
+            await payments.UnfreezeAsync(request.FrozenPriceId.Value, ct);
+
+        // 3. Mark RideRequest as Rejected.
         // 4. Persist and commit.
+        request.Reject();
+        await rideRequests.UpdateAsync(request, ct);
+        await uow.CommitAsync(ct);
+
         // 5. Publish RideRejectedEvent → notifications service will alert the passenger.
-        throw new NotImplementedException();
+        await events.PublishAsync(Topics.NotificationTriggers,
+            new RideRejectedEvent(request.Id, route.Id, route.DriverId, request.PassengerId), ct);
     }
 }

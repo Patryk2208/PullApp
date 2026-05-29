@@ -81,6 +81,14 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task DeleteByRouteIdAsync(Guid routeId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = "DELETE FROM rides WHERE route_id = @route_id";
+        cmd.Parameters.AddWithValue("route_id", routeId);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     // ─── helpers ─────────────────────────────────────────────────────────────
 
     private static void BindAll(NpgsqlCommand cmd, Ride ride)
