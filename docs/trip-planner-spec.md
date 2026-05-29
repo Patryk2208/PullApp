@@ -1,5 +1,10 @@
 # Trip Planner — Implementation Specification
 
+> **DEPRECATED — superseded by the `feature/trip-planner/done-right` rebuild.**
+> The current implementation diverges significantly from this document (different state machines, no Redis key schema, no SSE, no polling workers). Refer to `docs/04-components/trip-planner.md` for accurate component documentation and `docs/08-trip-planner-done-right/trip-planner-redo.md` for the design notes that drove the rebuild. This file is kept for historical reference only.
+
+---
+
 > **Audience:** This document is the single source of truth for implementing Trip Planner's business logic. It assumes the infrastructure layer (RabbitMQ, Redis, PostGIS, Kafka wiring) is already in place. Every flow, state, API contract, Redis key, and edge case is defined here. Do not infer behaviour that is not stated.
 
 ---
