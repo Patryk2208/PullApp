@@ -1,8 +1,9 @@
 using System.Text.Json;
 using TripPlanner.Application.Exceptions;
-using TripPlanner.Application.Features.DTO;
 
 namespace TripPlanner.Api.Middleware;
+
+public record ErrorResponse(string Code, string Message);
 
 public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
 {
@@ -22,20 +23,18 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
     {
         var (status, code, message) = ex switch
         {
-            BadRequestException e                => (400, e.Message, e.Message),
-            NotFoundException e                  => (404, e.Message, e.Message),
-            ForbiddenException e                 => (403, e.Message, e.Message),
-            RouteAlreadyActiveException e        => (409, e.Message, e.Message),
-            CannotModifyDuringRideException e    => (409, e.Message, e.Message),
-            InvalidStateTransitionException e    => (409, e.Message, e.Message),
-            RequestExpiredException e            => (409, e.Message, e.Message),
-            DriverUnavailableException e         => (409, e.Message, e.Message),
-            OutsideServiceAreaException e        => (422, e.Message, e.Message),
-            AccountsUnavailableException e       => (503, e.Message, e.Message),
-            PaymentsUnavailableException e       => (503, e.Message, e.Message),
-            ChatUnavailableException e           => (503, e.Message, e.Message),
-            UnauthorizedAccessException          => (401, "unauthorized", ex.Message),
-            _                                    => (500, "internal_error", "An unexpected error occurred"),
+            RouteNotFoundException e         => (404, "route_not_found", e.Message),
+            RideNotFoundException e          => (404, "ride_not_found", e.Message),
+            RideRequestNotFoundException e   => (404, "ride_request_not_found", e.Message),
+            RouteFullException e             => (409, "route_full", e.Message),
+            RouteNotDeletableException e     => (409, "route_not_deletable", e.Message),
+            InvalidRouteStatusException e    => (409, "invalid_status", e.Message),
+            OutsideServiceAreaException e    => (422, "outside_service_area", e.Message),
+            UnauthorizedException e          => (403, "forbidden", e.Message),
+            DeclarationOrderException e      => (403, "declaration_order", e.Message),
+            DownstreamUnavailableException e => (503, "downstream_unavailable", e.Message),
+            UnauthorizedAccessException      => (401, "unauthorized", ex.Message),
+            _                                => (500, "internal_error", "An unexpected error occurred"),
         };
 
         switch (status)
@@ -44,8 +43,8 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
                 logger.LogError(ex, "Unhandled exception on {Method} {Path}", ctx.Request.Method, ctx.Request.Path);
                 break;
             case 503:
-                logger.LogWarning("Downstream unavailable ({Code}) on {Method} {Path}: {Message}",
-                    code, ctx.Request.Method, ctx.Request.Path, ex.Message);
+                logger.LogWarning("Downstream unavailable on {Method} {Path}: {Message}",
+                    ctx.Request.Method, ctx.Request.Path, ex.Message);
                 break;
             case 409 or 422:
                 logger.LogWarning("Business rule violation ({Code}) on {Method} {Path}: {Message}",
@@ -61,8 +60,6 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
 
         ctx.Response.StatusCode = status;
         ctx.Response.ContentType = "application/json";
-
-        var body = JsonSerializer.Serialize(new ErrorResponseDto(code, message, null));
-        await ctx.Response.WriteAsync(body);
+        await ctx.Response.WriteAsync(JsonSerializer.Serialize(new ErrorResponse(code, message)));
     }
 }

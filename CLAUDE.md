@@ -26,6 +26,24 @@ dotnet test --configuration Release
 dotnet test --no-build --configuration Release  # skip rebuild
 ```
 
+#### trip-planner test projects
+
+trip-planner has two test projects. Run from `src/services/trip-planner`:
+
+```bash
+# Unit tests (domain model + handler logic via mocks, no containers)
+dotnet test tests/TripPlanner.UnitTests --configuration Release
+
+# Integration tests (Testcontainers: PostGIS, RabbitMQ, Kafka)
+dotnet test tests/TripPlanner.IntegrationTests --configuration Release
+
+# Integration tests — specific collection only
+dotnet test tests/TripPlanner.IntegrationTests --configuration Release --filter "FullyQualifiedName~Postgres"
+dotnet test tests/TripPlanner.IntegrationTests --configuration Release --filter "FullyQualifiedName~Handlers"
+dotnet test tests/TripPlanner.IntegrationTests --configuration Release --filter "FullyQualifiedName~Queue"
+dotnet test tests/TripPlanner.IntegrationTests --configuration Release --filter "FullyQualifiedName~Kafka"
+```
+
 ### route-calc (Python + C++)
 
 Run from `src/services/route-calc`:
@@ -88,7 +106,9 @@ The service has two layers: a Python layer (FastAPI + aio-pika consumer) and a C
 
 ### .NET services (accounts, trip-planner)
 
-Both follow Clean Architecture: `Domain` → `Application` → `Infrastructure` → `Api`. The `Api` layer uses minimal APIs with endpoint classes implementing `IEndpoint`. Background services (e.g. RabbitMQ consumers) live in `TripPlanner.Api/BackgroundServices`.
+Both follow Clean Architecture: `Domain` → `Application` → `Infrastructure` → `Api`. The `Api` layer uses minimal APIs with endpoint classes implementing `IEndpoint`. Background services (e.g. the RabbitMQ result consumer) live in `TripPlanner.Api/BackgroundServices`.
+
+trip-planner owns three DDD aggregates: `Route` (Calculating→Created→Active→Full), `Ride` (WaitingForActivation→WaitingForDriver→Started), and `RideRequest` (Pending→Accepted/Rejected). All DB access goes through a `DbSession` that implements `IUnitOfWork`; pessimistic row locking (`SELECT … FOR UPDATE`) is used in `AcceptRideRequest` to prevent double-booking. External services (Accounts, Payments, Chat, Kafka, RabbitMQ) are injected as interfaces and have `Fake*` implementations for local development.
 
 ### Kubernetes / deployment
 
@@ -101,3 +121,7 @@ Protobuf schemas shared across services live in `src/schemas/pullapp/core/v1/`. 
 ## Branching
 
 GitFlow with pattern `type/service/description` (e.g. `feature/route-calc/autoscaling`, `hotfix/gateway/ssl`). Main branch is `master`. CI workflows are path-filtered — a push only triggers the CI for the service whose files changed.
+
+## Commit style
+
+Short lowercase phrases, no period, no `Co-Authored-By` or other trailers. Examples: `docs updated`, `ci update`, `all unit tests pass`.

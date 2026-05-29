@@ -1,31 +1,26 @@
-using System.Text.Json;
 using Npgsql;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Domain.Compute;
-using TripPlanner.Domain.Passenger;
+using TripPlanner.Domain.RideRequest;
 
 namespace TripPlanner.Infrastructure.Postgres;
 
 public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepository
 {
-    private static readonly string[] ActiveExcluded = ["Cancelled", "NoMatch"];
-
     public async Task AddAsync(RideRequest request, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             INSERT INTO ride_requests
-                (id, passenger_id, status,
+                (id, route_id, passenger_id, status,
                  start_lat, start_lng, end_lat, end_lng,
-                 max_detour_km, max_results,
-                 match_results_json, selected_route_id, job_id,
-                 confirmation_deadline, created_at, updated_at)
+                 frozen_price_id, price, cancellation_price,
+                 created_at, rejected_at)
             VALUES
-                (@id, @passenger_id, @status,
+                (@id, @route_id, @passenger_id, @status,
                  @start_lat, @start_lng, @end_lat, @end_lng,
-                 @max_detour_km, @max_results,
-                 @match_results_json, @selected_route_id, @job_id,
-                 @confirmation_deadline, @created_at, @updated_at)
+                 @frozen_price_id, @price, @cancellation_price,
+                 @created_at, @rejected_at)
             """;
         BindAll(cmd, request);
         await cmd.ExecuteNonQueryAsync(ct);
@@ -40,18 +35,26 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
         return await reader.ReadAsync(ct) ? Map(reader) : null;
     }
 
-    public async Task<RideRequest?> GetActiveByPassengerIdAsync(Guid passengerId, CancellationToken ct)
+    public async Task<IReadOnlyList<RideRequest>> GetPendingByRouteIdAsync(Guid routeId, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM ride_requests
-            WHERE passenger_id = @passenger_id
-              AND status NOT IN ('Cancelled', 'NoMatch')
-            LIMIT 1
+            WHERE route_id = @route_id AND status = 'Pending'
             """;
-        cmd.Parameters.AddWithValue("passenger_id", passengerId);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? Map(reader) : null;
+        cmd.Parameters.AddWithValue("route_id", routeId);
+        return await ReadListAsync(cmd, ct);
+    }
+
+    public async Task<IReadOnlyList<RideRequest>> GetRejectedByRouteIdAsync(Guid routeId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = """
+            SELECT * FROM ride_requests
+            WHERE route_id = @route_id AND status = 'Rejected'
+            """;
+        cmd.Parameters.AddWithValue("route_id", routeId);
+        return await ReadListAsync(cmd, ct);
     }
 
     public async Task UpdateAsync(RideRequest request, CancellationToken ct)
@@ -59,69 +62,25 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
         await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             UPDATE ride_requests SET
-                status                = @status,
-                match_results_json    = @match_results_json,
-                selected_route_id     = @selected_route_id,
-                job_id                = @job_id,
-                confirmation_deadline = @confirmation_deadline,
-                updated_at            = @updated_at
+                status             = @status,
+                frozen_price_id    = @frozen_price_id,
+                price              = @price,
+                cancellation_price = @cancellation_price,
+                rejected_at        = @rejected_at
             WHERE id = @id
             """;
-        cmd.Parameters.AddWithValue("id",                    request.Id);
-        cmd.Parameters.AddWithValue("status",                request.Status.ToString());
-        cmd.Parameters.AddWithValue("match_results_json",    SerializeMatches(request.MatchResults));
-        cmd.Parameters.AddWithValue("selected_route_id",     (object?)request.SelectedRouteId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("job_id",                (object?)request.JobId           ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("confirmation_deadline", (object?)request.ConfirmationDeadline ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("updated_at",            request.UpdatedAt);
+        cmd.Parameters.AddWithValue("id",                 request.Id);
+        cmd.Parameters.AddWithValue("status",             request.Status.ToString());
+        cmd.Parameters.AddWithValue("frozen_price_id",    (object?)request.FrozenPriceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("price",              request.Price);
+        cmd.Parameters.AddWithValue("cancellation_price", request.CancellationPrice);
+        cmd.Parameters.AddWithValue("rejected_at",        (object?)request.RejectedAt ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<RideRequest>> GetExpiredConfirmationsAsync(CancellationToken ct)
-    {
-        await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
-            SELECT * FROM ride_requests
-            WHERE status = 'PendingDriver'
-              AND confirmation_deadline < @now
-            """;
-        cmd.Parameters.AddWithValue("now", DateTimeOffset.UtcNow);
-        return await ReadAll(cmd, ct);
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────
 
-    private static void BindAll(NpgsqlCommand cmd, RideRequest r)
-    {
-        cmd.Parameters.AddWithValue("id",                    r.Id);
-        cmd.Parameters.AddWithValue("passenger_id",          r.PassengerId);
-        cmd.Parameters.AddWithValue("status",                r.Status.ToString());
-        cmd.Parameters.AddWithValue("start_lat",             r.StartPoint.Latitude);
-        cmd.Parameters.AddWithValue("start_lng",             r.StartPoint.Longitude);
-        cmd.Parameters.AddWithValue("end_lat",               r.EndPoint.Latitude);
-        cmd.Parameters.AddWithValue("end_lng",               r.EndPoint.Longitude);
-        cmd.Parameters.AddWithValue("max_detour_km",         r.Constraints.MaxDetourKm);
-        cmd.Parameters.AddWithValue("max_results",           r.Constraints.MaxResults);
-        cmd.Parameters.AddWithValue("match_results_json",    SerializeMatches(r.MatchResults));
-        cmd.Parameters.AddWithValue("selected_route_id",     (object?)r.SelectedRouteId       ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("job_id",                (object?)r.JobId                 ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("confirmation_deadline", (object?)r.ConfirmationDeadline  ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("created_at",            r.CreatedAt);
-        cmd.Parameters.AddWithValue("updated_at",            r.UpdatedAt);
-    }
-
-    private static object SerializeMatches(IReadOnlyList<MatchEntry>? matches) =>
-        matches is null ? DBNull.Value : JsonSerializer.Serialize(matches);
-
-    private static IReadOnlyList<MatchEntry>? DeserializeMatches(NpgsqlDataReader r)
-    {
-        var ord = r.GetOrdinal("match_results_json");
-        if (r.IsDBNull(ord)) return null;
-        var json = r.GetString(ord);
-        return JsonSerializer.Deserialize<List<MatchEntry>>(json);
-    }
-
-    private static async Task<IReadOnlyList<RideRequest>> ReadAll(NpgsqlCommand cmd, CancellationToken ct)
+    private static async Task<IReadOnlyList<RideRequest>> ReadListAsync(NpgsqlCommand cmd, CancellationToken ct)
     {
         var list = new List<RideRequest>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -130,27 +89,37 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
         return list;
     }
 
+    private static void BindAll(NpgsqlCommand cmd, RideRequest r)
+    {
+        cmd.Parameters.AddWithValue("id",                 r.Id);
+        cmd.Parameters.AddWithValue("route_id",           r.RouteId);
+        cmd.Parameters.AddWithValue("passenger_id",       r.PassengerId);
+        cmd.Parameters.AddWithValue("status",             r.Status.ToString());
+        cmd.Parameters.AddWithValue("start_lat",          r.StartPoint.Latitude);
+        cmd.Parameters.AddWithValue("start_lng",          r.StartPoint.Longitude);
+        cmd.Parameters.AddWithValue("end_lat",            r.EndPoint.Latitude);
+        cmd.Parameters.AddWithValue("end_lng",            r.EndPoint.Longitude);
+        cmd.Parameters.AddWithValue("frozen_price_id",    (object?)r.FrozenPriceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("price",              r.Price);
+        cmd.Parameters.AddWithValue("cancellation_price", r.CancellationPrice);
+        cmd.Parameters.AddWithValue("created_at",         r.CreatedAt);
+        cmd.Parameters.AddWithValue("rejected_at",        (object?)r.RejectedAt ?? DBNull.Value);
+    }
+
     private static RideRequest Map(NpgsqlDataReader r)
     {
         var req = EntityMapper.New<RideRequest>();
-        req.Set("Id",          r.GetGuid(r.GetOrdinal("id")));
-        req.Set("PassengerId", r.GetGuid(r.GetOrdinal("passenger_id")));
-        req.Set("StartPoint",  new GeoPoint(
-                                   r.GetDouble(r.GetOrdinal("start_lat")),
-                                   r.GetDouble(r.GetOrdinal("start_lng"))));
-        req.Set("EndPoint",    new GeoPoint(
-                                   r.GetDouble(r.GetOrdinal("end_lat")),
-                                   r.GetDouble(r.GetOrdinal("end_lng"))));
-        req.Set("Constraints", new MatchConstraints(
-                                   r.GetDouble(r.GetOrdinal("max_detour_km")),
-                                   r.GetInt32(r.GetOrdinal("max_results"))));
-        req.Set("CreatedAt",   r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
-        req.Set("Status",      Enum.Parse<RideRequestStatus>(r.GetString(r.GetOrdinal("status"))));
-        req.Set("MatchResults",         DeserializeMatches(r));
-        req.Set("SelectedRouteId",      NullableGuid(r, "selected_route_id"));
-        req.Set("JobId",                NullableGuid(r, "job_id"));
-        req.Set("ConfirmationDeadline", NullableDto(r, "confirmation_deadline"));
-        req.Set("UpdatedAt",            r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("updated_at")));
+        req.Set("Id",                 r.GetGuid(r.GetOrdinal("id")));
+        req.Set("RouteId",            r.GetGuid(r.GetOrdinal("route_id")));
+        req.Set("PassengerId",        r.GetGuid(r.GetOrdinal("passenger_id")));
+        req.Set("Status",             Enum.Parse<RideRequestStatus>(r.GetString(r.GetOrdinal("status"))));
+        req.Set("StartPoint",         new GeoPoint(r.GetDouble(r.GetOrdinal("start_lat")), r.GetDouble(r.GetOrdinal("start_lng"))));
+        req.Set("EndPoint",           new GeoPoint(r.GetDouble(r.GetOrdinal("end_lat")),   r.GetDouble(r.GetOrdinal("end_lng"))));
+        req.Set("FrozenPriceId",      NullableGuid(r, "frozen_price_id"));
+        req.Set("Price",              r.GetDecimal(r.GetOrdinal("price")));
+        req.Set("CancellationPrice",  r.GetDecimal(r.GetOrdinal("cancellation_price")));
+        req.Set("CreatedAt",          r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
+        req.Set("RejectedAt",         NullableDto(r, "rejected_at"));
         return req;
     }
 

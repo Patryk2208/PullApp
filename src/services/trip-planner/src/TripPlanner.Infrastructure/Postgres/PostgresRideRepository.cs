@@ -12,23 +12,19 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
         await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             INSERT INTO rides
-                (id, request_id, driver_id, passenger_id, driver_route_id,
-                 status,
-                 frozen_price_id, frozen_price_amount, frozen_price_expires_at,
-                 chat_room_id,
-                 pickup_lat, pickup_lng,
-                 dropoff_lat, dropoff_lng,
-                 cancelled_by, cancellation_phase,
-                 created_at, started_at, completed_at, cancelled_at)
+                (id, route_id, driver_id, passenger_id, status,
+                 start_lat, start_lng, end_lat, end_lng,
+                 price, cancellation_price, frozen_price_id, chat_room_id,
+                 driver_declared_pickup, passenger_declared_pickup,
+                 passenger_declared_end, driver_declared_end,
+                 created_at, started_at, ended_at)
             VALUES
-                (@id, @request_id, @driver_id, @passenger_id, @driver_route_id,
-                 @status,
-                 @frozen_price_id, @frozen_price_amount, @frozen_price_expires_at,
-                 @chat_room_id,
-                 @pickup_lat, @pickup_lng,
-                 @dropoff_lat, @dropoff_lng,
-                 @cancelled_by, @cancellation_phase,
-                 @created_at, @started_at, @completed_at, @cancelled_at)
+                (@id, @route_id, @driver_id, @passenger_id, @status,
+                 @start_lat, @start_lng, @end_lat, @end_lng,
+                 @price, @cancellation_price, @frozen_price_id, @chat_room_id,
+                 @driver_declared_pickup, @passenger_declared_pickup,
+                 @passenger_declared_end, @driver_declared_end,
+                 @created_at, @started_at, @ended_at)
             """;
         BindAll(cmd, ride);
         await cmd.ExecuteNonQueryAsync(ct);
@@ -43,79 +39,14 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
         return await reader.ReadAsync(ct) ? Map(reader) : null;
     }
 
-    public async Task<Ride?> GetActiveByDriverIdAsync(Guid driverId, CancellationToken ct)
+    public async Task<IReadOnlyList<Ride>> GetActiveByRouteIdAsync(Guid routeId, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
         cmd.CommandText = """
             SELECT * FROM rides
-            WHERE driver_id = @driver_id
-              AND status NOT IN ('Completed', 'Cancelled')
-            LIMIT 1
+            WHERE route_id = @route_id AND ended_at IS NULL
             """;
-        cmd.Parameters.AddWithValue("driver_id", driverId);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? Map(reader) : null;
-    }
-
-    public async Task<Ride?> GetActiveByPassengerIdAsync(Guid passengerId, CancellationToken ct)
-    {
-        await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
-            SELECT * FROM rides
-            WHERE passenger_id = @passenger_id
-              AND status NOT IN ('Completed', 'Cancelled')
-            LIMIT 1
-            """;
-        cmd.Parameters.AddWithValue("passenger_id", passengerId);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? Map(reader) : null;
-    }
-
-    public async Task UpdateAsync(Ride ride, CancellationToken ct)
-    {
-        await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
-            UPDATE rides SET
-                status                  = @status,
-                frozen_price_id         = @frozen_price_id,
-                frozen_price_amount     = @frozen_price_amount,
-                frozen_price_expires_at = @frozen_price_expires_at,
-                chat_room_id            = @chat_room_id,
-                dropoff_lat             = @dropoff_lat,
-                dropoff_lng             = @dropoff_lng,
-                cancelled_by            = @cancelled_by,
-                cancellation_phase      = @cancellation_phase,
-                started_at              = @started_at,
-                completed_at            = @completed_at,
-                cancelled_at            = @cancelled_at
-            WHERE id = @id
-            """;
-        cmd.Parameters.AddWithValue("id",                      ride.Id);
-        cmd.Parameters.AddWithValue("status",                  ride.Status.ToString());
-        cmd.Parameters.AddWithValue("frozen_price_id",         (object?)ride.FrozenPriceId          ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("frozen_price_amount",     (object?)ride.FrozenPriceAmount       ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("frozen_price_expires_at", (object?)ride.FrozenPriceExpiresAt    ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("chat_room_id",            (object?)ride.ChatRoomId              ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("dropoff_lat",             (object?)ride.DropoffPoint?.Latitude  ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("dropoff_lng",             (object?)ride.DropoffPoint?.Longitude ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("cancelled_by",            (object?)ride.CancelledByActor?.ToString() ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("cancellation_phase",      (object?)ride.Phase?.ToString()       ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("started_at",              (object?)ride.StartedAt               ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("completed_at",            (object?)ride.CompletedAt             ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("cancelled_at",            (object?)ride.CancelledAt             ?? DBNull.Value);
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<Ride>> GetRidesWithExpiringPriceFreezeAsync(
-        DateTimeOffset threshold, CancellationToken ct)
-    {
-        await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
-            SELECT * FROM rides
-            WHERE status IN ('Pickup', 'AwaitingPassenger')
-              AND frozen_price_expires_at < @threshold
-            """;
-        cmd.Parameters.AddWithValue("threshold", threshold);
+        cmd.Parameters.AddWithValue("route_id", routeId);
         var list = new List<Ride>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -123,53 +54,88 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
         return list;
     }
 
+    public async Task UpdateAsync(Ride ride, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = """
+            UPDATE rides SET
+                status                    = @status,
+                chat_room_id              = @chat_room_id,
+                driver_declared_pickup    = @driver_declared_pickup,
+                passenger_declared_pickup = @passenger_declared_pickup,
+                passenger_declared_end    = @passenger_declared_end,
+                driver_declared_end       = @driver_declared_end,
+                started_at                = @started_at,
+                ended_at                  = @ended_at
+            WHERE id = @id
+            """;
+        cmd.Parameters.AddWithValue("id",                        ride.Id);
+        cmd.Parameters.AddWithValue("status",                    ride.Status.ToString());
+        cmd.Parameters.AddWithValue("chat_room_id",              (object?)ride.ChatRoomId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("driver_declared_pickup",    ride.DriverDeclaredPickup);
+        cmd.Parameters.AddWithValue("passenger_declared_pickup", ride.PassengerDeclaredPickup);
+        cmd.Parameters.AddWithValue("passenger_declared_end",    ride.PassengerDeclaredEnd);
+        cmd.Parameters.AddWithValue("driver_declared_end",       ride.DriverDeclaredEnd);
+        cmd.Parameters.AddWithValue("started_at",                (object?)ride.StartedAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("ended_at",                  (object?)ride.EndedAt   ?? DBNull.Value);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task DeleteByRouteIdAsync(Guid routeId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = "DELETE FROM rides WHERE route_id = @route_id";
+        cmd.Parameters.AddWithValue("route_id", routeId);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     // ─── helpers ─────────────────────────────────────────────────────────────
 
-    private static void BindAll(NpgsqlCommand cmd, Ride r)
+    private static void BindAll(NpgsqlCommand cmd, Ride ride)
     {
-        cmd.Parameters.AddWithValue("id",                      r.Id);
-        cmd.Parameters.AddWithValue("request_id",              r.RequestId);
-        cmd.Parameters.AddWithValue("driver_id",               r.DriverId);
-        cmd.Parameters.AddWithValue("passenger_id",            r.PassengerId);
-        cmd.Parameters.AddWithValue("driver_route_id",         r.DriverRouteId);
-        cmd.Parameters.AddWithValue("status",                  r.Status.ToString());
-        cmd.Parameters.AddWithValue("frozen_price_id",         (object?)r.FrozenPriceId          ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("frozen_price_amount",     (object?)r.FrozenPriceAmount       ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("frozen_price_expires_at", (object?)r.FrozenPriceExpiresAt    ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("chat_room_id",            (object?)r.ChatRoomId              ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("pickup_lat",              (object?)r.PickupPoint?.Latitude   ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("pickup_lng",              (object?)r.PickupPoint?.Longitude  ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("dropoff_lat",             (object?)r.DropoffPoint?.Latitude  ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("dropoff_lng",             (object?)r.DropoffPoint?.Longitude ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("cancelled_by",            (object?)r.CancelledByActor?.ToString() ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("cancellation_phase",      (object?)r.Phase?.ToString()       ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("created_at",              r.CreatedAt);
-        cmd.Parameters.AddWithValue("started_at",              (object?)r.StartedAt               ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("completed_at",            (object?)r.CompletedAt             ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("cancelled_at",            (object?)r.CancelledAt             ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("id",                        ride.Id);
+        cmd.Parameters.AddWithValue("route_id",                  ride.RouteId);
+        cmd.Parameters.AddWithValue("driver_id",                 ride.DriverId);
+        cmd.Parameters.AddWithValue("passenger_id",              ride.PassengerId);
+        cmd.Parameters.AddWithValue("status",                    ride.Status.ToString());
+        cmd.Parameters.AddWithValue("start_lat",                 ride.StartPoint.Latitude);
+        cmd.Parameters.AddWithValue("start_lng",                 ride.StartPoint.Longitude);
+        cmd.Parameters.AddWithValue("end_lat",                   ride.EndPoint.Latitude);
+        cmd.Parameters.AddWithValue("end_lng",                   ride.EndPoint.Longitude);
+        cmd.Parameters.AddWithValue("price",                     ride.Price);
+        cmd.Parameters.AddWithValue("cancellation_price",        ride.CancellationPrice);
+        cmd.Parameters.AddWithValue("frozen_price_id",           (object?)ride.FrozenPriceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("chat_room_id",              (object?)ride.ChatRoomId    ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("driver_declared_pickup",    ride.DriverDeclaredPickup);
+        cmd.Parameters.AddWithValue("passenger_declared_pickup", ride.PassengerDeclaredPickup);
+        cmd.Parameters.AddWithValue("passenger_declared_end",    ride.PassengerDeclaredEnd);
+        cmd.Parameters.AddWithValue("driver_declared_end",       ride.DriverDeclaredEnd);
+        cmd.Parameters.AddWithValue("created_at",                ride.CreatedAt);
+        cmd.Parameters.AddWithValue("started_at",                (object?)ride.StartedAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("ended_at",                  (object?)ride.EndedAt   ?? DBNull.Value);
     }
 
     private static Ride Map(NpgsqlDataReader r)
     {
         var ride = EntityMapper.New<Ride>();
-        ride.Set("Id",             r.GetGuid(r.GetOrdinal("id")));
-        ride.Set("RequestId",      r.GetGuid(r.GetOrdinal("request_id")));
-        ride.Set("DriverId",       r.GetGuid(r.GetOrdinal("driver_id")));
-        ride.Set("PassengerId",    r.GetGuid(r.GetOrdinal("passenger_id")));
-        ride.Set("DriverRouteId",  r.GetGuid(r.GetOrdinal("driver_route_id")));
-        ride.Set("CreatedAt",      r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
-        ride.Set("Status",         Enum.Parse<RideStatus>(r.GetString(r.GetOrdinal("status"))));
-        ride.Set("FrozenPriceId",         NullableGuid(r, "frozen_price_id"));
-        ride.Set("FrozenPriceAmount",     NullableDecimal(r, "frozen_price_amount"));
-        ride.Set("FrozenPriceExpiresAt",  NullableDto(r, "frozen_price_expires_at"));
-        ride.Set("ChatRoomId",            NullableGuid(r, "chat_room_id"));
-        ride.Set("PickupPoint",           NullablePoint(r, "pickup_lat", "pickup_lng"));
-        ride.Set("DropoffPoint",          NullablePoint(r, "dropoff_lat", "dropoff_lng"));
-        ride.Set("CancelledByActor",      NullableEnum<CancelledBy>(r, "cancelled_by"));
-        ride.Set("Phase",                 NullableEnum<CancellationPhase>(r, "cancellation_phase"));
-        ride.Set("StartedAt",             NullableDto(r, "started_at"));
-        ride.Set("CompletedAt",           NullableDto(r, "completed_at"));
-        ride.Set("CancelledAt",           NullableDto(r, "cancelled_at"));
+        ride.Set("Id",          r.GetGuid(r.GetOrdinal("id")));
+        ride.Set("RouteId",     r.GetGuid(r.GetOrdinal("route_id")));
+        ride.Set("DriverId",    r.GetGuid(r.GetOrdinal("driver_id")));
+        ride.Set("PassengerId", r.GetGuid(r.GetOrdinal("passenger_id")));
+        ride.Set("Status",      Enum.Parse<RideStatus>(r.GetString(r.GetOrdinal("status"))));
+        ride.Set("StartPoint",  new GeoPoint(r.GetDouble(r.GetOrdinal("start_lat")), r.GetDouble(r.GetOrdinal("start_lng"))));
+        ride.Set("EndPoint",    new GeoPoint(r.GetDouble(r.GetOrdinal("end_lat")),   r.GetDouble(r.GetOrdinal("end_lng"))));
+        ride.Set("Price",             r.GetDecimal(r.GetOrdinal("price")));
+        ride.Set("CancellationPrice", r.GetDecimal(r.GetOrdinal("cancellation_price")));
+        ride.Set("FrozenPriceId",     NullableGuid(r, "frozen_price_id"));
+        ride.Set("ChatRoomId",        NullableGuid(r, "chat_room_id"));
+        ride.Set("DriverDeclaredPickup",    r.GetBoolean(r.GetOrdinal("driver_declared_pickup")));
+        ride.Set("PassengerDeclaredPickup", r.GetBoolean(r.GetOrdinal("passenger_declared_pickup")));
+        ride.Set("PassengerDeclaredEnd",    r.GetBoolean(r.GetOrdinal("passenger_declared_end")));
+        ride.Set("DriverDeclaredEnd",       r.GetBoolean(r.GetOrdinal("driver_declared_end")));
+        ride.Set("CreatedAt",  r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
+        ride.Set("StartedAt",  NullableDto(r, "started_at"));
+        ride.Set("EndedAt",    NullableDto(r, "ended_at"));
         return ride;
     }
 
@@ -179,29 +145,9 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
         return r.IsDBNull(ord) ? null : r.GetGuid(ord);
     }
 
-    private static decimal? NullableDecimal(NpgsqlDataReader r, string col)
-    {
-        var ord = r.GetOrdinal(col);
-        return r.IsDBNull(ord) ? null : r.GetDecimal(ord);
-    }
-
     private static DateTimeOffset? NullableDto(NpgsqlDataReader r, string col)
     {
         var ord = r.GetOrdinal(col);
         return r.IsDBNull(ord) ? null : r.GetFieldValue<DateTimeOffset>(ord);
-    }
-
-    private static GeoPoint? NullablePoint(NpgsqlDataReader r, string latCol, string lngCol)
-    {
-        var latOrd = r.GetOrdinal(latCol);
-        return r.IsDBNull(latOrd)
-            ? null
-            : new GeoPoint(r.GetDouble(latOrd), r.GetDouble(r.GetOrdinal(lngCol)));
-    }
-
-    private static TEnum? NullableEnum<TEnum>(NpgsqlDataReader r, string col) where TEnum : struct, Enum
-    {
-        var ord = r.GetOrdinal(col);
-        return r.IsDBNull(ord) ? null : Enum.Parse<TEnum>(r.GetString(ord));
     }
 }
