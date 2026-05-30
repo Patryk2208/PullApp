@@ -36,6 +36,15 @@ spec:
             secretKeyRef:
               name: pullapp-secrets
               key: ACCOUNTS_DB_PASSWORD
+        - name: Jwt__SecretKey
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: ACCOUNTS_JWT_SECRET
+        - name: Jwt__Issuer
+          value: "pullapp"
+        - name: Jwt__Audience
+          value: "pullapp"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
         - name: OTEL_SERVICE_NAME

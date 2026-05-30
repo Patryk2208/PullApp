@@ -14,7 +14,7 @@ public sealed class GatewayMetrics : IDisposable
         _requests = _meter.CreateCounter<long>("gateway_requests_total",            "requests");
         _duration = _meter.CreateHistogram<double>("gateway_request_duration_seconds", "s");
 
-        foreach (var svc in new[] { "accounts", "trip-planner" })
+        foreach (var svc in new[] { "accounts", "trip-planner", "notifications", "driver-tracker" })
         {
             foreach (var method in new[] { "GET", "POST", "PUT", "DELETE" })
             {
