@@ -8,7 +8,7 @@ using PullApp.Accounts.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace PullApp.Accounts.Infrastructure.Persistence.Migrations
+namespace PullApp.Accounts.Infrastructure.Migrations
 {
     [DbContext(typeof(AccountsDbContext))]
     partial class AccountsDbContextModelSnapshot : ModelSnapshot
@@ -24,11 +24,8 @@ namespace PullApp.Accounts.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("PullApp.Accounts.Domain.User", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Bio")
                         .IsRequired()
