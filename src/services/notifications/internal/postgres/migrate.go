@@ -14,10 +14,6 @@ CREATE TABLE IF NOT EXISTS device_tokens (
     platform   TEXT NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS sent_notifications (
-    event_id TEXT PRIMARY KEY,
-    sent_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
 `
 
 func Migrate(ctx context.Context, db *pgxpool.Pool) error {

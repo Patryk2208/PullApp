@@ -25,16 +25,22 @@ type memIdem struct {
 
 func newMemIdem() *memIdem { return &memIdem{seen: map[string]bool{}} }
 
-func (m *memIdem) IsProcessed(_ context.Context, id string) (bool, error) {
+func (m *memIdem) ClaimEvent(_ context.Context, id string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.seen[id], nil
+	if m.seen[id] {
+		return false, nil
+	}
+	m.seen[id] = true
+	return true, nil
 }
 
-func (m *memIdem) MarkProcessed(_ context.Context, id string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.seen[id] = true
+// directPublisher bypasses Redis and delivers straight to the streamer —
+// sufficient for the Kafka pipeline integration test.
+type directPublisher struct{ s *service.Streamer }
+
+func (p *directPublisher) Publish(_ context.Context, userID string, env model.Envelope) error {
+	p.s.Send(userID, env)
 	return nil
 }
 
@@ -100,7 +106,7 @@ func TestConsumerPipeline(t *testing.T) {
 	// wire a real dispatcher over an in-memory idempotency store + real streamer
 	mapper := model.NewUsersMapper()
 	streamer := service.NewStreamer(mapper)
-	dispatcher := service.NewDispatcher(newMemIdem(), streamer, noopPusher{})
+	dispatcher := service.NewDispatcher(newMemIdem(), &directPublisher{streamer}, noopPusher{})
 
 	ch := mapper.Register("driver-1")
 	defer mapper.Unregister("driver-1", ch)

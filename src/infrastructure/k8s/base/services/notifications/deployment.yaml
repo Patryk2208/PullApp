@@ -41,6 +41,13 @@ spec:
           value: ":8080"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+        - name: REDIS_ADDR
+          value: "notifications-cache:6381"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pullapp-secrets
+              key: NOTIFICATIONS_REDIS_PASSWORD
         - name: FIREBASE_CREDENTIALS_FILE
           value: "/secrets/firebase.json"
         - name: FIREBASE_PROJECT_ID

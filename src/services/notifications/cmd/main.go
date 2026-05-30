@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	firebase "firebase.google.com/go/v4"
 	"google.golang.org/api/option"
@@ -30,6 +29,7 @@ import (
 	appmetrics "notifications/internal/metrics"
 	"notifications/internal/model"
 	"notifications/internal/postgres"
+	redisclient "notifications/internal/redis"
 	"notifications/internal/service"
 )
 
@@ -102,10 +102,15 @@ func main() {
 	}
 
 	repo := postgres.NewRepository(db)
-	repo.StartCleanup(ctx, 24*time.Hour, 3) // run at 03:00 UTC, keep 24 h
+
+	rdb := redisclient.New(cfg.RedisAddr, cfg.RedisPassword)
+	defer rdb.Close()
 
 	mapper := model.NewUsersMapper()
 	streamer := service.NewStreamer(mapper)
+	rdb.Subscribe(ctx, func(userID string, env model.Envelope) {
+		streamer.Send(userID, env)
+	})
 
 	// Push (FCM) is optional. Without a Firebase project ID + usable credentials
 	// (the local cluster ships PLACEHOLDER secrets) we run SSE-only instead of
@@ -127,7 +132,7 @@ func main() {
 		pusher = service.NewNotifier(repo, fcm)
 	}
 
-	dispatcher := service.NewDispatcher(repo, streamer, pusher)
+	dispatcher := service.NewDispatcher(rdb, rdb, pusher)
 
 	mux := http.NewServeMux()
 	mux.Handle("/health", health.NewHandler(db, strings.SplitN(cfg.KafkaBrokers, ",", 2)[0]))
