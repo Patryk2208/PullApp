@@ -1,37 +1,82 @@
 import * as React from "react";
-import {
-  StyleSheet,
-  GestureResponderEvent,
-  Text,
-  Pressable,
-} from "react-native";
+import { StyleSheet, Text, Pressable } from "react-native";
 
+// 1. Zdefiniowanie uniwersalnego interfejsu (zgodnego z Web i Native)
 export interface ButtonProps {
-  text: string;
-  onClick?: (event: GestureResponderEvent) => void;
+	children: React.ReactNode;       // Standard Reacta zamiast surowego 'text'
+	onClick?: () => void;            // Uproszczony typ zdarzenia
+	variant?: "primary" | "secondary";
+	size?: "medium" | "large";
+	className?: string;              // Przepuszczamy klasę CSS dla weba
 }
 
-export function Button({ text, onClick }: ButtonProps) {
-  return (
-    <Pressable style={styles.button} onPress={onClick}>
-      <Text style={styles.text}>{text}</Text>
-    </Pressable>
-  );
+export function Button({
+	                       children,
+	                       onClick,
+	                       variant = "primary",
+	                       size = "medium",
+	                       className
+                       }: ButtonProps) {
+	
+	// 2. Tablica stylów (Style Array) - pozwala na nadpisywanie właściwości
+	const buttonStyles = [
+		styles.baseButton,
+		variant === "secondary" ? styles.secondaryButton : styles.primaryButton,
+		size === "large" ? styles.largeButton : styles.mediumButton,
+	];
+	
+	return (
+		<Pressable
+			style={buttonStyles}
+			onPress={onClick}
+			// @ts-ignore - className to nie jest oficjalny prop w React Native,
+			// ale biblioteka react-native-web (używana przez Next.js) przetworzy go prawidłowo na HTML
+			className={className}
+		>
+			<Text style={[styles.text, variant === "secondary" && styles.textSecondary]}>
+				{children}
+			</Text>
+		</Pressable>
+	);
 }
 
+// 3. Rozszerzony StyleSheet
 const styles = StyleSheet.create({
-  button: {
-    maxWidth: 200,
-    textAlign: "center",
-    borderRadius: 10,
-    paddingTop: 14,
-    paddingBottom: 14,
-    paddingLeft: 30,
-    paddingRight: 30,
-    fontSize: 15,
-    backgroundColor: "#2f80ed",
-  },
-  text: {
-    color: "white",
-  },
+	baseButton: {
+		textAlign: "center",
+		borderRadius: 10,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	
+	// Warianty kolorystyczne
+	primaryButton: {
+		backgroundColor: "#3498db", // Kolor główny PullApp
+	},
+	secondaryButton: {
+		backgroundColor: "transparent",
+		borderWidth: 2,
+		borderColor: "#3498db",
+	},
+	
+	// Warianty rozmiarowe
+	mediumButton: {
+		paddingVertical: 10,
+		paddingHorizontal: 20,
+	},
+	largeButton: {
+		paddingVertical: 16,
+		paddingHorizontal: 32,
+		width: "100%", // Na stronie głównej duże przyciski wyglądają lepiej
+	},
+	
+	// Style tekstu wewnątrz
+	text: {
+		color: "white",
+		fontSize: 16,
+		fontWeight: "bold",
+	},
+	textSecondary: {
+		color: "#3498db", // W wariancie secondary tekst przyjmuje kolor obramowania
+	},
 });

@@ -1,0 +1,51 @@
+/* apps/web/app/page.module.css */
+.mainContainer {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.heroSection {
+    max-width: 800px;
+    margin-top: 10vh;
+}
+
+.headline {
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+}
+
+.highlight {
+    color: #3498db; /* Główny kolor marki PullApp */
+}
+
+.description {
+    font-size: 1.25rem;
+    color: #555;
+    margin-bottom: 3rem;
+    line-height: 1.6;
+}
+
+.ctaGroup {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap; /* Zwinie się w kolumnę na ekranach telefonów */
+}
+
+/* Wersja mobilna */
+@media (max-width: 600px) {
+    .ctaGroup {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .headline {
+        font-size: 2.5rem;
+    }
+}
