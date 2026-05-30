@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain;
@@ -20,6 +21,7 @@ public class CreateRouteHandler(
     IComputePublisher<ComputeJob> computePublisher,
     IGeoService geo,
     IAccountsService accounts,
+    TripPlannerMetrics metrics,
     IUnitOfWork uow)
 {
     public async Task<CreateRouteResult> HandleAsync(CreateRouteCommand cmd, CancellationToken ct)
@@ -58,6 +60,9 @@ public class CreateRouteHandler(
 
         await computePublisher.PublishAsync(
             new DriverRouteComputeJob(correlationId, cmd.DriverId, payload, DateTimeOffset.UtcNow), ct);
+
+        metrics.DriverRouteRegistrationQueued();
+        metrics.RecordRouteCalcPublished(correlationId, "route_registration");
 
         // 7. Return the routeId.
         //    When route-calc responds, RouteComputedHandler sets geometry and publishes

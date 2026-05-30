@@ -12,7 +12,7 @@ public class CreateRouteHandlerTests
     private readonly IUnitOfWork               _uow      = Substitute.For<IUnitOfWork>();
 
     private CreateRouteHandler Handler() =>
-        new(_routes, _jobs, _compute, _geo, _accounts, _uow);
+        new(_routes, _jobs, _compute, _geo, _accounts, new TripPlannerMetrics(), _uow);
 
     private CreateRouteCommand ValidCmd(Guid? driverId = null) =>
         new(driverId ?? Guid.NewGuid(), Make.PointA, Make.PointB, Capacity: 3);

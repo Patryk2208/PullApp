@@ -12,6 +12,7 @@ using TripPlanner.Api.Middleware;
 using TripPlanner.Application.Features.Background;
 using TripPlanner.Application.Features.Driver;
 using TripPlanner.Application.Features.Passenger;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
@@ -120,6 +121,8 @@ builder.Services.AddScoped<DeclarePassengerEndHandler>();
 
 // ─── Observability ────────────────────────────────────────────────────────────
 
+builder.Services.AddSingleton<TripPlannerMetrics>();
+
 builder.Services.AddHealthChecks()
     .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
     .AddCheck<RabbitHealthCheck>("rabbitmq",   tags: ["ready"]);
@@ -134,6 +137,7 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
+        .AddMeter(TripPlannerMetrics.MeterName)
         .AddOtlpExporter());
 
 builder.Logging.AddOpenTelemetry(o =>

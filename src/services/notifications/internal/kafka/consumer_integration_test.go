@@ -12,6 +12,7 @@ import (
 	segkafka "github.com/segmentio/kafka-go"
 	tckafka "github.com/testcontainers/testcontainers-go/modules/kafka"
 
+	"notifications/internal/metrics"
 	"notifications/internal/model"
 	"notifications/internal/service"
 )
@@ -104,7 +105,8 @@ func TestConsumerPipeline(t *testing.T) {
 	ch := mapper.Register("driver-1")
 	defer mapper.Unregister("driver-1", ch)
 
-	consumer := NewConsumer(broker, topic, "notifications-test", dispatcher)
+	m, _ := metrics.New()
+	consumer := NewConsumer(broker, topic, "notifications-test", dispatcher, m)
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
 	go func() { _ = consumer.Run(ctx) }()

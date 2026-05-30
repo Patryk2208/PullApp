@@ -1,3 +1,4 @@
+using TripPlanner.Application.Metrics;
 using NSubstitute;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Features.Driver;
@@ -31,7 +32,7 @@ public class AcceptRideRequestConcurrencyTests(PostgresFixture db) : IAsyncLifet
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
             new PostgresRideRepository(session),
-            payments, chat, events, session);
+            payments, chat, events, new TripPlannerMetrics(), session);
     }
 
     /// <summary>

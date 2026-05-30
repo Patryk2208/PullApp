@@ -1,3 +1,4 @@
+using TripPlanner.Application.Metrics;
 using NSubstitute;
 using TripPlanner.Application.Features.Background;
 using TripPlanner.Application.Services;
@@ -52,7 +53,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
         var handler = new RouteComputedHandler(
             new PostgresRouteJobRepository(session),
             new PostgresRouteRepository(session),
-            events, session);
+            events, new TripPlannerMetrics(), session);
 
         await handler.HandleAsync(
             new DriverRouteComputeResult(corrId,
@@ -93,7 +94,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
         var handler = new RouteComputedHandler(
             new PostgresRouteJobRepository(session),
             new PostgresRouteRepository(session),
-            events, session);
+            events, new TripPlannerMetrics(), session);
 
         await handler.HandleAsync(
             new PassengerMatchComputeResult(corrId, new PassengerMatchJobResult([])),

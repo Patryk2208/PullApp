@@ -1,3 +1,4 @@
+using TripPlanner.Application.Metrics;
 using NSubstitute;
 using TripPlanner.Application.Features.Passenger;
 using TripPlanner.Application.Services;
@@ -40,7 +41,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
 
         var session = db.NewSession();
         var handler = new SubmitRouteSearchHandler(
-            new PostgresRouteJobRepository(session), compute, geo, session);
+            new PostgresRouteJobRepository(session), compute, geo, new TripPlannerMetrics(), session);
 
         var result = await handler.HandleAsync(new(Guid.NewGuid(), PointA, PointB), default);
 
@@ -108,7 +109,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
             new PostgresRideRepository(session),
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, events, session);
+            payments, events, new TripPlannerMetrics(), session);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 

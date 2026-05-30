@@ -1,4 +1,5 @@
 using System.Text.Json;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
@@ -24,6 +25,7 @@ public class RouteComputedHandler(
     IRouteJobRepository jobs,
     IRouteRepository routes,
     IEventPublisher events,
+    TripPlannerMetrics metrics,
     IUnitOfWork uow) : IHandler<ComputeJobResult>
 {
     public async Task HandleAsync(ComputeJobResult message, CancellationToken ct)
@@ -70,6 +72,9 @@ public class RouteComputedHandler(
         await events.PublishAsync(Topics.NotificationTriggers,
             new RouteReadyEvent(route.Id, route.DriverId,
                 r.Result.RouteGeomJson, r.Result.EtaSeconds, r.Result.DistanceMeters), ct);
+
+        metrics.RecordRouteCalcResult(r.JobId, "success");
+        metrics.DriverRouteRegistrationCompleted();
     }
 
     private async Task HandlePassengerMatchAsync(PassengerMatchComputeResult r, CancellationToken ct)
@@ -90,6 +95,10 @@ public class RouteComputedHandler(
         //    → notifications service SSE/push to passenger.
         await events.PublishAsync(Topics.NotificationTriggers,
             new RouteSearchCompletedEvent(job.Id, job.RequesterId, r.Result.Matches), ct);
+
+        var outcome = r.Result.Matches.Count == 0 ? "no_drivers" : "matched";
+        metrics.RecordMatchingJobResult(r.JobId, outcome);
+        metrics.RecordRouteCalcResult(r.JobId, "success");
     }
 
     private async Task HandleFailureAsync(FailedComputeResult r, CancellationToken ct)
@@ -104,5 +113,11 @@ public class RouteComputedHandler(
         // 3. Persist and commit.
         await jobs.UpdateAsync(job, ct);
         await uow.CommitAsync(ct);
+
+        metrics.RecordRouteCalcResult(r.JobId, "error");
+        if (r.JobType == JobType.PassengerMatch)
+            metrics.RecordMatchingJobResult(r.JobId, "error");
+        else
+            metrics.DriverRouteRegistrationFailed();
     }
 }

@@ -15,10 +15,19 @@ import (
 	firebase "firebase.google.com/go/v4"
 	"google.golang.org/api/option"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdkresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+
 	"notifications/internal/config"
 	"notifications/internal/handler"
 	"notifications/internal/health"
 	"notifications/internal/kafka"
+	appmetrics "notifications/internal/metrics"
 	"notifications/internal/model"
 	"notifications/internal/postgres"
 	"notifications/internal/service"
@@ -30,11 +39,57 @@ type noopPusher struct{}
 
 func (noopPusher) Notify(context.Context, string, model.Envelope) error { return nil }
 
+func setupTelemetry(ctx context.Context) (func(), error) {
+	res, err := sdkresource.New(ctx,
+		sdkresource.WithAttributes(semconv.ServiceNameKey.String("notifications")),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	traceExp, err := otlptracegrpc.New(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(res),
+		sdktrace.WithBatcher(traceExp),
+	)
+	otel.SetTracerProvider(tp)
+
+	metricExp, err := otlpmetricgrpc.New(ctx)
+	if err != nil {
+		return nil, err
+	}
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp)),
+	)
+	otel.SetMeterProvider(mp)
+
+	return func() {
+		_ = tp.Shutdown(context.Background())
+		_ = mp.Shutdown(context.Background())
+	}, nil
+}
+
 func main() {
 	cfg := config.Load()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	shutdownTelemetry, err := setupTelemetry(ctx)
+	if err != nil {
+		log.Printf("telemetry setup failed (continuing without OTel): %v", err)
+		shutdownTelemetry = func() {}
+	}
+	defer shutdownTelemetry()
+
+	m, err := appmetrics.New()
+	if err != nil {
+		log.Fatalf("metrics: %v", err)
+	}
 
 	db, err := postgres.NewClient(ctx, cfg.PostgresURL)
 	if err != nil {
@@ -100,7 +155,7 @@ func main() {
 	var wg sync.WaitGroup
 	for _, topic := range topics {
 		groupID := cfg.KafkaGroupID + "-" + topic
-		consumer := kafka.NewConsumer(cfg.KafkaBrokers, topic, groupID, dispatcher)
+		consumer := kafka.NewConsumer(cfg.KafkaBrokers, topic, groupID, dispatcher, m)
 		wg.Go(func() {
 			log.Printf("notifications: consuming topic %s (group %s)", topic, groupID)
 			if err = consumer.Run(ctx); err != nil {

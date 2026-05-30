@@ -1,6 +1,7 @@
 global using Xunit;
 global using NSubstitute;
 global using TripPlanner.Application.Exceptions;
+global using TripPlanner.Application.Metrics;
 global using TripPlanner.Application.Repositories;
 global using TripPlanner.Application.Services;
 global using TripPlanner.Domain;

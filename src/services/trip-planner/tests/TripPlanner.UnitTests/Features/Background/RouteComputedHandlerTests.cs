@@ -9,7 +9,7 @@ public class RouteComputedHandlerTests
     private readonly IEventPublisher     _events = Substitute.For<IEventPublisher>();
     private readonly IUnitOfWork         _uow    = Substitute.For<IUnitOfWork>();
 
-    private RouteComputedHandler Handler() => new(_jobs, _routes, _events, _uow);
+    private RouteComputedHandler Handler() => new(_jobs, _routes, _events, new TripPlannerMetrics(), _uow);
 
     private static DriverRouteComputeResult DriverRouteResult(Guid jobId) =>
         new(jobId, new DriverRouteJobResult("{}", EtaSeconds: 300, DistanceMeters: 5000));

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain;
@@ -18,6 +19,7 @@ public class SubmitRouteSearchHandler(
     IRouteJobRepository jobs,
     IComputePublisher<ComputeJob> computePublisher,
     IGeoService geo,
+    TripPlannerMetrics metrics,
     IUnitOfWork uow)
 {
     public async Task<SubmitRouteSearchResult> HandleAsync(SubmitRouteSearchCommand cmd, CancellationToken ct)
@@ -25,7 +27,10 @@ public class SubmitRouteSearchHandler(
         // Flow 2 — submit
         // 1. Validate Start and End are within the active service area (IGeoService.IsWithinServiceAreaAsync).
         if (!await geo.IsWithinServiceAreaAsync(cmd.Start, ct) || !await geo.IsWithinServiceAreaAsync(cmd.End, ct))
+        {
+            metrics.MatchingRequestRecorded("no_area_coverage");
             throw new OutsideServiceAreaException("Search start or end is outside the active service area.");
+        }
 
         // 2. Create a RouteJob (PassengerMatch type) with a new CorrelationId; persist it.
         var correlationId = Guid.NewGuid();
@@ -49,6 +54,10 @@ public class SubmitRouteSearchHandler(
 
         await computePublisher.PublishAsync(
             new PassengerMatchComputeJob(correlationId, cmd.PassengerId, payload, DateTimeOffset.UtcNow), ct);
+
+        metrics.MatchingRequestRecorded("queued");
+        metrics.RecordMatchingJobPublished(correlationId);
+        metrics.RecordRouteCalcPublished(correlationId, "passenger_match");
 
         // 5. Return the RouteJob ID (for client-side correlation of the incoming push).
         //    When route-calc responds, RouteComputedHandler publishes RouteSearchCompletedEvent
