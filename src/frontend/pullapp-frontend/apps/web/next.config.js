@@ -1,5 +1,6 @@
 module.exports = {
-  reactStrictMode: true,
+  reactStrictMode: true, 
+  output: 'standalone',
   turbopack: {
     resolveAlias: {
       "react-native": "react-native-web",

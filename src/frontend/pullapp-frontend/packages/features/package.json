@@ -8,5 +8,13 @@
     "@pullapp/api-client": "workspace:*",
     "@pullapp/domain": "workspace:*",
     "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.15",
+    "react": "19.2.0"
+  },
+  "peerDependencies": {
+    "@types/react": "~19.2.15",
+    "react": "19.2.0"
   }
 }

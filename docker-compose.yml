@@ -52,6 +52,17 @@ services:
     networks:
       - gateway-network
 
+  frontend-web:
+    build:
+      context: src/frontend/pullapp-frontend
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000" # TODO development only!
+    networks:
+      - gateway-network
+    environment:
+      - NEXT_PUBLIC_API_URL=http://gateway:8080 # adres Gatewaya wewnątrz sieci Dockera
+
 networks:
   gateway-network:
   accounts-network:
