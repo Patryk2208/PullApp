@@ -5,6 +5,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "@pullapp/domain": "workspace:*"
+    "@pullapp/domain": "workspace:*",
+    "axios": "^1.16.1"
   }
 }

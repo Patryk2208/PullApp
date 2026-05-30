@@ -21,14 +21,14 @@ export default function HomePage() {
 					{/* Ścieżka Kierowcy */}
 					<Link href="/driver/publish" passHref style={{ textDecoration: "none" }}>
 						<Button variant="primary" size="large" className={styles.ctaButton}>
-							🚗 Prowadzisz? Opublikuj trasę
+							🚗 &nbsp;Prowadzisz? Opublikuj trasę
 						</Button>
 					</Link>
 					
 					{/* Ścieżka Pasażera */}
 					<Link href="/passenger/search" passHref style={{ textDecoration: "none" }}>
 						<Button variant="secondary" size="large" className={styles.ctaButton}>
-							🎒 Dołączasz? Znajdź dopasowanie
+							🎒 &nbsp;Dołączasz? Znajdź dopasowanie
 						</Button>
 					</Link>
 				</div>
