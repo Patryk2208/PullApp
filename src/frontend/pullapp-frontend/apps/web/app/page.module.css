@@ -36,6 +36,7 @@
     gap: 1.5rem;
     justify-content: center;
     flex-wrap: wrap; /* Zwinie się w kolumnę na ekranach telefonów */
+    margin-bottom: 5rem;
 }
 
 /* Wersja mobilna */

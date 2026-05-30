@@ -19,14 +19,14 @@ export default function HomePage() {
 				
 				<div className={styles.ctaGroup}>
 					{/* Ścieżka Kierowcy */}
-					<Link href="/driver/publish" passHref>
+					<Link href="/driver/publish" passHref style={{ textDecoration: "none" }}>
 						<Button variant="primary" size="large" className={styles.ctaButton}>
 							🚗 Prowadzisz? Opublikuj trasę
 						</Button>
 					</Link>
 					
 					{/* Ścieżka Pasażera */}
-					<Link href="/passenger/search" passHref>
+					<Link href="/passenger/search" passHref style={{ textDecoration: "none" }}>
 						<Button variant="secondary" size="large" className={styles.ctaButton}>
 							🎒 Dołączasz? Znajdź dopasowanie
 						</Button>

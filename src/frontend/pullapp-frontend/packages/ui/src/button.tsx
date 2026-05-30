@@ -27,11 +27,18 @@ export function Button({
 	
 	return (
 		<Pressable
-			style={buttonStyles}
 			onPress={onClick}
 			// @ts-ignore - className to nie jest oficjalny prop w React Native,
 			// ale biblioteka react-native-web (używana przez Next.js) przetworzy go prawidłowo na HTML
 			className={className}
+			// Wstrzykujemy inline CSS, który zadziała TYLKO na webie i zresetuje 
+			// jakiekolwiek domyślne zachowania hiperłączy dla tego przycisku
+			// @ts-ignore
+			style={({ hovered }) => [
+				...buttonStyles,
+				// Konwersja dla react-native-web, która zostanie przetłumaczona na styl inline w HTML:
+				{ textDecoration: "none", textDecorationLine: "none" }
+			]}
 		>
 			<Text style={[styles.text, variant === "secondary" && styles.textSecondary]}>
 				{children}
