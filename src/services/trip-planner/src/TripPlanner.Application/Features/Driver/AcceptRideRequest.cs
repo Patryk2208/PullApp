@@ -1,4 +1,5 @@
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
@@ -21,6 +22,7 @@ public class AcceptRideRequestHandler(
     IPaymentsService payments,
     IChatService chat,
     IEventPublisher events,
+    TripPlannerMetrics metrics,
     IUnitOfWork uow)
 {
     public async Task<AcceptRideRequestResult> HandleAsync(AcceptRideRequestCommand cmd, CancellationToken ct)
@@ -114,6 +116,9 @@ public class AcceptRideRequestHandler(
         // 7. Publish RideAcceptedEvent → notifications service alerts the passenger.
         await events.PublishAsync(Topics.NotificationTriggers,
             new RideAcceptedEvent(ride.Id, request.Id, route.Id, route.DriverId, request.PassengerId, chatRoomId), ct);
+
+        metrics.RideTransition("pending_request", "ride_created", "driver_accepted");
+        metrics.RideActiveAdd(1);
 
         return new AcceptRideRequestResult(ride.Id, chatRoomId);
     }

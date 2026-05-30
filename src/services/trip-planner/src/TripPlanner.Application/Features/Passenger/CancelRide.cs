@@ -1,4 +1,5 @@
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
@@ -21,6 +22,7 @@ public class CancelRideHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
+    TripPlannerMetrics metrics,
     IUnitOfWork uow)
 {
     public async Task HandleAsync(CancelRideCommand cmd, CancellationToken ct)
@@ -60,9 +62,14 @@ public class CancelRideHandler(
         }
 
         // 6. Persist ride (mark ended) and commit.
+        var stage = ride.Status == RideStatus.WaitingForActivation ? "before_match" : "after_match";
         ride.Cancel();
         await rides.UpdateAsync(ride, ct);
         await uow.CommitAsync(ct);
+
+        metrics.RideTransition(stage, "cancelled", "passenger_cancelled");
+        metrics.RideCancelled("passenger", stage);
+        metrics.RideActiveAdd(-1);
 
         // 7. Load all previously Rejected RideRequests for this route.
         var rejectedRequests = await rideRequests.GetRejectedByRouteIdAsync(ride.RouteId, ct);

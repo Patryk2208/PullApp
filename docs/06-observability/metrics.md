@@ -27,17 +27,6 @@ matching_queue_duration_seconds
   implementacja: timestamp w Redis przy publish, diff przy consume
   cel: p95 < 3s
 
-matching_candidates_evaluated
-  typ: histogram
-  labels: result=(matched|no_match)
-  znaczenie: ile kierowców Route-Calc brał pod uwagę per request
-  cel: mediana > 3 (za mało = brak kierowców w regionie)
-
-matching_no_drivers_found_total
-  typ: counter
-  znaczenie: ile razy nie znaleziono żadnego kierowcy
-  alert: spike = niedobór kierowców w rejonie
-
 matching_result_total
   typ: counter
   labels: result=(matched|no_drivers|timeout|error)
@@ -58,29 +47,9 @@ ride_transitions_total
   reason: driver_accepted, driver_declined, driver_timeout, passenger_cancelled, system_error
   znaczenie: pełna mapa przepływu przejazdów
 
-ride_state_duration_seconds
-  typ: histogram
-  labels: from_state, to_state
-  znaczenie: czas spędzony między stanami
-  kluczowe pary:
-    requested→matched         (czas matchingu end-to-end)
-    driver_notified→accepted  (czas reakcji kierowcy)
-    accepted→started          (czas dojazdu po akceptacji)
-    started→completed         (czas przejazdu)
-
-ride_acceptance_duration_seconds
-  typ: histogram
-  znaczenie: od wysłania notyfikacji do kierowcy do jego odpowiedzi (tak/nie)
-  cel: p95 < 60s
-
 ride_active
   typ: gauge
   znaczenie: ile przejazdów jest aktualnie aktywnych (stany: accepted, started)
-
-ride_completed_total
-  typ: counter
-  labels: completion_type=(normal|early_termination)
-  znaczenie: zakończone przejazdy
 
 ride_cancelled_total
   typ: counter
@@ -97,7 +66,7 @@ ride_driver_decline_total
 
 ## Driver
 
-Mierzony w: **Driver Tracker**, **Trip Planner**
+Mierzony w: **Trip Planner**
 
 ```
 driver_online
@@ -110,32 +79,6 @@ driver_route_registrations_total
   labels: status=(queued|completed|failed)
   znaczenie: rejestracje tras kierowców
 
-driver_route_registration_duration_seconds
-  typ: histogram
-  labels: result=(success|error)
-  znaczenie: czas od submit trasy do status=completed
-  implementacja: timestamp w Redis, diff przy ResultsQueue consume
-  cel: p95 < 10s
-
-driver_gps_updates_total
-  typ: counter
-  labels: driver_status=(on_ride|available|offline)
-  znaczenie: throughput GPS updates w Driver Tracker
-
-driver_gps_update_interval_seconds
-  typ: histogram
-  znaczenie: jak często kierowca wysyła GPS (nieregularność = problem z aplikacją)
-  cel: p95 < 5s
-
-driver_position_staleness_seconds
-  typ: gauge (per driver — uwaga na kardynalność, agreguj jako histogram)
-  implementacja: histogram bucket, nie per-driver gauge
-  znaczenie: jak stara jest ostatnia znana pozycja kierowcy
-  alert: p95 > 30s = problem z Driver Tracker lub aplikacją kierowcy
-
-driver_websocket_connections
-  typ: gauge
-  znaczenie: aktywne WebSocket connections w Driver Tracker
 ```
 
 ---
@@ -147,14 +90,9 @@ Mierzony w: **Trip Planner** (queue depth z RabbitMQ Management API), **Route-Ca
 ```
 compute_queue_depth
   typ: gauge
-  znaczenie: ile jobów czeka w ComputeQueue
   źródło: RabbitMQ Management API scrape
+  znaczenie: ile jobów czeka w ComputeQueue
   alert: > 50 przez > 30s = KEDA nie nadąża skalować
-
-compute_queue_publish_total
-  typ: counter
-  labels: job_type=(route_registration|passenger_match), status=(success|failed)
-  znaczenie: ile jobów wpada do kolejki
 
 results_queue_depth
   typ: gauge
@@ -165,38 +103,13 @@ route_calc_duration_seconds
   typ: histogram
   labels: job_type=(route_registration|passenger_match), result=(success|error)
   znaczenie: czas obliczeń w Route-Calc
-  implementacja: mierzony w Trip Planner przez diff timestamp publish→receive
+  implementacja: diff timestamp publish→receive
   cel: p95 < 2s
 
 route_calc_workers_active
   typ: gauge
-  znaczenie: ile instancji Route-Calc działa (z KEDA)
   źródło: kube-state-metrics (deployment replicas)
-```
-
----
-
-## Chat
-
-Mierzony w: **Chat Service**
-
-```
-chat_messages_total
-  typ: counter
-  labels: status=(delivered|failed)
-  znaczenie: throughput wiadomości
-
-chat_active_rooms
-  typ: gauge
-  znaczenie: ile aktywnych pokoi czatu (= aktywne przejazdy z chatem)
-
-chat_websocket_connections
-  typ: gauge
-  znaczenie: aktywne WebSocket connections
-
-chat_message_delivery_duration_seconds
-  typ: histogram
-  znaczenie: czas od wysłania do potwierdzenia dostarczenia
+  znaczenie: ile instancji Route-Calc działa (z KEDA)
 ```
 
 ---
@@ -220,27 +133,6 @@ notification_kafka_lag
   typ: gauge
   znaczenie: jak daleko Notification Service jest za producentami na Kafce
   alert: > 1000 = serwis nie nadąża
-```
-
----
-
-## Payments (przyszłość)
-
-Mierzony w: **Payment Service**
-
-```
-payment_processing_duration_seconds
-  typ: histogram
-  labels: provider=(stripe|przelewy24), status=(success|failed)
-  cel: p95 < 5s
-
-payment_transactions_total
-  typ: counter
-  labels: type=(charge|refund), status=(success|failed), provider
-
-payment_wallet_operations_total
-  typ: counter
-  labels: operation=(top_up|deduct), status=(success|failed)
 ```
 
 ---
@@ -286,14 +178,7 @@ ride_active anomaly (nagły spadek do 0)              # system przestał działa
 matching_queue_duration_seconds p95 > 5s             # matching wolny
 ride_acceptance_duration_seconds p95 > 120s          # kierowcy wolno reagują
 notification_kafka_lag > 1000                        # notyfikacje się opóźniają
-driver_position_staleness p95 > 30s                  # GPS przestarzały
-```
-
-### P2 — monitoring
-```
-ride_cancelled_total rate spike                      # wzrost anulowań
-driver_gps_update_interval p95 > 10s                # nieregularny GPS
-gateway_auth_failures_total rate > 5/min             # podejrzana aktywność
+results_queue_depth > 0 przez > 60s                  # Trip Planner nie odbiera wyników
 ```
 
 ---
@@ -304,10 +189,9 @@ gateway_auth_failures_total rate > 5/min             # podejrzana aktywność
 |---|---|---|
 | matching_* | Trip Planner | Redis timestamp diff |
 | ride_* | Trip Planner | state machine hooks |
-| driver_online | Driver Tracker | Redis SET count |
-| driver_gps_* | Driver Tracker | WebSocket message handler |
-| compute_queue_depth | Trip Planner / zewnętrzny scraper | RabbitMQ Management API |
-| route_calc_duration | Trip Planner | Redis timestamp diff |
-| chat_* | Chat Service | WebSocket/message handler |
+| driver_online | Trip Planner | Redis SET count |
+| driver_route_* | Trip Planner | Redis timestamp diff |
+| compute_queue_depth, results_queue_depth | Trip Planner | RabbitMQ Management API |
+| route_calc_* | Route-Calc / Trip Planner | OTel SDK + Redis diff |
 | notifications_* | Notification Service | Kafka consumer + provider callback |
 | gateway_* | API Gateway (YARP) | middleware |

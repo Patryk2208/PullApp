@@ -1,3 +1,4 @@
+using TripPlanner.Application.Metrics;
 using NSubstitute;
 using TripPlanner.Application.Features.Driver;
 using TripPlanner.Application.Services;
@@ -63,7 +64,7 @@ public class DriverHandlerIntegrationTests(PostgresFixture db) : IAsyncLifetime
         var handler = new CreateRouteHandler(
             new PostgresRouteRepository(session),
             new PostgresRouteJobRepository(session),
-            compute, geo, accounts, session);
+            compute, geo, accounts, new TripPlannerMetrics(), session);
 
         var driverId = Guid.NewGuid();
         var result   = await handler.HandleAsync(new(driverId, PointA, PointB, Capacity: 2), default);
@@ -139,7 +140,7 @@ public class DriverHandlerIntegrationTests(PostgresFixture db) : IAsyncLifetime
         var handler = new RejectRideRequestHandler(
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, events, session);
+            payments, events, new TripPlannerMetrics(), session);
 
         await handler.HandleAsync(new(driverId, req.Id), default);
 
@@ -172,7 +173,7 @@ public class DriverHandlerIntegrationTests(PostgresFixture db) : IAsyncLifetime
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
             new PostgresRideRepository(session),
-            payments, chat, events, session);
+            payments, chat, events, new TripPlannerMetrics(), session);
 
         var result = await handler.HandleAsync(new(driverId, req.Id), default);
 
@@ -228,7 +229,7 @@ public class DriverHandlerIntegrationTests(PostgresFixture db) : IAsyncLifetime
             new PostgresRideRepository(session),
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, events, session);
+            payments, events, new TripPlannerMetrics(), session);
 
         await handler.HandleAsync(new(driverId, ride.Id), default);
 

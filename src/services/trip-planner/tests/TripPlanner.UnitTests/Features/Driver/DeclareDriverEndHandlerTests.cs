@@ -12,7 +12,7 @@ public class DeclareDriverEndHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private DeclareDriverEndHandler Handler() =>
-        new(_rides, _routes, _rideRequests, _payments, _events, _uow);
+        new(_rides, _routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow);
 
     private static Ride StartedRideWithPassengerEnd(Guid driverId, Guid routeId)
     {

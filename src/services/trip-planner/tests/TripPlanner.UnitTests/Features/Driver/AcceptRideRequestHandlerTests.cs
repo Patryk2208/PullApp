@@ -13,7 +13,7 @@ public class AcceptRideRequestHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private AcceptRideRequestHandler Handler() =>
-        new(_routes, _rideRequests, _rides, _payments, _chat, _events, _uow);
+        new(_routes, _rideRequests, _rides, _payments, _chat, _events, new TripPlannerMetrics(), _uow);
 
     private void SetupHappyPath(RideRequest req, Route route)
     {

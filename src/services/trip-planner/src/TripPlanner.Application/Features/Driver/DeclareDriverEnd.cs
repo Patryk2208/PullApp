@@ -1,4 +1,5 @@
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
@@ -19,6 +20,7 @@ public class DeclareDriverEndHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
+    TripPlannerMetrics metrics,
     IUnitOfWork uow)
 {
     public async Task HandleAsync(DeclareDriverEndCommand cmd, CancellationToken ct)
@@ -69,5 +71,8 @@ public class DeclareDriverEndHandler(
         await events.PublishAsync(Topics.RideCompletions,
             new RideCompletedEvent(ride.Id, ride.DriverId, ride.PassengerId,
                 ride.FrozenPriceId!.Value, ride.Price, ride.EndedAt!.Value), ct);
+
+        metrics.RideTransition("started", "completed", "normal");
+        metrics.RideActiveAdd(-1);
     }
 }
