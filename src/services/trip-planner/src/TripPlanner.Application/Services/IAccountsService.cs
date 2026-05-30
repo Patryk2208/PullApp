@@ -2,6 +2,6 @@ namespace TripPlanner.Application.Services;
 
 public interface IAccountsService
 {
-    Task<bool> IsDriverActiveAsync(Guid driverId, CancellationToken ct);
-    Task<bool> IsPassengerActiveAsync(Guid passengerId, CancellationToken ct);
+    // Verifies the driver has required permissions (license, active status, etc.).
+    Task<bool> CanDriveAsync(Guid driverId, CancellationToken ct);
 }

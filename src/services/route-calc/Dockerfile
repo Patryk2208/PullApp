@@ -23,7 +23,7 @@ RUN mkdir -p route_calc/generated && \
     touch route_calc/generated/__init__.py
 
 COPY CMakeLists.txt .
-COPY cpp .
+COPY cpp/ ./cpp/
 
 RUN poetry build
 

@@ -32,7 +32,7 @@ public class EventPublisher : IEventPublisher, IDisposable
     }
 
     public async Task PublishAsync<T>(string topic, T payload, CancellationToken ct)
-        where T : IEvent
+        where T : IDomainEvent
     {
         var envelope = new Envelope<T>(
             Guid.NewGuid(),

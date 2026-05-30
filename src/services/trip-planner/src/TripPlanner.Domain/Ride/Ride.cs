@@ -2,91 +2,121 @@ using TripPlanner.Domain.Compute;
 
 namespace TripPlanner.Domain.Ride;
 
-public enum RideStatus { Pickup, AwaitingPassenger, InRide, Completed, Cancelled }
+public enum RideStatus { WaitingForActivation, WaitingForDriver, Started }
 
-public enum CancelledBy { Driver, Passenger, System }
-
-public enum CancellationPhase { PrePickup, InRide }
-
-// Created when a match is confirmed (driver accepted the passenger's request).
-// This is the authoritative record of an active or completed ride.
 public class Ride
 {
-    public Guid Id { get; init; }
-    public Guid RequestId { get; init; }
-    public Guid DriverId { get; init; }
-    public Guid PassengerId { get; init; }
-    public Guid DriverRouteId { get; init; }
-    public RideStatus Status { get; private set; } = RideStatus.Pickup;
-
-    // Set immediately after match_confirmed, before the ride record is persisted.
+    public Guid Id { get; private set; }
+    public Guid RouteId { get; private set; }
+    public Guid DriverId { get; private set; }
+    public Guid PassengerId { get; private set; }
+    public GeoPoint StartPoint { get; private set; } = default!;
+    public GeoPoint EndPoint { get; private set; } = default!;
+    public decimal Price { get; private set; }
+    public decimal CancellationPrice { get; private set; }
     public Guid? FrozenPriceId { get; private set; }
-    public decimal? FrozenPriceAmount { get; private set; }
-    public DateTimeOffset? FrozenPriceExpiresAt { get; private set; }
-
-    // Set after Chat.CreateRoom gRPC call completes.
     public Guid? ChatRoomId { get; private set; }
+    public RideStatus Status { get; private set; }
 
-    public GeoPoint? PickupPoint { get; init; }
-    public GeoPoint? DropoffPoint { get; private set; }
+    // Pickup declarations (flow 7): driver must declare first; passenger declaration is ignored without it.
+    public bool DriverDeclaredPickup { get; private set; }
+    public bool PassengerDeclaredPickup { get; private set; }
 
-    public CancelledBy? CancelledByActor { get; private set; }
-    public CancellationPhase? Phase { get; private set; }
+    // End declarations (flow 8c): passenger must declare first; driver declaration is ignored without it.
+    public bool PassengerDeclaredEnd { get; private set; }
+    public bool DriverDeclaredEnd { get; private set; }
 
-    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? StartedAt { get; private set; }
-    public DateTimeOffset? CompletedAt { get; private set; }
-    public DateTimeOffset? CancelledAt { get; private set; }
+    public DateTimeOffset? EndedAt { get; private set; }
 
-    public void SetChatRoom(Guid chatRoomId)
+    private Ride() { }
+
+    public static Ride Create(
+        Guid routeId,
+        Guid driverId,
+        Guid passengerId,
+        GeoPoint startPoint,
+        GeoPoint endPoint,
+        decimal price,
+        decimal cancellationPrice,
+        Guid frozenPriceId,
+        bool routeIsActive) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            RouteId = routeId,
+            DriverId = driverId,
+            PassengerId = passengerId,
+            StartPoint = startPoint,
+            EndPoint = endPoint,
+            Price = price,
+            CancellationPrice = cancellationPrice,
+            FrozenPriceId = frozenPriceId,
+            Status = routeIsActive ? RideStatus.WaitingForDriver : RideStatus.WaitingForActivation,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+    public void SetChatRoom(Guid chatRoomId) => ChatRoomId = chatRoomId;
+
+    // Flow 1 propagation: when the route activates, waiting rides transition to WaitingForDriver.
+    public void ActivateIfWaiting()
     {
-        ChatRoomId = chatRoomId;
+        if (Status == RideStatus.WaitingForActivation)
+            Status = RideStatus.WaitingForDriver;
     }
 
-    public void FreezePrice(Guid priceId, decimal amount, DateTimeOffset expiresAt)
+    // Flow 7: driver declares pickup.
+    public bool DeclareDriverPickup()
     {
-        FrozenPriceId = priceId;
-        FrozenPriceAmount = amount;
-        FrozenPriceExpiresAt = expiresAt;
+        if (Status != RideStatus.WaitingForDriver) return false;
+        DriverDeclaredPickup = true;
+        TryStart();
+        return true;
     }
 
-    public void UpdateFrozenPrice(Guid priceId, decimal amount, DateTimeOffset expiresAt)
+    // Flow 7: passenger declares pickup. Ignored if driver hasn't declared yet.
+    public bool DeclarePassengerPickup()
     {
-        FrozenPriceId = priceId;
-        FrozenPriceAmount = amount;
-        FrozenPriceExpiresAt = expiresAt;
+        if (!DriverDeclaredPickup) return false;
+        PassengerDeclaredPickup = true;
+        TryStart();
+        return true;
     }
 
-    public void MarkDriverArrived()
+    private void TryStart()
     {
-        Status = RideStatus.AwaitingPassenger;
-    }
-
-    public void Start()
-    {
-        Status = RideStatus.InRide;
+        if (!DriverDeclaredPickup || !PassengerDeclaredPickup) return;
+        Status = RideStatus.Started;
         StartedAt = DateTimeOffset.UtcNow;
     }
 
-    public void Complete(GeoPoint dropoffPoint)
+    // Flow 8c: passenger declares end.
+    public bool DeclarePassengerEnd()
     {
-        Status = RideStatus.Completed;
-        DropoffPoint = dropoffPoint;
-        CompletedAt = DateTimeOffset.UtcNow;
+        if (Status != RideStatus.Started) return false;
+        PassengerDeclaredEnd = true;
+        TryEnd();
+        return true;
     }
 
-    public void Cancel(CancelledBy by)
+    // Flow 8c: driver declares end. Ignored if passenger hasn't declared yet.
+    public bool DeclareDriverEnd()
     {
-        var phase = Status switch
-        {
-            RideStatus.Pickup or RideStatus.AwaitingPassenger => CancellationPhase.PrePickup,
-            RideStatus.InRide => CancellationPhase.InRide,
-            _ => throw new InvalidOperationException($"Cannot cancel ride in state {Status}")
-        };
-
-        Status = RideStatus.Cancelled;
-        CancelledByActor = by;
-        Phase = phase;
-        CancelledAt = DateTimeOffset.UtcNow;
+        if (!PassengerDeclaredEnd) return false;
+        DriverDeclaredEnd = true;
+        TryEnd();
+        return true;
     }
+
+    private void TryEnd()
+    {
+        if (!DriverDeclaredEnd || !PassengerDeclaredEnd) return;
+        EndedAt = DateTimeOffset.UtcNow;
+    }
+
+    // Flow 8a/8b: passenger cancels before the ride starts.
+    public void Cancel() => EndedAt = DateTimeOffset.UtcNow;
+
+    public bool IsEnded => EndedAt.HasValue;
 }
