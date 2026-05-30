@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
@@ -23,7 +24,8 @@ public class CancelRideHandler(
     IPaymentsService payments,
     IEventPublisher events,
     TripPlannerMetrics metrics,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<CancelRideHandler> logger)
 {
     public async Task HandleAsync(CancelRideCommand cmd, CancellationToken ct)
     {
@@ -83,5 +85,8 @@ public class CancelRideHandler(
         await events.PublishAsync(Topics.RideCompletions,
             new RideCancelledEvent(ride.Id, ride.DriverId, ride.PassengerId,
                 ride.FrozenPriceId, "passenger", ride.EndedAt!.Value), ct);
+
+        logger.LogInformation("Ride cancelled rideId={RideId} passengerId={PassengerId} stage={Stage} notifiedPassengers={Notified}",
+            ride.Id, cmd.PassengerId, stage, notifyPassengerIds.Count);
     }
 }

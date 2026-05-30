@@ -12,7 +12,7 @@ public class CancelRideHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private CancelRideHandler Handler() =>
-        new(_rides, _routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow);
+        new(_rides, _routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow, NullLogger<CancelRideHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_WaitingForActivation_UnfreezesFundsAndPublishesEvents()

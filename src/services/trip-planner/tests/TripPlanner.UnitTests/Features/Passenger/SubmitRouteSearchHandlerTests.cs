@@ -9,7 +9,7 @@ public class SubmitRouteSearchHandlerTests
     private readonly IGeoService               _geo     = Substitute.For<IGeoService>();
     private readonly IUnitOfWork               _uow     = Substitute.For<IUnitOfWork>();
 
-    private SubmitRouteSearchHandler Handler() => new(_jobs, _compute, _geo, new TripPlannerMetrics(), _uow);
+    private SubmitRouteSearchHandler Handler() => new(_jobs, _compute, _geo, new TripPlannerMetrics(), _uow, NullLogger<SubmitRouteSearchHandler>.Instance);
 
     private SubmitRouteSearchCommand ValidCmd(Guid? passengerId = null) =>
         new(passengerId ?? Guid.NewGuid(), Make.PointA, Make.PointB);

@@ -7,7 +7,7 @@ public class DeclarePassengerEndHandlerTests
     private readonly IRideRepository _rides = Substitute.For<IRideRepository>();
     private readonly IUnitOfWork     _uow   = Substitute.For<IUnitOfWork>();
 
-    private DeclarePassengerEndHandler Handler() => new(_rides, _uow);
+    private DeclarePassengerEndHandler Handler() => new(_rides, _uow, NullLogger<DeclarePassengerEndHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_RecordsPassengerDeclaration()

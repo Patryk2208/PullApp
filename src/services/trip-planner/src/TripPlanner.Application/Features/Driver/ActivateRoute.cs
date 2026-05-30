@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -15,7 +16,8 @@ public class ActivateRouteHandler(
     IRouteRepository routes,
     IRideRepository rides,
     IGeoService geo,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<ActivateRouteHandler> logger)
 {
     private const double NearStartThresholdMeters = 500;
 
@@ -54,5 +56,7 @@ public class ActivateRouteHandler(
         foreach (var ride in activeRides)
             await rides.UpdateAsync(ride, ct);
         await uow.CommitAsync(ct);
+        logger.LogInformation("Route activated routeId={RouteId} driverId={DriverId} ridesActivated={Count}",
+            route.Id, cmd.DriverId, activeRides.Count);
     }
 }

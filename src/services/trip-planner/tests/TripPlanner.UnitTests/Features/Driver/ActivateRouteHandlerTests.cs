@@ -9,7 +9,7 @@ public class ActivateRouteHandlerTests
     private readonly IGeoService      _geo    = Substitute.For<IGeoService>();
     private readonly IUnitOfWork      _uow    = Substitute.For<IUnitOfWork>();
 
-    private ActivateRouteHandler Handler() => new(_routes, _rides, _geo, _uow);
+    private ActivateRouteHandler Handler() => new(_routes, _rides, _geo, _uow, NullLogger<ActivateRouteHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_ActivatesRoute()

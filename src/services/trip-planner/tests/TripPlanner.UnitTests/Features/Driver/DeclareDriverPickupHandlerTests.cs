@@ -7,7 +7,7 @@ public class DeclareDriverPickupHandlerTests
     private readonly IRideRepository _rides = Substitute.For<IRideRepository>();
     private readonly IUnitOfWork     _uow   = Substitute.For<IUnitOfWork>();
 
-    private DeclareDriverPickupHandler Handler() => new(_rides, _uow);
+    private DeclareDriverPickupHandler Handler() => new(_rides, _uow, NullLogger<DeclareDriverPickupHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_SetsDriverDeclaredPickup()

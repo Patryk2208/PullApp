@@ -7,7 +7,7 @@ public class DeclarePassengerPickupHandlerTests
     private readonly IRideRepository _rides = Substitute.For<IRideRepository>();
     private readonly IUnitOfWork     _uow   = Substitute.For<IUnitOfWork>();
 
-    private DeclarePassengerPickupHandler Handler() => new(_rides, _uow);
+    private DeclarePassengerPickupHandler Handler() => new(_rides, _uow, NullLogger<DeclarePassengerPickupHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_TransitionsRideToStarted()

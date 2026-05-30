@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -14,7 +15,8 @@ public record DeclarePassengerPickupCommand(Guid PassengerId, Guid RideId);
 /// </summary>
 public class DeclarePassengerPickupHandler(
     IRideRepository rides,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<DeclarePassengerPickupHandler> logger)
 {
     public async Task HandleAsync(DeclarePassengerPickupCommand cmd, CancellationToken ct)
     {
@@ -39,5 +41,7 @@ public class DeclarePassengerPickupHandler(
         // 3. Persist and commit.
         await rides.UpdateAsync(ride, ct);
         await uow.CommitAsync(ct);
+        logger.LogInformation("Passenger declared pickup rideId={RideId} passengerId={PassengerId} rideStarted={Started}",
+            cmd.RideId, cmd.PassengerId, ride.Status == RideStatus.Started);
     }
 }

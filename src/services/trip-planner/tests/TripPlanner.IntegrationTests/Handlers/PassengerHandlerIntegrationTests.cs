@@ -41,7 +41,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
 
         var session = db.NewSession();
         var handler = new SubmitRouteSearchHandler(
-            new PostgresRouteJobRepository(session), compute, geo, new TripPlannerMetrics(), session);
+            new PostgresRouteJobRepository(session), compute, geo, new TripPlannerMetrics(), session, NullLogger<SubmitRouteSearchHandler>.Instance);
 
         var result = await handler.HandleAsync(new(Guid.NewGuid(), PointA, PointB), default);
 
@@ -76,7 +76,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         var handler = new CreateRideRequestHandler(
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, geo, events, session);
+            payments, geo, events, session, NullLogger<CreateRideRequestHandler>.Instance);
 
         var result = await handler.HandleAsync(
             new(Guid.NewGuid(), route.Id, PointA, PointB), default);
@@ -109,7 +109,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
             new PostgresRideRepository(session),
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, events, new TripPlannerMetrics(), session);
+            payments, events, new TripPlannerMetrics(), session, NullLogger<CancelRideHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 
@@ -132,7 +132,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         await new PostgresRideRepository(seedSess).UpdateAsync(ride, default);
 
         var session = db.NewSession();
-        var handler = new DeclarePassengerPickupHandler(new PostgresRideRepository(session), session);
+        var handler = new DeclarePassengerPickupHandler(new PostgresRideRepository(session), session, NullLogger<DeclarePassengerPickupHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 
@@ -158,7 +158,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         await new PostgresRideRepository(seedSess).UpdateAsync(ride, default);
 
         var session = db.NewSession();
-        var handler = new DeclarePassengerEndHandler(new PostgresRideRepository(session), session);
+        var handler = new DeclarePassengerEndHandler(new PostgresRideRepository(session), session, NullLogger<DeclarePassengerEndHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 

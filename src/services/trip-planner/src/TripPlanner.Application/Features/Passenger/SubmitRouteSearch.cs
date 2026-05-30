@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
@@ -20,7 +21,8 @@ public class SubmitRouteSearchHandler(
     IComputePublisher<ComputeJob> computePublisher,
     IGeoService geo,
     TripPlannerMetrics metrics,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<SubmitRouteSearchHandler> logger)
 {
     public async Task<SubmitRouteSearchResult> HandleAsync(SubmitRouteSearchCommand cmd, CancellationToken ct)
     {
@@ -62,6 +64,8 @@ public class SubmitRouteSearchHandler(
         // 5. Return the RouteJob ID (for client-side correlation of the incoming push).
         //    When route-calc responds, RouteComputedHandler publishes RouteSearchCompletedEvent
         //    → notifications service delivers the match list via SSE/push to the passenger.
+        logger.LogInformation("Route search submitted passengerId={PassengerId} jobId={JobId} correlationId={CorrelationId}",
+            cmd.PassengerId, job.Id, correlationId);
         return new SubmitRouteSearchResult(job.Id);
     }
 }

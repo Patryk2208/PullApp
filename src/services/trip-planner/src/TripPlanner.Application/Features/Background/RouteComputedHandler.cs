@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -26,7 +27,8 @@ public class RouteComputedHandler(
     IRouteRepository routes,
     IEventPublisher events,
     TripPlannerMetrics metrics,
-    IUnitOfWork uow) : IHandler<ComputeJobResult>
+    IUnitOfWork uow,
+    ILogger<RouteComputedHandler> logger) : IHandler<ComputeJobResult>
 {
     public async Task HandleAsync(ComputeJobResult message, CancellationToken ct)
     {
@@ -51,11 +53,14 @@ public class RouteComputedHandler(
         // Flow 0 — completion
         // 1. Look up RouteJob by CorrelationId (== message.JobId).
         var job = await jobs.GetByCorrelationIdAsync(r.JobId, ct);
-        if (job is null) return; // stale or duplicate message
+        if (job is null) { logger.LogWarning("DriverRoute result for unknown correlationId={CorrelationId} — discarding", r.JobId); return; }
 
-        // 2. Find the Calculating Route for RouteJob.RequesterId (DriverId).
         var route = await routes.GetActiveByDriverIdAsync(job.RequesterId, ct);
-        if (route is null || route.Status != RouteStatus.Calculating) return;
+        if (route is null || route.Status != RouteStatus.Calculating)
+        {
+            logger.LogWarning("DriverRoute result for correlationId={CorrelationId} but route not in Calculating state — discarding", r.JobId);
+            return;
+        }
 
         // 3. Call route.SetGeometry(json, eta, distance) → Status = Created.
         route.SetGeometry(r.Result.RouteGeomJson, r.Result.EtaSeconds, r.Result.DistanceMeters);
@@ -75,14 +80,14 @@ public class RouteComputedHandler(
 
         metrics.RecordRouteCalcResult(r.JobId, "success");
         metrics.DriverRouteRegistrationCompleted();
+        logger.LogInformation("DriverRoute computed routeId={RouteId} driverId={DriverId} etaSeconds={Eta} distanceMeters={Distance}",
+            route.Id, route.DriverId, r.Result.EtaSeconds, r.Result.DistanceMeters);
     }
 
     private async Task HandlePassengerMatchAsync(PassengerMatchComputeResult r, CancellationToken ct)
     {
-        // Flow 2 — completion
-        // 1. Look up RouteJob by CorrelationId.
         var job = await jobs.GetByCorrelationIdAsync(r.JobId, ct);
-        if (job is null) return;
+        if (job is null) { logger.LogWarning("PassengerMatch result for unknown correlationId={CorrelationId} — discarding", r.JobId); return; }
 
         // 2. Serialize r.Result into RouteJob.ResultJson; mark Completed.
         job.Complete(JsonSerializer.Serialize(r.Result));
@@ -99,13 +104,14 @@ public class RouteComputedHandler(
         var outcome = r.Result.Matches.Count == 0 ? "no_drivers" : "matched";
         metrics.RecordMatchingJobResult(r.JobId, outcome);
         metrics.RecordRouteCalcResult(r.JobId, "success");
+        logger.LogInformation("PassengerMatch computed passengerId={PassengerId} matches={MatchCount} outcome={Outcome}",
+            job.RequesterId, r.Result.Matches.Count, outcome);
     }
 
     private async Task HandleFailureAsync(FailedComputeResult r, CancellationToken ct)
     {
-        // 1. Look up RouteJob by CorrelationId.
         var job = await jobs.GetByCorrelationIdAsync(r.JobId, ct);
-        if (job is null) return;
+        if (job is null) { logger.LogWarning("Compute failure for unknown correlationId={CorrelationId} — discarding", r.JobId); return; }
 
         // 2. Call job.Fail(r.Error).
         job.Fail(r.Error ?? "Unknown compute error.");
@@ -119,5 +125,7 @@ public class RouteComputedHandler(
             metrics.RecordMatchingJobResult(r.JobId, "error");
         else
             metrics.DriverRouteRegistrationFailed();
+        logger.LogWarning("Compute job failed correlationId={CorrelationId} jobType={JobType} error={Error}",
+            r.JobId, r.JobType, r.Error);
     }
 }

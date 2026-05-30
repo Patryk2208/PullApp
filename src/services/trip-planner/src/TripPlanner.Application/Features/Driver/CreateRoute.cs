@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
@@ -22,7 +23,8 @@ public class CreateRouteHandler(
     IGeoService geo,
     IAccountsService accounts,
     TripPlannerMetrics metrics,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<CreateRouteHandler> logger)
 {
     public async Task<CreateRouteResult> HandleAsync(CreateRouteCommand cmd, CancellationToken ct)
     {
@@ -67,6 +69,8 @@ public class CreateRouteHandler(
         // 7. Return the routeId.
         //    When route-calc responds, RouteComputedHandler sets geometry and publishes
         //    RouteReadyEvent → notifications service delivers SSE/push to the driver.
+        logger.LogInformation("Route created routeId={RouteId} driverId={DriverId} capacity={Capacity} correlationId={CorrelationId}",
+            route.Id, cmd.DriverId, cmd.Capacity, correlationId);
         return new CreateRouteResult(route.Id);
     }
 }

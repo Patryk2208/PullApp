@@ -12,7 +12,7 @@ public class DeleteRouteHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private DeleteRouteHandler Handler() =>
-        new(_routes, _rides, _rideRequests, _payments, _events, _uow);
+        new(_routes, _rides, _rideRequests, _payments, _events, _uow, NullLogger<DeleteRouteHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_ActiveRouteWithRides_ThrowsRouteNotDeletableException()

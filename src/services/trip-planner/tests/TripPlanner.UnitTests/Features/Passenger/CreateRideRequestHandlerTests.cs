@@ -12,7 +12,7 @@ public class CreateRideRequestHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private CreateRideRequestHandler Handler() =>
-        new(_routes, _rideRequests, _payments, _geo, _events, _uow);
+        new(_routes, _rideRequests, _payments, _geo, _events, _uow, NullLogger<CreateRideRequestHandler>.Instance);
 
     private void SetupHappyPath(Route route)
     {

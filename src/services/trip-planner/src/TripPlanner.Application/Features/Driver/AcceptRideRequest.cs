@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
@@ -23,7 +24,8 @@ public class AcceptRideRequestHandler(
     IChatService chat,
     IEventPublisher events,
     TripPlannerMetrics metrics,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<AcceptRideRequestHandler> logger)
 {
     public async Task<AcceptRideRequestResult> HandleAsync(AcceptRideRequestCommand cmd, CancellationToken ct)
     {
@@ -119,6 +121,8 @@ public class AcceptRideRequestHandler(
 
         metrics.RideTransition("pending_request", "ride_created", "driver_accepted");
         metrics.RideActiveAdd(1);
+        logger.LogInformation("RideRequest accepted requestId={RequestId} rideId={RideId} routeId={RouteId} routeFull={RouteFull}",
+            cmd.RequestId, ride.Id, route.Id, routeBecameFull);
 
         return new AcceptRideRequestResult(ride.Id, chatRoomId);
     }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
@@ -21,7 +22,8 @@ public class DeclareDriverEndHandler(
     IPaymentsService payments,
     IEventPublisher events,
     TripPlannerMetrics metrics,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<DeclareDriverEndHandler> logger)
 {
     public async Task HandleAsync(DeclareDriverEndCommand cmd, CancellationToken ct)
     {
@@ -74,5 +76,7 @@ public class DeclareDriverEndHandler(
 
         metrics.RideTransition("started", "completed", "normal");
         metrics.RideActiveAdd(-1);
+        logger.LogInformation("Ride completed rideId={RideId} driverId={DriverId} passengerId={PassengerId}",
+            ride.Id, cmd.DriverId, ride.PassengerId);
     }
 }

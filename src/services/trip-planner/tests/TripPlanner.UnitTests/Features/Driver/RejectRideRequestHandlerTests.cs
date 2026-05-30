@@ -11,7 +11,7 @@ public class RejectRideRequestHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private RejectRideRequestHandler Handler() =>
-        new(_routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow);
+        new(_routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow, NullLogger<RejectRideRequestHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_RejectsRequestAndPublishesEvent()
