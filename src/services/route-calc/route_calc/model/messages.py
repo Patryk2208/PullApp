@@ -57,7 +57,7 @@ class ComputeMessage:
     def to_proto(self) -> ProtoComputeMessage:
         proto = ProtoComputeMessage(
             job_id=self.job_id,
-            algorithm=self.algorithm.value,
+            job_type=self.algorithm.value,
             created_at=int(self.created_at.timestamp()),
             retry_count=self.retry_count,
         )

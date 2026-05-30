@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     libcurl4 \
     libcurl4-openssl-dev \
+    protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install "poetry==$POETRY_VERSION"
@@ -19,14 +20,24 @@ COPY pyproject.toml poetry.lock* ./
 
 RUN poetry install --no-interaction --no-ansi --no-root
 
+COPY schemas/ ./schemas/
 COPY route_calc/ ./route_calc/
 
 RUN mkdir -p /app/config && cp route_calc/config.json /app/config/config.json
 
+RUN mkdir -p route_calc/generated && \
+    protoc --proto_path=schemas/pullapp/core/v1/ \
+           --python_out=route_calc/generated/ \
+           schemas/pullapp/core/v1/queue.proto && \
+    touch route_calc/generated/__init__.py
+
 COPY CMakeLists.txt .
-COPY cpp .
+COPY cpp/ ./cpp/
 
 RUN pip install . --no-cache-dir \
     && rm -rf /app/route_calc
 
+# RUN pip install --no-cache-dir dist/*.whl
+
 CMD ["python", "-m", "route_calc.main"]
+

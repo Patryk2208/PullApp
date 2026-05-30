@@ -1,6 +1,12 @@
 using Microsoft.EntityFrameworkCore; // TODO: Violates Clean Architecture (I think). For development only.
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using PullApp.Accounts.Application;
+using PullApp.Accounts.Application.Metrics;
 using PullApp.Accounts.Api;
+using PullApp.Accounts.Api.Checks;
 using PullApp.Accounts.Infrastructure;
 using PullApp.Accounts.Infrastructure.Persistence;
 
@@ -10,22 +16,42 @@ builder.Services
     .AddInfrastructure(builder.Configuration)
     .AddApi(builder.Configuration);
 
+builder.Services.AddSingleton<AccountsMetrics>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"]);
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("accounts"))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter(AccountsMetrics.MeterName)
+        .AddOtlpExporter());
+
+builder.Logging.AddOpenTelemetry(o =>
+{
+    o.IncludeFormattedMessage = true;
+    o.AddOtlpExporter();
+});
+
 var app = builder.Build();
+
+app.Services.GetRequiredService<AccountsMetrics>();
 
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.MapOpenApi();
 
-app.UseHttpsRedirection();
-
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AccountsDbContext>();
-    db.Database.Migrate(); 
+    db.Database.Migrate();
 }
 
 app.MapEndpoints();

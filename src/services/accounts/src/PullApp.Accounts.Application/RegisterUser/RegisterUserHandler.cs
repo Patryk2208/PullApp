@@ -1,17 +1,26 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
+using PullApp.Accounts.Application.Metrics;
 using PullApp.Accounts.Domain;
 
 namespace PullApp.Accounts.Application.RegisterUser;
 
 public class RegisterUserHandler(
 	IUserRepository repository,
-	IPasswordHasher hasher)
+	IPasswordHasher hasher,
+	AccountsMetrics metrics,
+	ILogger<RegisterUserHandler> logger)
 	: IRequestHandler<RegisterUserCommand, int>
 {
 	public async Task<int> Handle(RegisterUserCommand request, CancellationToken ct)
 	{
+		logger.LogDebug("RegisterUser: email={Email}", request.Email);
+
 		if (!await repository.IsEmailUniqueAsync(request.Email, ct))
+		{
+			logger.LogWarning("RegisterUser: email already taken email={Email}", request.Email);
 			throw new Exception("Email already taken");
+		}
 
 		var passwordHash = hasher.Hash(request.Password);
 
@@ -25,6 +34,9 @@ public class RegisterUserHandler(
 		};
 
 		await repository.AddAsync(user, ct);
+
+		metrics.UserRegistered();
+		logger.LogInformation("User registered userId={UserId} email={Email}", user.Id, request.Email);
 
 		return user.Id;
 	}

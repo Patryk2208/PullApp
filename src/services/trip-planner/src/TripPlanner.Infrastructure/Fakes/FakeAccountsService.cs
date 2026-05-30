@@ -1,17 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TripPlanner.Domain;
+using TripPlanner.Application.Services;
 
-namespace TripPlanner.Infrastructure.Fakes
+namespace TripPlanner.Infrastructure.Fakes;
+
+public class FakeAccountsService : IAccountsService
 {
-    public class FakeAccountsService : IAccountsService
-    {
-        public Task<bool> IsDriverActive(Guid driverId)
-        {
-            return Task.FromResult(true);
-        }
-    }
+    public Task<bool> CanDriveAsync(Guid driverId, CancellationToken ct) => Task.FromResult(true);
 }

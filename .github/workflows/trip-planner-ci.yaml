@@ -1,40 +1,41 @@
-name: CI pipeline for trip-planner service
+name: CI — trip-planner
 
-# We only want to run this CI pipeline for changes to the trip-planner service
 on:
   push:
-    branches: [ master ]
+    branches: [master, develop]
     paths:
       - 'src/services/trip-planner/**'
       - '.github/workflows/trip-planner-ci.yaml'
   pull_request:
+    branches: [master, develop]
     paths:
-      - src/trip-planner/**'
+      - 'src/services/trip-planner/**'
+      - '.github/workflows/trip-planner-ci.yaml'
 
 env:
-  BUILD_ID: ${{ github.run_id }}-${{ github.run_number }}
   COMMIT_SHA: ${{ github.sha }}
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src/services/trip-planner
+
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0
+          dotnet-version: '10.0.x'
 
-      - name: Cache packages
-        uses: actions/cache@v5
+      - name: Cache NuGet
+        uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
-          restore-keys: ${{ runner.os }}-nuget-
+          key: ${{ runner.os }}-nuget-trip-planner-${{ hashFiles('src/services/trip-planner/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-trip-planner-
 
       - name: Restore
         run: dotnet restore
@@ -42,50 +43,46 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
-      - name: Run unit tests
-        run: |
-            dotnet test \
-            --no-build \
-            --configuration Release \
-            --logger "trx;LogFileName=unit-test-results.trx" \
-            --collect:"XPlat Code Coverage"
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: src/services/trip-planner
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4  
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          name: trip-planner-unit-test-results
-          path: TestResults/*.trx
-      
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
         with:
-          name: trip-planner-coverage
-          path: TestResults/coverage.cobertura.xml
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-trip-planner-${{ hashFiles('src/services/trip-planner/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-trip-planner-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Unit tests
+        run: dotnet test tests/TripPlanner.UnitTests --no-restore --configuration Release
+
+      - name: Integration tests
+        run: dotnet test tests/TripPlanner.IntegrationTests --no-restore --configuration Release
+
   dockerize:
     runs-on: ubuntu-latest
+    needs: test
     defaults:
       run:
         working-directory: src/services/trip-planner
+
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0
-
-      - name: Cache packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
-          restore-keys: ${{ runner.os }}-nuget-
-
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore --configuration Release
-      
       - name: Docker build
-        run: docker build -f Dockerfile -t trip-planner:${{ env.COMMIT_SHA }} .
+        run: docker build -f Dockerfile -t pullapp/trip-planner:${{ env.COMMIT_SHA }} .

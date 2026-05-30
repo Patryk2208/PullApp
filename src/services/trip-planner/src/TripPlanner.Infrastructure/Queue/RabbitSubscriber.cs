@@ -1,51 +1,75 @@
-using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using TripPlanner.Application.RouteCalculator;
+using TripPlanner.Application.Services;
 
 namespace TripPlanner.Infrastructure.Queue;
 
-internal class RabbitSubscriber<T>(IMessageHandler<T> handler, IConnectionFactory factory, 
-    IQueueDomainMapper<T> mapper, RabbitMqOptions options) : IQueueSubscriber<T>
+// RabbitSubscriber is singleton but IHandler<T> is scoped (it holds DbSession).
+// We resolve a fresh scope per message so lifetime is respected.
+public class RabbitSubscriber<T>(
+    IServiceScopeFactory scopeFactory,
+    IConnectionFactory factory,
+    IQueueDomainMapper<T> mapper,
+    IOptions<RabbitMqOptions> options,
+    ILogger<RabbitSubscriber<T>> logger) : ISubscriber
 {
-    private IConnection? _connection;
     private IChannel? _channel;
+    private readonly RabbitMqOptions _options = options.Value;
 
     public async Task StartAsync(CancellationToken ct)
     {
-        _connection = await factory.CreateConnectionAsync(ct);
-        _channel = await _connection.CreateChannelAsync(null, ct);
+        var connection = await factory.CreateConnectionAsync(ct);
+        _channel = await connection.CreateChannelAsync(new CreateChannelOptions(false, false), ct);
         var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (model, ea) =>
+
+        consumer.ReceivedAsync += async (_, ea) =>
         {
-            var domainModel = mapper.ToDomain(ea.Body);
+            T? domainModel;
             try
             {
-                if (domainModel == null)
+                domainModel = mapper.ToDomain(ea.Body);
+                if (domainModel is null)
                 {
-                    throw new NullReferenceException("Payload is null");
+                    logger.LogWarning("Mapped payload is null — dead-lettering message");
+                    await _channel.BasicNackAsync(ea.DeliveryTag, false, false, ct);
+                    return;
                 }
-                
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to map RabbitMQ message body — dead-lettering");
+                await _channel.BasicNackAsync(ea.DeliveryTag, false, false, ct);
+                return;
+            }
+
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var handler = scope.ServiceProvider.GetRequiredService<IHandler<T>>();
                 await handler.HandleAsync(domainModel, ct);
-                
                 await _channel.BasicAckAsync(ea.DeliveryTag, false, ct);
             }
-            catch (NullReferenceException)
+            catch (Exception ex)
             {
-                await _channel.BasicNackAsync(ea.DeliveryTag, false, false, ct);
-            }
-            catch (Exception)
-            {
-                await _channel.BasicNackAsync(ea.DeliveryTag, false, true, ct);
+                logger.LogError(ex, "Handler threw — requeueing message");
+                await _channel.BasicNackAsync(ea.DeliveryTag, false, requeue: true, ct);
             }
         };
-        
-        await _channel.BasicConsumeAsync(queue: options.ResultQueueName, false, consumer, ct);
+
+        await _channel.QueueDeclareAsync(_options.Results, durable: true, exclusive: false, autoDelete: false, cancellationToken: ct);
+        await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: (ushort)_options.PrefetchCount, global: false, ct);
+        await _channel.BasicConsumeAsync(queue: _options.Results, autoAck: false, consumer, ct);
+
+        logger.LogInformation("RabbitMQ subscriber started on queue {Queue} prefetch={Prefetch}",
+            _options.Results, _options.PrefetchCount);
     }
 
-    public void Dispose()
+    public Task StopAsync(CancellationToken ct)
     {
         _channel?.Dispose();
-        _connection?.Dispose();
+        return Task.CompletedTask;
     }
 }

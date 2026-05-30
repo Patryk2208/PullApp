@@ -9,11 +9,16 @@ resources:
   - services/trip-planner/service.yaml
   - services/route-calc/deployment.yaml
   - services/route-calc/service.yaml
+  - services/route-calc/trigger-auth.yaml
   - services/route-calc/scaled-object.yaml
   - services/accounts/deployment.yaml
   - services/accounts/service.yaml
   - services/gateway/deployment.yaml
   - services/gateway/service.yaml
+  - services/driver-tracker/deployment.yaml
+  - services/driver-tracker/service.yaml
+  - services/notifications/deployment.yaml
+  - services/notifications/service.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize
@@ -28,6 +33,10 @@ images:
     newName: pullapp/accounts
   - name: gateway
     newName: pullapp/gateway
+  - name: driver-tracker
+    newName: pullapp/driver-tracker
+  - name: notifications
+    newName: pullapp/notifications
 
 configMapGenerator:
 - name: trip-planner-config
@@ -44,5 +53,14 @@ secretGenerator:
   - ACCOUNTS_DB_PASSWORD=PLACEHOLDER
   - CACHE_PASSWORD=PLACEHOLDER
   - COMPUTE_QUEUE_PASSWORD=PLACEHOLDER
+  - COMPUTE_QUEUE_SCALING_URL=PLACEHOLDER
+  - DRIVER_TRACKER_REDIS_PASSWORD=PLACEHOLDER
+  - NOTIFICATIONS_POSTGRES_URL=PLACEHOLDER
+  - FIREBASE_PROJECT_ID=PLACEHOLDER
+  options:
+    disableNameSuffixHash: true
+- name: firebase-credentials
+  literals:
+  - firebase.json=PLACEHOLDER
   options:
     disableNameSuffixHash: true

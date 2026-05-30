@@ -1,0 +1,34 @@
+grafana:
+  adminPassword: pullapp-grafana
+
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      access: proxy
+
+    - name: Tempo
+      type: tempo
+      url: http://tempo.monitoring.svc.cluster.local:3100
+      access: proxy
+
+alertmanager:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    enableRemoteWriteReceiver: true
+    retention: 3d
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+kubeStateMetrics:
+  enabled: false
+
+nodeExporter:
+  enabled: false

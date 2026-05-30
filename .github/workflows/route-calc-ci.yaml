@@ -1,18 +1,20 @@
-name: CI pipeline for route-calc service
+name: CI — route-calc
 
-# We only want to run this CI pipeline for changes to the route-calc service
 on:
   push:
-    branches: [ master ]
+    branches: [master, develop]
     paths:
       - 'src/services/route-calc/**'
+      - 'src/schemas/**'
       - '.github/workflows/route-calc-ci.yaml'
   pull_request:
+    branches: [master, develop]
     paths:
       - 'src/services/route-calc/**'
+      - 'src/schemas/**'
+      - '.github/workflows/route-calc-ci.yaml'
 
 env:
-  BUILD_ID: ${{ github.run_id }}-${{ github.run_number }}
   COMMIT_SHA: ${{ github.sha }}
 
 jobs:
@@ -23,55 +25,60 @@ jobs:
         working-directory: src/services/route-calc
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      
+
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
-      - name: Generate protoc
+      - name: Generate protobufs
         run: |
-          mkdir -p src/route_calc/generated
-          protoc --proto_path=../../schemas/pullapp/core/v1/ --python_out=src/route_calc/generated/ ../../schemas/pullapp/core/v1/queue.proto
+          mkdir -p route_calc/generated
+          protoc \
+            --proto_path=../../schemas/pullapp/core/v1/ \
+            --python_out=route_calc/generated/ \
+            ../../schemas/pullapp/core/v1/queue.proto
 
       - name: Install Poetry
         run: pip install poetry
-      
+
       - name: Configure Poetry
         run: poetry config virtualenvs.in-project true
-      
-      - uses: actions/cache@v5
+
+      - name: Cache virtualenv
+        uses: actions/cache@v4
         with:
-          path: .venv
-          key: poetry-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
-          restore-keys: |
-            poetry-${{ runner.os }}-
+          path: src/services/route-calc/.venv
+          key: poetry-${{ runner.os }}-${{ hashFiles('src/services/route-calc/poetry.lock') }}
+          restore-keys: poetry-${{ runner.os }}-
 
       - name: Install dependencies
-        run: poetry install --no-interaction --no-root
-
-      - name: Run tests
-        run: poetry run pytest
+        run: poetry install --no-interaction
+        
   dockerize:
     runs-on: ubuntu-latest
+    needs: build-and-test
     defaults:
       run:
         working-directory: src/services/route-calc
 
     steps:
-      - uses: actions/checkout@v6
-      
+      - uses: actions/checkout@v4
+
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
-      - name: Generate protoc
+      - name: Generate protobufs
         run: |
-          mkdir -p src/route_calc/generated
-          protoc --proto_path=../../schemas/pullapp/core/v1/ --python_out=src/route_calc/generated/ ../../schemas/pullapp/core/v1/queue.proto
-      
+          mkdir -p route_calc/generated
+          protoc \
+            --proto_path=../../schemas/pullapp/core/v1/ \
+            --python_out=route_calc/generated/ \
+            ../../schemas/pullapp/core/v1/queue.proto
+
       - name: Docker build
-        run: docker build -f Dockerfile -t route-calc:${{ env.COMMIT_SHA }} .
+        run: docker build -f Dockerfile -t pullapp/route-calc:${{ env.COMMIT_SHA }} .

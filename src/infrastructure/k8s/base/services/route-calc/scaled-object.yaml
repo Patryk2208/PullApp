@@ -32,14 +32,15 @@ spec:
   triggers:
   # Primary: Queue depth
   - type: rabbitmq
+    authenticationRef:
+      name: compute-queue-auth
     metadata:
-      queueName: compute-requests
-      hostFromEnv: RABBITMQ_HOST
-      queueLength: "10"
+      queueName: compute-queue
       mode: QueueLength
+      value: "10"
   
   # Secondary: CPU protection
   - type: cpu
+    metricType: Utilization
     metadata:
-      type: Utilization
       value: "70"

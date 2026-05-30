@@ -1,12 +1,26 @@
 import asyncio
 import logging
 import signal
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
+
+from opentelemetry import metrics, trace
 
 from route_calc.algorithms.algorithms_orchestrator import AlgorithmsOrchestrator
 from route_calc.model.job_context import JobContext
 from route_calc.infra.queue import ComputeQueue, BaseQueueException, RequeueException, NonRequeueException
+
+_tracer = trace.get_tracer(__name__)
+_meter = metrics.get_meter(__name__)
+_jobs_processed = _meter.create_counter("route_calc.jobs.processed", description="Total compute jobs processed")
+_jobs_failed    = _meter.create_counter("route_calc.jobs.failed",     description="Total compute jobs failed")
+_job_duration   = _meter.create_histogram("route_calc.duration.seconds", unit="s", description="Compute job duration")
+
+_jobs_processed.add(0)
+_jobs_failed.add(0)
+for _r in ("success", "error"):
+    _job_duration.record(0, {"job_type": "passenger_match", "result": _r})
 
 
 class Consumer:
@@ -50,7 +64,7 @@ class Consumer:
             ctx.useless_mutex.acquire_lock()
             ctx.future = fut
             ctx.useless_mutex.release_lock()
-            self.logger.info(f"Job {ctx.job_id} submitted for processing. Total jobs: {self.queue.pull_based_queue.qsize()}")
+            self.logger.info(f"Job {ctx.job_id} submitted for processing. Total jobs: {len(self.jobs)}")
 
     def _process_job(self, ctx: JobContext):
         ctx.useless_mutex.acquire_lock()
@@ -58,7 +72,19 @@ class Consumer:
         ctx.useless_mutex.release_lock()
 
         self.logger.info(f"Processing job {ctx.job_id}")
-        result = self.algorithms_orchestrator.compute(ctx.payload)
+        job_type = ctx.payload.algorithm.name.lower()
+        with _tracer.start_as_current_span("route_calc.compute", attributes={"job.id": ctx.job_id}):
+            start = time.perf_counter()
+            try:
+                result = self.algorithms_orchestrator.compute(ctx.payload)
+                elapsed = time.perf_counter() - start
+                _jobs_processed.add(1)
+                _job_duration.record(elapsed, {"job_type": job_type, "result": "success"})
+            except Exception:
+                elapsed = time.perf_counter() - start
+                _jobs_failed.add(1)
+                _job_duration.record(elapsed, {"job_type": job_type, "result": "error"})
+                raise
         self.logger.info(f"Job {ctx.job_id} processed, now scheduling callback")
         ctx.result = result
 
@@ -77,6 +103,7 @@ class Consumer:
             result = ctx.result
             await self.queue.publish_result(result)
             await self.queue.ack(ctx.msg)
+            self.logger.info(f"Job {ctx.job_id} acked")
             await self.shutdown_lock.acquire()
             _ = self.jobs.pop(ctx.job_id)
             self.shutdown_lock.release()
@@ -84,12 +111,14 @@ class Consumer:
             # todo handle multiple types of exceptions for algorithms
         except RequeueException as e:
             await self.queue.nack(ctx.msg, requeue=True)
+            self.logger.info(f"Job {ctx.job_id} nacked")
             await self.shutdown_lock.acquire()
             _ = self.jobs.pop(ctx.job_id)
             self.shutdown_lock.release()
             self.logger.info(f"Job {ctx.job_id} failed: {e}, requeued")
         except NonRequeueException as e:
             await self.queue.nack(ctx.msg, requeue=False)
+            self.logger.info(f"Job {ctx.job_id} nacked (not requeued)")
             await self.shutdown_lock.acquire()
             _ = self.jobs.pop(ctx.job_id)
             self.shutdown_lock.release()
@@ -128,7 +157,7 @@ class Consumer:
                     await self.queue.nack(j.msg, requeue=True)
                 except Exception:
                     continue
-                print(f"Executor submission for job {j.job_id} cancelled")
+                self.logger.info(f"Executor submission for job {j.job_id} cancelled")
         self.shutdown_lock.release()
 
         # todo shutdown c++ threads correctly from inside them, not from here, for now we wait until they compute
@@ -144,7 +173,7 @@ class Consumer:
                     await self.queue.nack(j.msg, requeue=True)
                 except Exception:
                     continue
-                print(f"Post compute scheduling for job {j.job_id} cancelled")
+                self.logger.info(f"Post compute scheduling for job {j.job_id} cancelled")
         self.shutdown_lock.release()
 
         pending_jobs = [f.callback_task for f in self.jobs.values() if f.callback_task]
@@ -159,7 +188,7 @@ class Consumer:
                         await self.queue.nack(f.msg, requeue=True)
                     except Exception:
                         continue
-                    print(f"Callback for job {f.job_id} cancelled")
+                    self.logger.info(f"Callback for job {f.job_id} cancelled")
             except Exception:
                 continue
 

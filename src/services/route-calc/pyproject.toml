@@ -26,7 +26,11 @@ aio-pika = ">=9.6.2,<9.7"
 pybind11 = ">=3.0.2,<3.1"
 
 # --- schema generation ---
-protobuf = "^7.34.1"
+protobuf = ">=5.0,<7.0"
+
+# --- observability ---
+opentelemetry-sdk = ">=1.41.0,<2.0"
+opentelemetry-exporter-otlp-proto-grpc = ">=1.41.0,<2.0"
 
 
 [tool.poetry.group.dev.dependencies]

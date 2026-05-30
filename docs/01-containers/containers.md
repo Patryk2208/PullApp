@@ -62,17 +62,18 @@
 
 | Attribute | Description |
 |-----------|-------------|
-| **Purpose** | Real-time messaging between drivers and passengers |
+| **Purpose** | Ride-scoped real-time messaging between driver and passenger |
 | **Technology** | Go |
-| **Communication** | WebSocket (clients), Redis Pub/Sub (cross-pod) |
-| **Scaling** | Horizontal with sticky sessions |
-| **Data** | Owns MongoDB database |
-| **Bounded-Context** | [../02-bounded-contexts/chat-service] |
+| **Communication** | gRPC (room lifecycle from Trip Planner), WebSocket (clients) |
+| **Scaling** | Hash-based routing at ingress — `hash(rideId) % podCount` ensures both participants hit the same pod. **TODO: implement in YARP or nginx.** Single pod until then. |
+| **Data** | MongoDB (messages, 30d TTL), Redis (room metadata) |
+| **Bounded-Context** | [../02-bounded-contexts/chat-service/chat-service.md] |
 
 **Constraints:**
-- No end-to-end encryption (future enhancement)
-- Text-only messages (no attachments)
-- Messages only allowed during active rides
+- Rooms created by Trip Planner via gRPC — Chat has no ride logic
+- Text-only, no attachments
+- Two participants per room, always
+- No cross-pod message relay until hash routing is implemented
 
 ---
 
@@ -80,12 +81,18 @@
 
 | Attribute | Description |
 |-----------|-------------|
-| **Purpose** | Aggregate and deliver push, SMS, and email notifications |
+| **Purpose** | FCM push notification delivery reacting to domain events |
 | **Technology** | Go |
-| **Communication** | Kafka (consumer), HTTP (external providers) |
-| **Scaling** | Horizontal, stateless |
-| **Data** | Owns PostgreSQL database (delivery logs) |
-| **Bounded-Context** | [../02-bounded-contexts/notification-service] |
+| **Communication** | Kafka (consumer), HTTP (FCM via Firebase Admin SDK), HTTP (device token registration from mobile) |
+| **Scaling** | Horizontal, stateless — scale to Kafka partition count |
+| **Data** | Owns PostgreSQL (device_tokens, sent_notifications) |
+| **Bounded-Context** | [../02-bounded-contexts/notification-service/notifications-service.md] |
+
+**Key design decisions:**
+- Push only — no SMS, no email
+- Device tokens owned here, not in Account Service
+- All event data must be self-contained in Kafka payload — no calls to other services at send time
+- Idempotency via sent_notifications table keyed on Kafka event_id
 
 ---
 
@@ -135,12 +142,24 @@
 
 | Attribute | Description |
 |-----------|-------------|
-| **Purpose** | Real-time GPS ingestion, position caching, and broadcast to active rides |
+| **Purpose** | GPS ingestion from drivers (stateless HTTP), live position streaming to matched passengers (WebSocket) |
 | **Technology** | Go |
-| **Communication** | WebSocket (driver apps), Redis (position cache), Kafka (analytics) |
-| **Scaling** | Horizontal with sticky sessions |
-| **Data** | Writes Redis (positions), reads PostGIS (ride assignments), writes Kafka (events) |
-| **Bounded-Context** | [../02-bounded-contexts/driver-tracker] |
+| **Communication** | HTTP (driver POST), WebSocket (passenger tracking), Redis (position cache R/W) |
+| **Scaling** | Stateless on POST side. WebSocket side uses sticky sessions (K8s ingress, same config as Chat) |
+| **Data** | Reads/writes Redis only. No database ownership. |
+| **Bounded-Context** | [../02-bounded-contexts/driver-tracker/driver-tracker.md] |
+
+**Key Responsibilities:**
+- Accept `POST /position { routeId, lat, lng, timestamp }` from drivers, write to Redis with 30s TTL
+- Serve `WS /track/{routeId}` to passengers — one goroutine per connection, polls Redis every 5s, pushes position
+- Detect ride end via Redis key absence (`redis.Nil`) and send `ride_ended` event down the socket
+- Goroutine lifecycle tied to WebSocket connection via context cancellation — no leaks
+
+**Explicitly NOT responsible for:**
+- Ride state (Trip Planner owns this)
+- Validating routeId ownership (Gateway JWT handles auth, Trip Planner owns route records)
+- Cleaning up Redis on ride end (Trip Planner calls `DEL position:{routeId}` on completion/cancellation)
+- Any Kafka publishing or PostGIS reads
 
 ---
 
@@ -151,9 +170,11 @@
 | **Trip Store** | PostgreSQL + PostGIS | Routes, rides, driver states | Trip Planner |
 | **User Store** | PostgreSQL | Profiles, credentials, verification | Accounts |
 | **Ledger** | PostgreSQL | Transactions, wallets, invoices | Payments |
-| **Message Store** | MongoDB | Chat messages, rooms | Chat |
-| **Notification Logs** | PostgreSQL | Delivery status, templates | Notifications |
-| **Cache** | Redis | Active drivers, ride sessions, rate limits | Shared (all services) |
+| **Message Store** | MongoDB | Chat messages per ride, 30d TTL index | Chat Service |
+| **Device Tokens** | PostgreSQL | FCM tokens per user, upserted on app startup | Notifications Service |
+| **Notification Log** | PostgreSQL | Idempotency log (event_id → sent_at), 7d retention | Notifications Service |
+| **Cache** | Redis | Ride sessions, rate limits, route cache | Shared — Trip Planner writes/reads ride sessions, Gateway reads rate limits |
+| **Position Cache** | Redis (keys: `position:{routeId}`) | Live driver GPS, 30s TTL | Driver Tracker (write), Trip Planner (delete on ride end) |
 | **Tile Storage** | MBTiles + R2 | Map tiles | Tile Server |
 
 <!-- ---
