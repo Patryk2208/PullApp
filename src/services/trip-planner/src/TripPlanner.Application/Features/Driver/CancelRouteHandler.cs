@@ -1,9 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
-using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
-using TripPlanner.Domain.Events;
 
 namespace TripPlanner.Application.Features.Driver;
 
@@ -12,9 +10,7 @@ public record CancelRouteCommand(Guid DriverId);
 public class CancelRouteHandler(
     IDriverRouteRepository driverRoutes,
     IRideRequestRepository rideRequests,
-    IEventPublisher @event,
     ISseHub sseHub,
-    TripPlannerMetrics metrics,
     ILogger<CancelRouteHandler> logger)
 {
     public async Task HandleAsync(CancelRouteCommand cmd, CancellationToken ct)
@@ -51,7 +47,6 @@ public class CancelRouteHandler(
                 System.Text.Json.JsonSerializer.Serialize(new { requestId }), ct);
         }
 
-        metrics.RouteCancelled();
         logger.LogInformation("Driver {DriverId} cancelled route={RouteId}", cmd.DriverId, route.Id);
     }
 }

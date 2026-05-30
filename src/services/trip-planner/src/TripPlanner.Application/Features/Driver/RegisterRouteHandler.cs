@@ -66,7 +66,9 @@ public class RegisterRouteHandler(
         await queue.PublishAsync(computeJob, ct);
         logger.LogDebug("RegisterRoute: published compute job correlationId={CorrelationId}", correlationId);
 
-        metrics.RouteRegistered();
+        metrics.DriverRouteQueued();
+        metrics.ComputeJobPublished("route_registration");
+        metrics.RecordRouteCalcPublished(correlationId, "route_registration");
         logger.LogInformation("Driver {DriverId} registered route, jobId={JobId}", cmd.DriverId, job.Id);
 
         return new RegisterRouteResponse(job.Id);

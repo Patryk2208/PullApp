@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"firebase.google.com/go/v4/messaging"
 	"github.com/jackc/pgx/v5"
 
+	"notifications/internal/metrics"
 	"notifications/internal/model"
 )
 
@@ -17,12 +19,13 @@ type Repository interface {
 }
 
 type Notifier struct {
-	repo Repository
-	fcm  *messaging.Client
+	repo    Repository
+	fcm     *messaging.Client
+	metrics *metrics.Metrics
 }
 
-func NewNotifier(repo Repository, fcm *messaging.Client) *Notifier {
-	return &Notifier{repo: repo, fcm: fcm}
+func NewNotifier(repo Repository, fcm *messaging.Client, m *metrics.Metrics) *Notifier {
+	return &Notifier{repo: repo, fcm: fcm, metrics: m}
 }
 
 // Notify renders push content for the event and delivers it to userID's device.
@@ -40,6 +43,8 @@ func (n *Notifier) Notify(ctx context.Context, userID string, env model.Envelope
 	if err != nil {
 		return fmt.Errorf("get device token: %w", err)
 	}
+
+	start := time.Now()
 
 	androidPriority := "normal"
 	apnsPriority := "5"
@@ -64,13 +69,19 @@ func (n *Notifier) Notify(ctx context.Context, userID string, env model.Envelope
 		},
 	})
 	if messaging.IsUnregistered(err) {
-		// device token is dead — drop it so we stop trying
 		_ = n.repo.DeleteDeviceToken(ctx, userID)
+		n.metrics.RecordSent(ctx, "push_fcm", "failed", env.EventType)
+		n.metrics.RecordDuration(ctx, "push_fcm", start)
 		return nil
 	}
 	if err != nil {
+		n.metrics.RecordSent(ctx, "push_fcm", "failed", env.EventType)
+		n.metrics.RecordDuration(ctx, "push_fcm", start)
 		return fmt.Errorf("fcm send: %w", err)
 	}
+
+	n.metrics.RecordSent(ctx, "push_fcm", "success", env.EventType)
+	n.metrics.RecordDuration(ctx, "push_fcm", start)
 	return nil
 }
 

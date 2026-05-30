@@ -311,3 +311,87 @@ gateway_auth_failures_total rate > 5/min             # podejrzana aktywność
 | chat_* | Chat Service | WebSocket/message handler |
 | notifications_* | Notification Service | Kafka consumer + provider callback |
 | gateway_* | API Gateway (YARP) | middleware |
+
+---
+
+## Plan implementacji metryk
+
+### Trip Planner (`TripPlannerMetrics.cs` — C#)
+
+**Status:** częściowo zaimplementowane
+
+| Metryka | Status | Uwagi |
+|---|---|---|
+| `matching_requests_total` | ✅ | |
+| `matching_queue_duration_seconds` | ✅ | in-memory `ConcurrentDictionary` zamiast Redis — wystarczy |
+| `matching_candidates_evaluated` | ❌ brakuje | histogram; wartość przychodzi w payloadzie `RouteComputedHandler` |
+| `matching_no_drivers_found_total` | ✅ | |
+| `matching_result_total` | ✅ | |
+| `ride_transitions_total` | ✅ | |
+| `ride_state_duration_seconds` | ❌ brakuje | histogram (labels: `from_state`, `to_state`); in-memory timestamps, recordować przy każdej tranzycji stanu |
+| `ride_acceptance_duration_seconds` | ✅ | |
+| `ride_active` | ✅ | |
+| `ride_completed_total` | ⚠️ niepełne | istnieje jako `trip_planner.rides.completed` bez labelu `completion_type=(normal\|early_termination)` |
+| `ride_cancelled_total` | ⚠️ niepełne | istnieje jako `trip_planner.rides.cancelled`; brakuje labelu `stage=(before_match\|after_match\|during_ride)` |
+| `ride_driver_decline_total` | ⚠️ niepełne | ma `explicit\|timeout`; brakuje wartości `no_response` |
+| `driver_route_registrations_total` | ⚠️ niepełne | istnieje jako 3 osobne countery (`registered`, `modified`, `cancelled`) bez labelu `status`; zunifikować do jednego countera z `status=(queued\|completed\|failed)` lub pozostawić osobne i dodać brakujące statusy |
+| `driver_route_registration_duration_seconds` | ❌ brakuje | in-memory timestamps; recordować od publish do ResultsQueue consume; labels: `result=(success\|error)` |
+| `compute_queue_publish_total` | ❌ brakuje | counter; recordować przy każdym publish; labels: `job_type=(route_registration\|passenger_match)`, `status=(success\|failed)` |
+| `route_calc_duration_seconds` | ❌ brakuje | histogram; osobne timestamps od matching; labels: `job_type`, `result=(success\|error)`; cel p95 < 2s |
+
+---
+
+### Gateway (`GatewayMetrics.cs` — C#)
+
+**Status:** częściowo zaimplementowane
+
+| Metryka | Status | Uwagi |
+|---|---|---|
+| `gateway_requests_total` | ✅ | |
+| `gateway_request_duration_seconds` | ✅ | |
+| `gateway_rate_limited_total` | ❌ brakuje | labels: `reason=(per_user\|per_ip)` |
+| `gateway_auth_failures_total` | ❌ brakuje | labels: `reason=(invalid_token\|expired_token\|missing_token)` |
+
+---
+
+### Accounts (`AccountsMetrics.cs` — C#)
+
+**Status:** kompletne — brak formalnej sekcji w dokumencie, metryki zgodne z dashboardami Grafana.
+
+---
+
+### Notifications (Go)
+
+**Status:** serwis zaimplementowany, brak jakichkolwiek metryk — nowy plik do stworzenia
+
+| Metryka | Status |
+|---|---|
+| `notifications_sent_total` | ❌ brakuje |
+| `notification_delivery_duration_seconds` | ❌ brakuje |
+| `notification_kafka_lag` | ❌ brakuje |
+
+---
+
+### Route-Calc (Python)
+
+**Status:** kompletne dla kodu aplikacji
+
+`route_calc.jobs.processed` i `route_calc.jobs.failed` zaimplementowane. `compute_queue_depth`, `results_queue_depth`, `route_calc_workers_active` — źródła zewnętrzne (RabbitMQ Management API, kube-state-metrics), nie wymagają kodu w serwisie.
+
+---
+
+### Driver Tracker (Go) — serwis niezaimplementowany
+
+Wszystkie metryki z sekcji **Driver** (`driver_online`, `driver_route_registrations_total`, `driver_route_registration_duration_seconds`, `driver_gps_updates_total`, `driver_gps_update_interval_seconds`, `driver_position_staleness_seconds`, `driver_websocket_connections`) do zaimplementowania gdy serwis zostanie zbudowany.
+
+---
+
+### Chat (Go) — serwis niezaimplementowany
+
+Wszystkie metryki z sekcji **Chat** do zaimplementowania gdy serwis zostanie zbudowany.
+
+---
+
+### Payments (.NET) — serwis niezaimplementowany
+
+Wszystkie metryki z sekcji **Payments** do zaimplementowania gdy serwis zostanie zbudowany.

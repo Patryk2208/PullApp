@@ -46,7 +46,7 @@ public class PassengerStartRideHandler(
         await sseHub.PushAsync(ride.PassengerId, "ride_started",
             JsonSerializer.Serialize(new RideStartedEvent(ride.Id, ride.DriverId, ride.PassengerId, ride.StartedAt.Value)), ct);
 
-        metrics.RideTransition("awaiting_passenger", "in_ride", "passenger_started");
+        metrics.RideTransition(ride.Id, "awaiting_passenger", "in_ride", "passenger_started");
         logger.LogInformation("Passenger {PassengerId} confirmed ride start, rideId={RideId}", cmd.PassengerId, cmd.RideId);
     }
 }
@@ -130,8 +130,8 @@ public class PassengerCancelRideHandler(
         await sseHub.PushAsync(ride.DriverId, "ride_cancelled",
             JsonSerializer.Serialize(new RideCancelledSseEvent(ride.Id, "passenger", cmd.Reason)), ct);
 
-        metrics.RideCancelled("passenger");
-        metrics.RideTransition(phase == CancellationPhase.InRide ? "in_ride" : "pre_pickup", "cancelled", "passenger_cancel");
+        metrics.RideCancelled("passenger", phase == CancellationPhase.InRide ? "during_ride" : "after_match");
+        metrics.RideTransition(ride.Id, phase == CancellationPhase.InRide ? "in_ride" : "pre_pickup", "cancelled", "passenger_cancel");
         metrics.RideActiveAdd(-1);
         logger.LogInformation("Passenger {PassengerId} cancelled rideId={RideId} phase={Phase} reason={Reason}",
             cmd.PassengerId, cmd.RideId, phase, cmd.Reason);

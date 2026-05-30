@@ -94,7 +94,9 @@ public class ModifyRouteHandler(
         await driverRoutes.AddAsync(route, ct);
         await queue.PublishAsync(computeJob, ct);
 
-        metrics.RouteModified();
+        metrics.DriverRouteQueued();
+        metrics.ComputeJobPublished("route_registration");
+        metrics.RecordRouteCalcPublished(correlationId, "route_registration");
         logger.LogInformation("Driver {DriverId} modified route, new jobId={JobId}", cmd.DriverId, job.Id);
 
         return new RegisterRouteResponse(job.Id);

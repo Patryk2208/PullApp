@@ -5,14 +5,18 @@ public sealed class GatewayMetrics : IDisposable
     public const string MeterName = "Gateway";
 
     private readonly Meter _meter;
-    private readonly Counter<long> _requests;
+    private readonly Counter<long>     _requests;
     private readonly Histogram<double> _duration;
+    private readonly Counter<long>     _rateLimited;
+    private readonly Counter<long>     _authFailures;
 
     public GatewayMetrics()
     {
-        _meter    = new Meter(MeterName);
-        _requests = _meter.CreateCounter<long>("gateway_requests_total",            "requests");
-        _duration = _meter.CreateHistogram<double>("gateway_request_duration_seconds", "s");
+        _meter        = new Meter(MeterName);
+        _requests     = _meter.CreateCounter<long>("gateway_requests_total",               "requests");
+        _duration     = _meter.CreateHistogram<double>("gateway_request_duration_seconds", "s");
+        _rateLimited  = _meter.CreateCounter<long>("gateway_rate_limited_total",           "requests");
+        _authFailures = _meter.CreateCounter<long>("gateway_auth_failures_total",          "failures");
 
         foreach (var svc in new[] { "accounts", "trip-planner" })
         {
@@ -29,6 +33,12 @@ public sealed class GatewayMetrics : IDisposable
                     new KeyValuePair<string, object?>("method",  method));
             }
         }
+
+        foreach (var reason in new[] { "per_user", "per_ip" })
+            _rateLimited.Add(0, new KeyValuePair<string, object?>("reason", reason));
+
+        foreach (var reason in new[] { "invalid_token", "expired_token", "missing_token" })
+            _authFailures.Add(0, new KeyValuePair<string, object?>("reason", reason));
     }
 
     public void RecordRequest(string service, string method, int statusCode, double durationSeconds)
@@ -41,6 +51,12 @@ public sealed class GatewayMetrics : IDisposable
             new KeyValuePair<string, object?>("service", service),
             new KeyValuePair<string, object?>("method",  method));
     }
+
+    public void RecordRateLimited(string reason)
+        => _rateLimited.Add(1, new KeyValuePair<string, object?>("reason", reason));
+
+    public void RecordAuthFailure(string reason)
+        => _authFailures.Add(1, new KeyValuePair<string, object?>("reason", reason));
 
     public void Dispose() => _meter.Dispose();
 }

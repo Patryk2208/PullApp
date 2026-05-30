@@ -97,6 +97,8 @@ public class CreateRouteRequestHandler(
 
         metrics.MatchingRequestRecorded("queued");
         metrics.RecordMatchingJobPublished(correlationId);
+        metrics.ComputeJobPublished("passenger_match");
+        metrics.RecordRouteCalcPublished(correlationId, "passenger_match");
         metrics.RouteRequestCreated();
         logger.LogInformation("Passenger {PassengerId} created route request {RequestId}", cmd.PassengerId, request.Id);
 
