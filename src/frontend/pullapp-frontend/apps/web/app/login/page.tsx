@@ -5,7 +5,8 @@ import { useLogin } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
 import styles from './login.module.css';
 
-const repository = new AuthRepository();
+const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const repository = new AuthRepository(baseUrl);
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -16,8 +17,10 @@ export default function LoginPage() {
 	
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		await login({ email, password });
-		router.push('/');
+		const isSuccess = await login({ email, password });
+		if (isSuccess) {
+			router.push('/');
+		}
 	}
 	
 	return (

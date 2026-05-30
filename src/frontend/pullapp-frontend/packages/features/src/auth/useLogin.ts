@@ -7,7 +7,7 @@ export function useLogin(repository: IAuthRepository) {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error,     setError]     = useState<string | null>(null);
 	
-	async function login(credentials: LoginUserCommand) {
+	async function login(credentials: LoginUserCommand): Promise<boolean> {
 		setIsLoading(true);
 		setError(null);
 		
@@ -16,10 +16,11 @@ export function useLogin(repository: IAuthRepository) {
 		if (result.ok) {
 			setToken(result.value.token);
 		} else {
-			setError(result.error);
+			setError(result.error);	
 		}
 		
 		setIsLoading(false);
+		return result.ok;
 	}
 	
 	return { login, isLoading, error };

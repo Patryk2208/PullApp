@@ -4,31 +4,41 @@ import type {
 	RegisterUserCommand, RegisterUserResponse } from '@pullapp/domain';
 import { ok, err, Result } from '@pullapp/domain';
 
-// TODO
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
-
-async function post<T>(path: string, body: unknown): Promise<Result<T>> {
-	try {
-		const res = await fetch(`${BASE_URL}${path}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body),
-		});
-		if (!res.ok) {
-			const message = await res.text();
-			return err(message || res.statusText);
-		}
-		return ok(await res.json() as T);
-	} catch {
-		return err('Brak połączenia z serwerem');
-	}
-}
-
 export class AuthRepository implements IAuthRepository {
-	login(credentials: LoginUserCommand): Promise<Result<LoginUserResponse>> {
-		return post('/api/auth/login', credentials);
+	
+	private _baseUrl: string;
+	constructor(baseUrl: string) {
+		this._baseUrl = baseUrl.replace(/\/$/, '');
 	}
-	register(credentials: RegisterUserCommand): Promise<Result<RegisterUserResponse>> {
-		return post('/api/auth/register', credentials);
+	
+	private async _post<T>(path: string, body: unknown): Promise<Result<T>> {
+		try {
+			const res = await fetch(`${this._baseUrl}${path}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body),
+			});
+			if (res.ok) {
+				return ok(await res.json() as T);
+			}
+			
+			const rawText = await res.text();
+			try {
+				const problem = JSON.parse(rawText);
+				const errorMessage = problem.detail || problem.title || res.statusText;
+				return err(errorMessage);
+			} catch (parsingError) {
+				return err(rawText || res.statusText || 'Nieznany błąd serwera');
+			}
+		} catch {
+			return err('Brak połączenia z serwerem');
+		}
+	}
+	
+	public login(credentials: LoginUserCommand): Promise<Result<LoginUserResponse>> {
+		return this._post('/api/auth/login', credentials);
+	}
+	public register(credentials: RegisterUserCommand): Promise<Result<RegisterUserResponse>> {
+		return this._post('/api/auth/register', credentials);
 	}
 }

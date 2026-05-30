@@ -5,7 +5,8 @@ import { useRegister } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
 import styles from './register.module.css';
 
-const repository = new AuthRepository();
+const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const repository = new AuthRepository(baseUrl);
 
 export default function RegisterPage() {
 	const router = useRouter();

@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY --from=pruner /app/out/full/ .
 COPY turbo.json turbo.json
-RUN pnpm turbo run build --filter=@pullapp/web --force
+RUN pnpm turbo run build --filter=@pullapp/web
 
 FROM base AS runner
 COPY --from=builder /app/apps/web/.next/standalone ./
