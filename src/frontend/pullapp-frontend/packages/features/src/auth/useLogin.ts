@@ -14,7 +14,7 @@ export function useLogin(repository: IAuthRepository) {
 		const result = await repository.login(credentials);
 		
 		if (result.ok) {
-			setToken(result.value.token);
+			setToken(result.value.accessToken);
 		} else {
 			setError(result.error);	
 		}

@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 	description: 'Dziel się kosztami podróży na codziennych trasach',
 };
 
+
 export default function RootLayout({
 	children,
 }: {

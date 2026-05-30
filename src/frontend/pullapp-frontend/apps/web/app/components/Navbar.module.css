@@ -35,3 +35,9 @@
 .link:hover {
     color: #3498db;
 }
+
+.userMenu {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem; /* Odstęp między linkiem "Mój Profil" a przyciskiem wylogowania */
+}

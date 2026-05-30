@@ -7,11 +7,10 @@ interface AuthState {
 	logout: () => void;
 }
 
-// TODO ARCHITECTURAL: This supports web only and should be move to the Infrastructure layer in the first place.
+// TODO native storage not supported
 const universalStorage: ZustandMiddleware.StateStorage = {
-	getItem: async (name: string): Promise<string | null> => {
-		if (typeof window !== 'undefined') {
-			// Jesteśmy w przeglądarce.
+	getItem: (name: string): string | null => {
+		if (typeof window !== 'undefined') { // Jesteśmy w przeglądarce.
 			return window.localStorage.getItem(name);
 		}
 		// Jesteśmy na serwerze (Next.js SSR) lub w React Native (wymaga innej obsługi)
@@ -19,12 +18,12 @@ const universalStorage: ZustandMiddleware.StateStorage = {
 		// ale rozwiązanego przez mechanizm wstrzykiwania zależności lub osobny plik .native.ts
 		return null;
 	},
-	setItem: async (name: string, value: string): Promise<void> => {
+	setItem: (name: string, value: string): void => {
 		if (typeof window !== 'undefined') {
 			window.localStorage.setItem(name, value);
 		}
 	},
-	removeItem: async (name: string): Promise<void> => {
+	removeItem: (name: string): void => {
 		if (typeof window !== 'undefined') {
 			window.localStorage.removeItem(name);
 		}

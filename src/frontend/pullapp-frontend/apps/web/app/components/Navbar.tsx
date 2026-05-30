@@ -3,8 +3,15 @@ import Link from 'next/link';
 import { Button } from '@pullapp/ui';
 import styles from './Navbar.module.css';
 import { usePathname } from 'next/navigation';
+import { useAuthStore } from "@pullapp/features";
+import React from "react";
 
 export function Navbar() {
+	const token = useAuthStore((state) => state.token);
+	const logout = useAuthStore((state) => state.logout);
+	const isLoggedIn = !!token;
+	console.log("Navbar sees token:", token, "isLoggedIn:", isLoggedIn); // TODO
+	
 	const pathname = usePathname();
 	if (pathname === '/login' || pathname === '/register') return null;
 	
@@ -26,12 +33,24 @@ export function Navbar() {
 			</div>
 			
 			<div className={styles.authActions}>
-				{/* Mały, dyskretny wariant do logowania */}
-				<Link href="/login" passHref style={{ textDecoration: "none" }}>
-					<Button variant="secondary" size="medium">
+				{isLoggedIn ? (
+					// INTERFEJS DLA ZALOGOWANEGO UŻYTKOWNIKA
+					<div key="logged-in" className={styles.userMenu}>
+						<Link href="/profile" className={styles.link}>
+							👤 Mój Profil
+						</Link>
+						<Button variant="secondary" size="medium" onClick={logout}>
+							Wyloguj się
+						</Button>
+					</div>
+				) : (
+					// INTERFEJS DLA GOŚCIA
+					<Link key="guest" href="/login" passHref style={{ textDecoration: 'none' }}>
+						<Button variant="primary" size="medium">
 							Zaloguj się
-					</Button>
-				</Link>
+						</Button>
+					</Link>
+				)}
 			</div>
 		</nav>
 	);

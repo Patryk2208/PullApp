@@ -1,5 +1,5 @@
 export interface LoginUserResponse {
-    token: string;
+    accessToken: string;
 }
 
 export interface LoginUserCommand {
