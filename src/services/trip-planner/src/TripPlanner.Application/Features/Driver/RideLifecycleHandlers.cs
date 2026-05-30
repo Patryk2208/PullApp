@@ -47,7 +47,7 @@ public class DriverArrivedHandler(
         await sseHub.PushAsync(ride.PassengerId, "driver_arrived",
             JsonSerializer.Serialize(new DriverArrivedSseEvent(ride.Id)), ct);
 
-        metrics.RideTransition("pickup", "awaiting_passenger", "driver_arrived");
+        metrics.RideTransition(ride.Id, "pickup", "awaiting_passenger", "driver_arrived");
         logger.LogInformation("Driver {DriverId} arrived at pickup for rideId={RideId}", cmd.DriverId, cmd.RideId);
     }
 }
@@ -86,7 +86,7 @@ public class DriverStartRideHandler(
         await sseHub.PushAsync(ride.PassengerId, "ride_started",
             JsonSerializer.Serialize(new RideStartedEvent(ride.Id, ride.DriverId, ride.PassengerId, ride.StartedAt.Value)), ct);
 
-        metrics.RideTransition("awaiting_passenger", "in_ride", "driver_started");
+        metrics.RideTransition(ride.Id, "awaiting_passenger", "in_ride", "driver_started");
         logger.LogInformation("Driver {DriverId} started rideId={RideId}", cmd.DriverId, cmd.RideId);
     }
 }
@@ -145,8 +145,8 @@ public class CompleteRideHandler(
                 "Driver")), // TODO: fetch display name
             ct);
 
-        metrics.RideCompleted();
-        metrics.RideTransition("in_ride", "completed", "normal");
+        metrics.RideCompleted("normal");
+        metrics.RideTransition(ride.Id, "in_ride", "completed", "normal");
         metrics.RideActiveAdd(-1);
         logger.LogInformation("Ride {RideId} completed by driver {DriverId}, amount={Amount}",
             cmd.RideId, cmd.DriverId, ride.FrozenPriceAmount);
@@ -204,8 +204,8 @@ public class DriverCancelRideHandler(
         await sseHub.PushAsync(ride.PassengerId, "ride_cancelled",
             JsonSerializer.Serialize(new RideCancelledSseEvent(ride.Id, "driver", cmd.Reason)), ct);
 
-        metrics.RideCancelled("driver");
-        metrics.RideTransition(phase == CancellationPhase.InRide ? "in_ride" : "pre_pickup", "cancelled", "driver_cancel");
+        metrics.RideCancelled("driver", phase == CancellationPhase.InRide ? "during_ride" : "after_match");
+        metrics.RideTransition(ride.Id, phase == CancellationPhase.InRide ? "in_ride" : "pre_pickup", "cancelled", "driver_cancel");
         metrics.RideActiveAdd(-1);
         logger.LogInformation("Driver {DriverId} cancelled rideId={RideId} phase={Phase} reason={Reason}",
             cmd.DriverId, cmd.RideId, phase, cmd.Reason);

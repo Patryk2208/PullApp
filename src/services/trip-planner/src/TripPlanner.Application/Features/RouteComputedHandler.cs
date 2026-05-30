@@ -16,24 +16,38 @@ public class RouteComputedHandler(
         logger.LogDebug("RouteComputed: jobId={JobId} success={Success}", result.JobId, result.Success);
 
         var json = JsonSerializer.Serialize(result);
-        await hub.PushAsync(result.JobId, "drier_route_computed", json, ct);
+        await hub.PushAsync(result.JobId, "driver_route_computed", json, ct);
 
         metrics.ComputeResultReceived();
 
-        var matchingOutcome = result switch
-        {
-            PassengerMatchComputeResult r when r.Result.Matches.Count == 0 => "no_drivers",
-            PassengerMatchComputeResult                                     => "matched",
-            FailedComputeResult                                             => "error",
-            _                                                               => null
-        };
+        var calcResult = result.Success ? "success" : "error";
+        metrics.RecordRouteCalcResult(result.JobId, calcResult);
 
-        if (matchingOutcome is not null)
+        switch (result)
         {
-            metrics.MatchingResultRecorded(matchingOutcome);
-            metrics.RecordMatchingJobResult(result.JobId, matchingOutcome);
-            if (matchingOutcome == "no_drivers")
-                metrics.MatchingNoDriversFound();
+            case PassengerMatchComputeResult r:
+                var outcome = r.Result.Matches.Count == 0 ? "no_drivers" : "matched";
+                metrics.MatchingResultRecorded(outcome);
+                metrics.RecordMatchingJobResult(result.JobId, outcome);
+                if (outcome == "no_drivers")
+                    metrics.MatchingNoDriversFound();
+                break;
+
+            case DriverRouteComputeResult:
+                metrics.DriverRouteCompleted(result.JobId);
+                break;
+
+            case FailedComputeResult f:
+                if (f.JobType == JobType.PassengerMatch)
+                {
+                    metrics.MatchingResultRecorded("error");
+                    metrics.RecordMatchingJobResult(result.JobId, "error");
+                }
+                else
+                {
+                    metrics.DriverRouteFailed(result.JobId);
+                }
+                break;
         }
 
         logger.LogInformation("Compute result received for jobId={JobId} success={Success}", result.JobId, result.Success);

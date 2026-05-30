@@ -126,6 +126,7 @@ public class ConfirmationHandler(
         metrics.MatchConfirmed();
         metrics.RecordAcceptanceEnded(cmd.RequestId);
         metrics.RideTransition("pending_driver", "pickup", "driver_accepted");
+        metrics.RecordRideStateEntered(ride.Id);
         metrics.RideActiveAdd(1);
         logger.LogInformation("Driver {DriverId} confirmed match, rideId={RideId} passengerId={PassengerId}",
             cmd.DriverId, ride.Id, ride.PassengerId);
