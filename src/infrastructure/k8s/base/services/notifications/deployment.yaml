@@ -23,7 +23,7 @@ spec:
       containers:
       - name: app
         image: notifications
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
 
         env:
         - name: POSTGRES_URL

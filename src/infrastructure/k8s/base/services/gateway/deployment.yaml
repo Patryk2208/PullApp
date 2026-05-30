@@ -23,7 +23,7 @@ spec:
       containers:
       - name: app
         image: gateway
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         
         ports:
         - containerPort: 8080

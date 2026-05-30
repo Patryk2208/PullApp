@@ -23,7 +23,7 @@ spec:
       containers:
       - name: app
         image: driver-tracker
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
 
         ports:
         - containerPort: 8080

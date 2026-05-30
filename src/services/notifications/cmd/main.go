@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"strings"
 	"sync"
@@ -23,6 +24,12 @@ import (
 	"notifications/internal/service"
 )
 
+// noopPusher is used when FCM is not configured: SSE still delivers events,
+// push is a no-op so the service runs without Firebase credentials.
+type noopPusher struct{}
+
+func (noopPusher) Notify(context.Context, string, model.Envelope) error { return nil }
+
 func main() {
 	cfg := config.Load()
 
@@ -35,13 +42,8 @@ func main() {
 	}
 	defer db.Close()
 
-	app, err := firebase.NewApp(ctx, &firebase.Config{ProjectID: cfg.FirebaseProjectID}, option.WithCredentialsFile(cfg.FirebaseCredentialsFile))
-	if err != nil {
-		log.Fatalf("firebase: %v", err)
-	}
-	fcm, err := app.Messaging(ctx)
-	if err != nil {
-		log.Fatalf("firebase messaging: %v", err)
+	if err = postgres.Migrate(ctx, db); err != nil {
+		log.Fatalf("migrate: %v", err)
 	}
 
 	repo := postgres.NewRepository(db)
@@ -49,8 +51,28 @@ func main() {
 
 	mapper := model.NewUsersMapper()
 	streamer := service.NewStreamer(mapper)
-	notifier := service.NewNotifier(repo, fcm)
-	dispatcher := service.NewDispatcher(repo, streamer, notifier)
+
+	// Push (FCM) is optional. Without a Firebase project ID + usable credentials
+	// (the local cluster ships PLACEHOLDER secrets) we run SSE-only instead of
+	// crashing the whole service.
+	var pusher service.Pusher = noopPusher{}
+	if cfg.FirebaseProjectID == "" {
+		log.Printf("FIREBASE_PROJECT_ID not set; push disabled, running SSE-only")
+	} else if _, statErr := os.Stat(cfg.FirebaseCredentialsFile); statErr != nil {
+		log.Printf("firebase credentials %q unavailable (%v); push disabled, running SSE-only", cfg.FirebaseCredentialsFile, statErr)
+	} else {
+		app, appErr := firebase.NewApp(ctx, &firebase.Config{ProjectID: cfg.FirebaseProjectID}, option.WithCredentialsFile(cfg.FirebaseCredentialsFile))
+		if appErr != nil {
+			log.Fatalf("firebase: %v", appErr)
+		}
+		fcm, msgErr := app.Messaging(ctx)
+		if msgErr != nil {
+			log.Fatalf("firebase messaging: %v", msgErr)
+		}
+		pusher = service.NewNotifier(repo, fcm)
+	}
+
+	dispatcher := service.NewDispatcher(repo, streamer, pusher)
 
 	mux := http.NewServeMux()
 	mux.Handle("/health", health.NewHandler(db, strings.SplitN(cfg.KafkaBrokers, ",", 2)[0]))

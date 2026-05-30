@@ -15,20 +15,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// schema mirrors what repository.go queries. There is no migration tooling in
-// this service yet, so the test owns the DDL.
-const schema = `
-CREATE TABLE IF NOT EXISTS device_tokens (
-    user_id    TEXT PRIMARY KEY,
-    token      TEXT NOT NULL,
-    platform   TEXT NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS sent_notifications (
-    event_id TEXT PRIMARY KEY,
-    sent_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-`
 
 func startPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
@@ -61,8 +47,8 @@ func startPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	if err != nil {
 		t.Fatalf("pgxpool: %v", err)
 	}
-	if _, err := pool.Exec(ctx, schema); err != nil {
-		t.Fatalf("create schema: %v", err)
+	if err := Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate: %v", err)
 	}
 
 	cleanup := func() {

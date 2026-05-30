@@ -28,7 +28,7 @@ spec:
       containers:
       - name: route-calc
         image: route-calc
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         
         ports:
         - containerPort: 8000
