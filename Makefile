@@ -79,6 +79,8 @@ help:
 	@printf "  make restart-<svc>      Rolling restart a single service\n"
 	@for svc in $(SERVICES); do printf "                          restart-$$svc\n"; done
 	@printf "\n$(CYAN)Port-forwards$(RESET)\n"
+	@printf "  make pf-dev             :8080-5005 → all services (Postman-ready)\n"
+	@printf "  make pf-stop            kill all kubectl port-forwards\n"
 	@printf "  make pf-gateway         :8080 → gateway\n"
 	@printf "  make pf-grafana         :3000 → Grafana\n"
 	@printf "  make pf-prometheus      :9090 → Prometheus\n"
@@ -353,7 +355,26 @@ restart-%: _check-kubectl
 
 # ── Port-forwards ─────────────────────────────────────────────────────────────
 
-.PHONY: pf-gateway pf-grafana pf-prometheus pf-loki pf-tempo pf-rabbit
+.PHONY: pf-dev pf-stop pf-gateway pf-grafana pf-prometheus pf-loki pf-tempo pf-rabbit
+
+pf-dev:
+	@printf "$(CYAN)Forwarding all services (Ctrl-C stops all):$(RESET)\n"
+	@printf "  gateway        → http://localhost:8080\n"
+	@printf "  accounts       → http://localhost:5001\n"
+	@printf "  trip-planner   → http://localhost:5002\n"
+	@printf "  notifications  → http://localhost:5003\n"
+	@printf "  driver-tracker → http://localhost:5004\n"
+	@printf "  route-calc     → http://localhost:5005\n"
+	kubectl port-forward service/gateway        8080:80 -n $(NAMESPACE) &
+	kubectl port-forward service/accounts       5001:80 -n $(NAMESPACE) &
+	kubectl port-forward service/trip-planner   5002:80 -n $(NAMESPACE) &
+	kubectl port-forward service/notifications  5003:80 -n $(NAMESPACE) &
+	kubectl port-forward service/driver-tracker 5004:80 -n $(NAMESPACE) &
+	kubectl port-forward service/route-calc     5005:80 -n $(NAMESPACE) &
+	wait
+
+pf-stop:
+	@pkill -f "kubectl port-forward" 2>/dev/null && printf "$(CYAN)All port-forwards stopped$(RESET)\n" || printf "$(CYAN)No port-forwards running$(RESET)\n"
 
 pf-gateway:
 	@printf "$(CYAN)Forwarding gateway → http://localhost:8080$(RESET)\n"
@@ -421,7 +442,7 @@ ci-full-%: _check-act FORCE
 
 .PHONY: run
 
-run: _cluster-ensure obs-install infra ci cd
+run: _cluster-ensure obs-install infra cd ci
 	@printf "\n$(GREEN)$(BOLD)PullApp is running.$(RESET)\n"
 	@printf "  App:        make pf-gateway   → http://localhost:8080\n"
 	@printf "  Grafana:    make pf-grafana   → http://localhost:3000\n"

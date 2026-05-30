@@ -45,6 +45,8 @@ spec:
           value: "pullapp"
         - name: Jwt__Audience
           value: "pullapp"
+        - name: ConnectionStrings__DefaultConnection
+          value: "Host=accounts-db;Port=5434;Database=accounts;Username=pullapp;Password=$(ACCOUNTS_DB_PASSWORD)"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
         - name: OTEL_SERVICE_NAME

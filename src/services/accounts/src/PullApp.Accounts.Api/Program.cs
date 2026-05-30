@@ -46,16 +46,10 @@ app.Services.GetRequiredService<AccountsMetrics>();
 
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.MapOpenApi();
 
-app.UseHttpsRedirection();
-
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AccountsDbContext>();
     db.Database.Migrate();
 }
