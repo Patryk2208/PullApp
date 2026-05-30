@@ -9,13 +9,12 @@ import (
 )
 
 type IdempotencyRepository interface {
-	IsProcessed(ctx context.Context, eventID string) (bool, error)
-	MarkProcessed(ctx context.Context, eventID string) error
+	ClaimEvent(ctx context.Context, eventID string) (bool, error)
 }
 
-// SseSender Streamer delivers an event to a user's live SSE connection.
-type SseSender interface {
-	Send(userID string, env model.Envelope)
+// Publisher publishes an event to the fan-out bus (Redis pub/sub).
+type Publisher interface {
+	Publish(ctx context.Context, userID string, env model.Envelope) error
 }
 
 // Pusher delivers an event to a user as a push notification.
@@ -25,25 +24,24 @@ type Pusher interface {
 
 type Dispatcher struct {
 	idempotencyRepository IdempotencyRepository
-	streamer              SseSender
+	publisher             Publisher
 	pusher                Pusher
 }
 
-func NewDispatcher(repository IdempotencyRepository, streamer SseSender, pusher Pusher) *Dispatcher {
+func NewDispatcher(repository IdempotencyRepository, publisher Publisher, pusher Pusher) *Dispatcher {
 	return &Dispatcher{
 		idempotencyRepository: repository,
-		streamer:              streamer,
+		publisher:             publisher,
 		pusher:                pusher,
 	}
 }
 
 func (d *Dispatcher) Dispatch(ctx context.Context, envelope model.Envelope) error {
-	// idempotency check for notifications
-	processed, err := d.idempotencyRepository.IsProcessed(ctx, envelope.EventId)
+	claimed, err := d.idempotencyRepository.ClaimEvent(ctx, envelope.EventId)
 	if err != nil {
 		return err
 	}
-	if processed {
+	if !claimed {
 		return nil
 	}
 
@@ -56,15 +54,17 @@ func (d *Dispatcher) Dispatch(ctx context.Context, envelope model.Envelope) erro
 		if userID == "" {
 			continue
 		}
-		// SSE is fire-and-forget; push is best-effort. A push failure must not
-		// stop the event from being marked processed.
-		d.streamer.Send(userID, envelope)
+		// SSE fan-out via Redis pub/sub; push is best-effort. Neither failure
+		// must block other recipients or prevent the claim from standing.
+		if err = d.publisher.Publish(ctx, userID, envelope); err != nil {
+			log.Printf("dispatch: publish to %s for %s: %v", userID, envelope.EventType, err)
+		}
 		if err = d.pusher.Notify(ctx, userID, envelope); err != nil {
 			log.Printf("dispatch: push to %s for %s: %v", userID, envelope.EventType, err)
 		}
 	}
 
-	return d.idempotencyRepository.MarkProcessed(ctx, envelope.EventId)
+	return nil
 }
 
 // recipients implements the routing table: which user IDs should receive a

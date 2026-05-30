@@ -32,3 +32,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  notifications-cache:
+    image: redis:8-alpine
+    container_name: notifications-cache
+    command: redis-server --appendonly yes --requirepass ${NOTIFICATIONS_REDIS_PASSWORD}
+    ports:
+      - "6381:6379"
+    volumes:
+      - ../cache/redis.conf:/usr/local/etc/redis/redis.conf
+      - notifications-cache-data:/data
+    networks:
+      - pullapp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${NOTIFICATIONS_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
