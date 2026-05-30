@@ -51,7 +51,9 @@ func (r *Repository) UpsertDeviceToken(ctx context.Context, userID, token, platf
 }
 
 func (r *Repository) DeleteOldNotifications(ctx context.Context, olderThan time.Duration) error {
-	_, err := r.db.Exec(ctx, "DELETE FROM sent_notifications WHERE sent_at < now() - $1::interval", olderThan.String())
+	// make_interval takes seconds as a float; Go's Duration.String() ("24h0m0s")
+	// is not valid Postgres interval syntax.
+	_, err := r.db.Exec(ctx, "DELETE FROM sent_notifications WHERE sent_at < now() - make_interval(secs => $1)", olderThan.Seconds())
 	return err
 }
 
