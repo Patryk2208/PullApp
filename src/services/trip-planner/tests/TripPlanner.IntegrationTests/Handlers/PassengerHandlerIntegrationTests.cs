@@ -76,7 +76,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         var handler = new CreateRideRequestHandler(
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, geo, events, session, NullLogger<CreateRideRequestHandler>.Instance);
+            payments, geo, events, new KafkaTopics(), session, NullLogger<CreateRideRequestHandler>.Instance);
 
         var result = await handler.HandleAsync(
             new(Guid.NewGuid(), route.Id, PointA, PointB), default);
@@ -109,7 +109,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
             new PostgresRideRepository(session),
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, events, new TripPlannerMetrics(), session, NullLogger<CancelRideHandler>.Instance);
+            payments, events, new KafkaTopics(), new TripPlannerMetrics(), session, NullLogger<CancelRideHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 

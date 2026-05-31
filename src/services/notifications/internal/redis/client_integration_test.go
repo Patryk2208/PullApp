@@ -74,7 +74,7 @@ func TestPublishSubscribe(t *testing.T) {
 
 	env := model.Envelope{
 		EventId:   "e1",
-		EventType: model.EventRideStarted,
+		EventType: model.EventRideRequested,
 		Payload:   json.RawMessage(`{"passengerId":"P","driverId":"D"}`),
 	}
 

@@ -32,7 +32,7 @@ public class AcceptRideRequestConcurrencyTests(PostgresFixture db) : IAsyncLifet
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
             new PostgresRideRepository(session),
-            payments, chat, events, new TripPlannerMetrics(), session, NullLogger<AcceptRideRequestHandler>.Instance);
+            payments, chat, events, new KafkaTopics(), new TripPlannerMetrics(), session, NullLogger<AcceptRideRequestHandler>.Instance);
     }
 
     /// <summary>

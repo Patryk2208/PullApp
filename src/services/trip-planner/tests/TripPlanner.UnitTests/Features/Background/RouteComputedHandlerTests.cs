@@ -9,7 +9,7 @@ public class RouteComputedHandlerTests
     private readonly IEventPublisher     _events = Substitute.For<IEventPublisher>();
     private readonly IUnitOfWork         _uow    = Substitute.For<IUnitOfWork>();
 
-    private RouteComputedHandler Handler() => new(_jobs, _routes, _events, new TripPlannerMetrics(), _uow, NullLogger<RouteComputedHandler>.Instance);
+    private RouteComputedHandler Handler() => new(_jobs, _routes, _events, new KafkaTopics(), new TripPlannerMetrics(), _uow, NullLogger<RouteComputedHandler>.Instance);
 
     private static BestRouteComputeResult BestRouteResult(Guid jobId) =>
         new(jobId, new BestRouteJobResult(
@@ -39,7 +39,7 @@ public class RouteComputedHandlerTests
         Assert.Equal(RouteStatus.Created, route.Status);
         Assert.NotNull(route.RoutePoints);
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers, Arg.Any<RouteReadyEvent>(), Arg.Any<CancellationToken>());
+            "notification-triggers", Arg.Any<RouteReadyEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class RouteComputedHandlerTests
 
         Assert.Equal(JobStatus.Completed, job.Status);
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RouteSearchCompletedEvent>(e => e.PassengerId == passengerId),
             Arg.Any<CancellationToken>());
     }

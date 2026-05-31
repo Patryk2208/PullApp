@@ -33,8 +33,12 @@ spec:
               key: NOTIFICATIONS_POSTGRES_URL
         - name: KAFKA_BROKERS
           value: "event-bus:9092"
-        - name: KAFKA_TOPIC
-          value: "notifications"
+        - name: KAFKA_TOPIC_NOTIFICATION_TRIGGERS
+          value: "notification-triggers"
+        - name: KAFKA_TOPIC_RIDE_COMPLETIONS
+          value: "ride-completions"
+        - name: KAFKA_TOPIC_USER_ACTIONS
+          value: "user-actions"
         - name: KAFKA_GROUP_ID
           value: "notifications"
         - name: HTTP_ADDR

@@ -33,9 +33,9 @@ func NewConsumer(brokers, topic, groupID string, dispatcher *service.Dispatcher,
 }
 
 func (c *Consumer) Run(ctx context.Context) error {
+	topic := c.reader.Config().Topic
 	defer c.reader.Close()
 	for {
-		// manual commit: only after a successful dispatch
 		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -44,20 +44,30 @@ func (c *Consumer) Run(ctx context.Context) error {
 			return err
 		}
 
+		log.Printf("kafka[%s]: received message partition=%d offset=%d len=%d",
+			topic, msg.Partition, msg.Offset, len(msg.Value))
+
 		start := time.Now()
 
 		var envelope model.Envelope
 		if err = json.Unmarshal(msg.Value, &envelope); err != nil {
-			log.Printf("kafka: unmarshal: %v", err)
+			log.Printf("kafka[%s]: unmarshal error offset=%d: %v — raw: %.200s",
+				topic, msg.Offset, err, msg.Value)
 			_ = c.reader.CommitMessages(ctx, msg)
 			continue
 		}
+
+		log.Printf("kafka[%s]: dispatching eventId=%s type=%s", topic, envelope.EventId, envelope.EventType)
 
 		dispatchErr := c.dispatcher.Dispatch(ctx, envelope)
 		status := "success"
 		if dispatchErr != nil {
 			status = "failed"
-			log.Printf("kafka: dispatch event %s (%s): %v", envelope.EventId, envelope.EventType, dispatchErr)
+			log.Printf("kafka[%s]: dispatch failed eventId=%s type=%s: %v",
+				topic, envelope.EventId, envelope.EventType, dispatchErr)
+		} else {
+			log.Printf("kafka[%s]: dispatch ok eventId=%s type=%s duration=%s",
+				topic, envelope.EventId, envelope.EventType, time.Since(start))
 		}
 
 		c.metrics.RecordSent(ctx, "sse", status, envelope.EventType)

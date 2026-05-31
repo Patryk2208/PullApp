@@ -119,22 +119,22 @@ func TestDispatchRouting(t *testing.T) {
 		payload any
 		want    []string
 	}{
-		{"route_selected→driver", model.EventRouteSelected,
-			model.RouteSelectedPayload{DriverId: "D", PassengerId: "P"}, []string{"D"}},
-		{"match_confirmed→passenger", model.EventMatchConfirmed,
-			model.MatchConfirmedPayload{DriverId: "D", PassengerId: "P"}, []string{"P"}},
-		{"match_declined→passenger", model.EventMatchDeclined,
-			model.MatchDeclinedPayload{DriverId: "D", PassengerId: "P"}, []string{"P"}},
-		{"driver_arrived→passenger", model.EventDriverArrived,
-			model.DriverArrivedPayload{DriverId: "D", PassengerId: "P"}, []string{"P"}},
-		{"ride_started→both", model.EventRideStarted,
-			model.RideStartedPayload{DriverId: "D", PassengerId: "P"}, []string{"D", "P"}},
+		{"ride_requested→driver", model.EventRideRequested,
+			model.RideRequestedPayload{DriverId: "D", PassengerId: "P"}, []string{"D"}},
+		{"ride_rejected→passenger", model.EventRideRejected,
+			model.RideRejectedPayload{DriverId: "D", PassengerId: "P"}, []string{"P"}},
+		{"ride_accepted→passenger", model.EventRideAccepted,
+			model.RideAcceptedPayload{DriverId: "D", PassengerId: "P"}, []string{"P"}},
+		{"route_ready→driver", model.EventRouteReady,
+			model.RouteReadyPayload{DriverId: "D"}, []string{"D"}},
+		{"route_search_completed→passenger", model.EventRouteSearchCompleted,
+			model.RouteSearchCompletedPayload{PassengerId: "P"}, []string{"P"}},
+		{"ride_ended→notify_passengers", model.EventRideEnded,
+			model.RideEndedPayload{NotifyPassengerIds: []string{"P1", "P2"}}, []string{"P1", "P2"}},
+		{"route_deleted→affected_passengers", model.EventRouteDeleted,
+			model.RouteDeletedPayload{AffectedPassengerIds: []string{"P1", "P2"}}, []string{"P1", "P2"}},
 		{"ride_completed→both", model.EventRideCompleted,
 			model.RideCompletedPayload{DriverId: "D", PassengerId: "P"}, []string{"D", "P"}},
-		{"ride_interrupted→passenger", model.EventRideInterrupted,
-			model.RideInterruptedPayload{DriverId: "D", PassengerId: "P"}, []string{"P"}},
-		{"rating_prompt→both", model.EventRatingPrompt,
-			model.RatingPromptPayload{DriverId: "D", PassengerId: "P"}, []string{"D", "P"}},
 		{"cancelled_by_passenger→driver", model.EventRideCancelled,
 			model.RideCancelledPayload{DriverId: "D", PassengerId: "P", CancelledBy: "passenger"}, []string{"D"}},
 		{"cancelled_by_driver→passenger", model.EventRideCancelled,
@@ -168,8 +168,8 @@ func TestDispatchSkipsProcessed(t *testing.T) {
 	d, idem, pub, push := newTestDispatcher()
 	idem.processed["dup"] = true
 
-	env := envelope(t, "dup", model.EventRideStarted,
-		model.RideStartedPayload{DriverId: "D", PassengerId: "P"})
+	env := envelope(t, "dup", model.EventRideCompleted,
+		model.RideCompletedPayload{DriverId: "D", PassengerId: "P"})
 
 	if err := d.Dispatch(context.Background(), env); err != nil {
 		t.Fatalf("Dispatch: %v", err)
@@ -184,8 +184,8 @@ func TestDispatchSkipsProcessed(t *testing.T) {
 
 func TestDispatchMarksOnSecondDelivery(t *testing.T) {
 	d, _, pub, _ := newTestDispatcher()
-	env := envelope(t, "e1", model.EventRideStarted,
-		model.RideStartedPayload{DriverId: "D", PassengerId: "P"})
+	env := envelope(t, "e1", model.EventRideCompleted,
+		model.RideCompletedPayload{DriverId: "D", PassengerId: "P"})
 
 	if err := d.Dispatch(context.Background(), env); err != nil {
 		t.Fatal(err)
@@ -203,8 +203,8 @@ func TestDispatchPushErrorStillMarksProcessed(t *testing.T) {
 	d, idem, pub, push := newTestDispatcher()
 	push.err = errors.New("fcm down")
 
-	env := envelope(t, "e1", model.EventRideStarted,
-		model.RideStartedPayload{DriverId: "D", PassengerId: "P"})
+	env := envelope(t, "e1", model.EventRideCompleted,
+		model.RideCompletedPayload{DriverId: "D", PassengerId: "P"})
 
 	if err := d.Dispatch(context.Background(), env); err != nil {
 		t.Fatalf("push failure must not fail Dispatch: %v", err)
@@ -221,8 +221,8 @@ func TestDispatchIsProcessedErrorPropagates(t *testing.T) {
 	d, idem, _, _ := newTestDispatcher()
 	idem.claimErr = errors.New("db down")
 
-	env := envelope(t, "e1", model.EventRideStarted,
-		model.RideStartedPayload{DriverId: "D", PassengerId: "P"})
+	env := envelope(t, "e1", model.EventRideCompleted,
+		model.RideCompletedPayload{DriverId: "D", PassengerId: "P"})
 
 	if err := d.Dispatch(context.Background(), env); err == nil {
 		t.Fatal("expected error when IsProcessed fails")
@@ -246,7 +246,7 @@ func TestDispatchUnknownEventTypeIsNoopButMarks(t *testing.T) {
 
 func TestDispatchMalformedPayloadErrors(t *testing.T) {
 	d, _, _, _ := newTestDispatcher()
-	env := model.Envelope{EventId: "e1", EventType: model.EventRideStarted, Payload: json.RawMessage(`{not json`)}
+	env := model.Envelope{EventId: "e1", EventType: model.EventRideCompleted, Payload: json.RawMessage(`{not json`)}
 
 	if err := d.Dispatch(context.Background(), env); err == nil {
 		t.Fatal("expected error on malformed payload")

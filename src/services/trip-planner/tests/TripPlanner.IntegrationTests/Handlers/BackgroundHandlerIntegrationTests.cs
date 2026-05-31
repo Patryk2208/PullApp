@@ -53,7 +53,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
         var handler = new RouteComputedHandler(
             new PostgresRouteJobRepository(session),
             new PostgresRouteRepository(session),
-            events, new TripPlannerMetrics(), session, NullLogger<RouteComputedHandler>.Instance);
+            events, new KafkaTopics(), new TripPlannerMetrics(), session, NullLogger<RouteComputedHandler>.Instance);
 
         await handler.HandleAsync(
             new BestRouteComputeResult(corrId,
@@ -94,7 +94,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
         var handler = new RouteComputedHandler(
             new PostgresRouteJobRepository(session),
             new PostgresRouteRepository(session),
-            events, new TripPlannerMetrics(), session, NullLogger<RouteComputedHandler>.Instance);
+            events, new KafkaTopics(), new TripPlannerMetrics(), session, NullLogger<RouteComputedHandler>.Instance);
 
         await handler.HandleAsync(
             new RideMatchingComputeResult(corrId, new RideMatchingJobResult([])),

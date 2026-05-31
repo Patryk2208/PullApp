@@ -68,6 +68,7 @@ func (c *Client) Subscribe(ctx context.Context, deliver func(userID string, env 
 					log.Printf("redis subscriber: unmarshal: %v", err)
 					continue
 				}
+				log.Printf("redis subscriber: delivering type=%s eventId=%s to user=%s", env.EventType, env.EventId, userID)
 				deliver(userID, env)
 			case <-ctx.Done():
 				return

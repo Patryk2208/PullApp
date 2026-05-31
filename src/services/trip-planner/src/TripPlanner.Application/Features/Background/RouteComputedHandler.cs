@@ -26,6 +26,7 @@ public class RouteComputedHandler(
     IRouteJobRepository jobs,
     IRouteRepository routes,
     IEventPublisher events,
+    KafkaTopics topics,
     TripPlannerMetrics metrics,
     IUnitOfWork uow,
     ILogger<RouteComputedHandler> logger) : IHandler<ComputeJobResult>
@@ -68,7 +69,7 @@ public class RouteComputedHandler(
         await jobs.UpdateAsync(job, ct);
         await uow.CommitAsync(ct);
 
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RouteReadyEvent(route.Id, route.DriverId, route.RoutePoints!, r.Result.DistanceMeters, r.Result.DurationSeconds), ct);
 
         metrics.RecordRouteCalcResult(r.JobId, "success");
@@ -87,7 +88,7 @@ public class RouteComputedHandler(
         await jobs.UpdateAsync(job, ct);
         await uow.CommitAsync(ct);
 
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RouteSearchCompletedEvent(job.Id, job.RequesterId, r.Result.Matches), ct);
 
         var outcome = r.Result.Matches.Count == 0 ? "no_drivers" : "matched";

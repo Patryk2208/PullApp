@@ -11,7 +11,7 @@ public class RejectRideRequestHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private RejectRideRequestHandler Handler() =>
-        new(_routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow, NullLogger<RejectRideRequestHandler>.Instance);
+        new(_routes, _rideRequests, _payments, _events, new KafkaTopics(), new TripPlannerMetrics(), _uow, NullLogger<RejectRideRequestHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_RejectsRequestAndPublishesEvent()
@@ -26,7 +26,7 @@ public class RejectRideRequestHandlerTests
 
         Assert.Equal(RideRequestStatus.Rejected, req.Status);
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RideRejectedEvent>(e => e.RequestId == req.Id && e.PassengerId == req.PassengerId),
             Arg.Any<CancellationToken>());
     }

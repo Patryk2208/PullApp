@@ -103,6 +103,7 @@ builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
 
 var kafkaSection = builder.Configuration.GetSection("EventBus");
 builder.Services.AddOptions<KafkaOptions>().Bind(kafkaSection);
+builder.Services.AddSingleton(kafkaSection.Get<KafkaTopics>() ?? new KafkaTopics());
 
 // KafkaEventDispatcher handles inbound driver-events (disconnect/reconnect from DriverTracker).
 // It is singleton because it holds no per-request state.

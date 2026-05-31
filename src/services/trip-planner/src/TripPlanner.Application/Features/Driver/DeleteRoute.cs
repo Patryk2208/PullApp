@@ -21,6 +21,7 @@ public class DeleteRouteHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
+    KafkaTopics topics,
     IUnitOfWork uow,
     ILogger<DeleteRouteHandler> logger)
 {
@@ -69,7 +70,7 @@ public class DeleteRouteHandler(
 
         // 6. Publish RouteDeletedEvent only when there were accepted rides (case b).
         if (affectedPassengerIds.Count > 0)
-            await events.PublishAsync(Topics.NotificationTriggers,
+            await events.PublishAsync(topics.NotificationTriggers,
                 new RouteDeletedEvent(route.Id, route.DriverId, affectedPassengerIds), ct);
 
         logger.LogInformation("Route deleted routeId={RouteId} driverId={DriverId} affectedRides={Rides} rejectedRequests={Requests}",

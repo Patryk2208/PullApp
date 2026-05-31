@@ -13,12 +13,6 @@ public record Envelope<T>(
     DateTimeOffset OccurredAt,
     T Payload);
 
-public static class Topics
-{
-public const string NotificationTriggers = "notification-triggers";
-    public const string RideCompletions      = "ride-completions";
-}
-
 // ─── notification-triggers ────────────────────────────────────────────────────
 
 // Flow 3: passenger created a request → notify driver.
