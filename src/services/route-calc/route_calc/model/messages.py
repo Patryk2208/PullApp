@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 from datetime import datetime, timezone
 
-from route_calc.model.algorithms import AlgorithmUnion, BestRouteParams, ClosestRoutesParams
-from route_calc.model.results import AlgorithmResult, BestRouteResult, ClosestRoutesResult
+from route_calc.model.algorithms import AlgorithmUnion, BestRouteParams, ClosestRoutesParams, RideMatchingQuery
+from route_calc.model.results import AlgorithmResult, BestRouteResult, ClosestRoutesResult, RideMatchingResult
 from route_calc.model.common import AlgorithmType, JobStatus
 from route_calc.generated.queue_pb2 import (
     ComputeMessage as ProtoComputeMessage,
@@ -13,12 +13,12 @@ from route_calc.generated.queue_pb2 import (
 
 @dataclass
 class ComputeMessage:
-    """Message with compute payload from trip-planner to route-calc"""
     job_id: str
     algorithm: AlgorithmType
     params: AlgorithmUnion
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     retry_count: int = 0
+    requesting_user_id: str = ""
     deadline: Optional[datetime] = None
 
     def is_expired(self) -> bool:
@@ -28,16 +28,15 @@ class ComputeMessage:
     def from_proto(cls, dto) -> "ComputeMessage":
         proto = ProtoComputeMessage.FromString(dto)
 
-        # oneof params
         params_field = proto.WhichOneof("params")
 
         if params_field == "best_route":
             params = BestRouteParams.from_proto(proto.best_route)
             algorithm = AlgorithmType.BEST_ROUTE
 
-        elif params_field == "closest_routes":
-            params = ClosestRoutesParams.from_proto(proto.closest_routes)
-            algorithm = AlgorithmType.CLOSEST_ROUTES
+        elif params_field == "ride_matching":
+            params = RideMatchingQuery.from_proto(proto.ride_matching)
+            algorithm = AlgorithmType.RIDE_MATCHING
 
         else:
             raise ValueError("Unknown params type in ComputeMessage")
@@ -46,24 +45,25 @@ class ComputeMessage:
             job_id=proto.job_id,
             algorithm=algorithm,
             params=params,
-            created_at=datetime.utcfromtimestamp(proto.created_at),
+            created_at=datetime.utcfromtimestamp(proto.created_at / 1000),
             retry_count=proto.retry_count,
+            requesting_user_id=proto.requesting_user_id,
         )
 
     def to_proto(self) -> ProtoComputeMessage:
         proto = ProtoComputeMessage(
             job_id=self.job_id,
             algorithm=self.algorithm.value,
-            created_at=int(self.created_at.timestamp()),
+            requesting_user_id=self.requesting_user_id,
+            created_at=int(self.created_at.timestamp() * 1000),
             retry_count=self.retry_count,
         )
 
-        # oneof params
         if isinstance(self.params, BestRouteParams):
             proto.best_route.CopyFrom(self.params.to_proto())
 
-        elif isinstance(self.params, ClosestRoutesParams):
-            proto.closest_routes.CopyFrom(self.params.to_proto())
+        elif isinstance(self.params, RideMatchingQuery):
+            proto.ride_matching.CopyFrom(self.params.to_proto())
 
         else:
             raise ValueError(f"Unsupported params type: {type(self.params)}")
@@ -73,7 +73,6 @@ class ComputeMessage:
 
 @dataclass
 class ResultMessage:
-    """Message with results from route-calc to trip-planner"""
     job_id: str
     status: JobStatus
     result: Optional[AlgorithmResult]
@@ -82,12 +81,7 @@ class ResultMessage:
     algorithm_used: Optional[str] = None
 
     @classmethod
-    def success(
-        cls,
-        job_id: str,
-        result: AlgorithmResult,
-        computation_time_ms: float,
-    ) -> "ResultMessage":
+    def success(cls, job_id: str, result: AlgorithmResult, computation_time_ms: float) -> "ResultMessage":
         return cls(
             job_id=job_id,
             status=JobStatus.SUCCESS,
@@ -97,18 +91,8 @@ class ResultMessage:
         )
 
     @classmethod
-    def failure(
-        cls,
-        job_id: str,
-        error: str,
-        status: JobStatus = JobStatus.FAILED,
-    ) -> "ResultMessage":
-        return cls(
-            job_id=job_id,
-            status=status,
-            result=None,
-            error=error,
-        )
+    def failure(cls, job_id: str, error: str, status: JobStatus = JobStatus.FAILED) -> "ResultMessage":
+        return cls(job_id=job_id, status=status, result=None, error=error)
 
     def to_proto(self) -> ProtoResultMessage:
         proto = ProtoResultMessage(
@@ -117,12 +101,10 @@ class ResultMessage:
             error=self.error or "",
         )
 
-        # oneof result
-        if isinstance(self.result, BestRouteResult):
+        if isinstance(self.result, RideMatchingResult):
+            proto.ride_matching.CopyFrom(self.result.to_proto())
+        elif isinstance(self.result, BestRouteResult):
             proto.best_route.CopyFrom(self.result.to_proto())
-
-        elif isinstance(self.result, ClosestRoutesResult):
-            proto.closest_routes.CopyFrom(self.result.to_proto())
 
         return proto
 
@@ -132,12 +114,10 @@ class ResultMessage:
 
         result_field = proto.WhichOneof("result")
 
-        if result_field == "best_route":
+        if result_field == "ride_matching":
+            result = RideMatchingResult.from_proto(proto.ride_matching)
+        elif result_field == "best_route":
             result = BestRouteResult.from_proto(proto.best_route)
-
-        elif result_field == "closest_routes":
-            result = ClosestRoutesResult.from_proto(proto.closest_routes)
-
         else:
             result = None
 

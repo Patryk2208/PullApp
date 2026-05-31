@@ -13,7 +13,7 @@ public class RouteJobRepositoryTests(PostgresFixture db) : IAsyncLifetime
     public Task InitializeAsync() => db.CleanAsync();
     public Task DisposeAsync()    => Task.CompletedTask;
 
-    private static RouteJob NewJob(JobType type = JobType.DriverRoute) => new()
+    private static RouteJob NewJob(JobType type = JobType.BestRoute) => new()
     {
         Id            = Guid.NewGuid(),
         CorrelationId = Guid.NewGuid(),
@@ -113,14 +113,14 @@ public class RouteJobRepositoryTests(PostgresFixture db) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task PassengerMatchJob_RoundTrips()
+    public async Task RideMatchingJob_RoundTrips()
     {
-        var job  = NewJob(JobType.PassengerMatch);
+        var job  = NewJob(JobType.RideMatching);
         var repo = Repo();
 
         await repo.AddAsync(job, default);
         var loaded = await repo.GetByIdAsync(job.Id, default);
 
-        Assert.Equal(JobType.PassengerMatch, loaded!.JobType);
+        Assert.Equal(JobType.RideMatching, loaded!.JobType);
     }
 }

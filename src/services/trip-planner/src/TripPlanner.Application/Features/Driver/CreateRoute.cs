@@ -43,28 +43,28 @@ public class CreateRouteHandler(
 
         // 4. Build a RouteJob (DriverRoute type) for audit / reply correlation; persist it.
         var correlationId = Guid.NewGuid();
-        var payload = new DriverRouteJobPayload(cmd.Start, cmd.End);
+        var payload = new BestRouteJobPayload(cmd.Start, cmd.End);
         var job = new RouteJob
         {
             Id            = Guid.NewGuid(),
             CorrelationId = correlationId,
-            JobType       = JobType.DriverRoute,
+            JobType       = JobType.BestRoute,
             RequesterId   = cmd.DriverId,
             PayloadJson   = JsonSerializer.Serialize(payload),
             CreatedAt     = DateTimeOffset.UtcNow,
         };
         await jobs.AddAsync(job, ct);
 
-        // 5. Publish DriverRouteComputeJob to RabbitMQ using RouteJob.CorrelationId.
+        // 5. Publish BestRouteComputeJob to RabbitMQ using RouteJob.CorrelationId.
         // 6. Commit the transaction.
         // Commit first so the route and job exist before route-calc sends a reply.
         await uow.CommitAsync(ct);
 
         await computePublisher.PublishAsync(
-            new DriverRouteComputeJob(correlationId, cmd.DriverId, payload, DateTimeOffset.UtcNow), ct);
+            new BestRouteComputeJob(correlationId, cmd.DriverId, payload, DateTimeOffset.UtcNow), ct);
 
         metrics.DriverRouteRegistrationQueued();
-        metrics.RecordRouteCalcPublished(correlationId, "route_registration");
+        metrics.RecordRouteCalcPublished(correlationId, "best_route");
 
         // 7. Return the routeId.
         //    When route-calc responds, RouteComputedHandler sets geometry and publishes

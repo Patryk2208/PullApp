@@ -149,11 +149,11 @@ func TestStreamWritesEventInSSEFormat(t *testing.T) {
 
 	waitRegistered(t, m, "u1")
 	m.Send("u1", model.Notification{
-		Type:    model.EventRideStarted,
+		Type:    model.EventRideCompleted,
 		Payload: json.RawMessage(`{"RideId":"r1"}`),
 	})
 
-	want := "event: ride_started\ndata: {\"RideId\":\"r1\"}\n\n"
+	want := "event: ride_completed\ndata: {\"RideId\":\"r1\"}\n\n"
 	waitBody(t, rec, want, cancel, done)
 	cancel()
 	<-done

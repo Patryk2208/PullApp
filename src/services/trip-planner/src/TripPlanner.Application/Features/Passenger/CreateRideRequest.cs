@@ -21,6 +21,7 @@ public class CreateRideRequestHandler(
     IPaymentsService payments,
     IGeoService geo,
     IEventPublisher events,
+    KafkaTopics topics,
     IUnitOfWork uow,
     ILogger<CreateRideRequestHandler> logger)
 {
@@ -51,7 +52,7 @@ public class CreateRideRequestHandler(
         await uow.CommitAsync(ct);
 
         // 6. Publish RideRequestedEvent → notifications service will alert the driver.
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RideRequestedEvent(request.Id, route.Id, route.DriverId, cmd.PassengerId, cmd.Start, cmd.End), ct);
 
         logger.LogInformation("RideRequest created requestId={RequestId} passengerId={PassengerId} routeId={RouteId} price={Price}",

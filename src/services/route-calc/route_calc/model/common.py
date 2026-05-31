@@ -17,6 +17,7 @@ class CostType(str, Enum):
 class AlgorithmType(str, Enum):
     BEST_ROUTE = "best_route"
     CLOSEST_ROUTES = "closest_routes"
+    RIDE_MATCHING = "ride_matching"
     # COVERING_ROUTE = "covering_route"
     # OPTIMAL_SET = "optimal_set"
 

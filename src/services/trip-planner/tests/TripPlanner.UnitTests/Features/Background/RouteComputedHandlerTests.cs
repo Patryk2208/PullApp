@@ -9,42 +9,45 @@ public class RouteComputedHandlerTests
     private readonly IEventPublisher     _events = Substitute.For<IEventPublisher>();
     private readonly IUnitOfWork         _uow    = Substitute.For<IUnitOfWork>();
 
-    private RouteComputedHandler Handler() => new(_jobs, _routes, _events, new TripPlannerMetrics(), _uow, NullLogger<RouteComputedHandler>.Instance);
+    private RouteComputedHandler Handler() => new(_jobs, _routes, _events, new KafkaTopics(), new TripPlannerMetrics(), _uow, NullLogger<RouteComputedHandler>.Instance);
 
-    private static DriverRouteComputeResult DriverRouteResult(Guid jobId) =>
-        new(jobId, new DriverRouteJobResult("{}", EtaSeconds: 300, DistanceMeters: 5000));
+    private static BestRouteComputeResult BestRouteResult(Guid jobId) =>
+        new(jobId, new BestRouteJobResult(
+            [new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)],
+            DistanceMeters: 5000,
+            DurationSeconds: 300));
 
-    private static PassengerMatchComputeResult PassengerMatchResult(Guid jobId) =>
-        new(jobId, new PassengerMatchJobResult([]));
+    private static RideMatchingComputeResult RideMatchingResult(Guid jobId) =>
+        new(jobId, new RideMatchingJobResult([]));
 
     private static FailedComputeResult FailedResult(Guid jobId) =>
-        new(jobId, JobType.DriverRoute, "osrm_timeout");
+        new(jobId, JobType.BestRoute, "osrm_timeout");
 
-    // ─── DriverRoute success ─────────────────────────────────────────────────
+    // ─── BestRoute success ───────────────────────────────────────────────────
 
     [Fact]
-    public async Task HandleAsync_DriverRoute_SetsGeometryAndPublishesRouteReadyEvent()
+    public async Task HandleAsync_BestRoute_SetsGeometryAndPublishesRouteReadyEvent()
     {
         var driverId = Guid.NewGuid();
-        var job      = Make.DriverRouteJob(requesterId: driverId);
+        var job      = Make.BestRouteJob(requesterId: driverId);
         var route    = Make.CalculatingRoute(driverId);
         _jobs.GetByCorrelationIdAsync(job.CorrelationId, default).Returns(job);
         _routes.GetActiveByDriverIdAsync(driverId, default).Returns(route);
 
-        await Handler().HandleAsync(DriverRouteResult(job.CorrelationId), default);
+        await Handler().HandleAsync(BestRouteResult(job.CorrelationId), default);
 
         Assert.Equal(RouteStatus.Created, route.Status);
-        Assert.Equal("{}", route.GeometryJson);
+        Assert.NotNull(route.RoutePoints);
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers, Arg.Any<RouteReadyEvent>(), Arg.Any<CancellationToken>());
+            "notification-triggers", Arg.Any<RouteReadyEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_DriverRoute_JobNotFound_ReturnsEarly()
+    public async Task HandleAsync_BestRoute_JobNotFound_ReturnsEarly()
     {
         _jobs.GetByCorrelationIdAsync(Arg.Any<Guid>(), default).Returns((RouteJob?)null);
 
-        await Handler().HandleAsync(DriverRouteResult(Guid.NewGuid()), default);
+        await Handler().HandleAsync(BestRouteResult(Guid.NewGuid()), default);
 
         await _routes.DidNotReceiveWithAnyArgs().GetActiveByDriverIdAsync(default, default);
         await _events.DidNotReceiveWithAnyArgs()
@@ -52,43 +55,43 @@ public class RouteComputedHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_DriverRoute_RouteNotCalculating_ReturnsEarly()
+    public async Task HandleAsync_BestRoute_RouteNotCalculating_ReturnsEarly()
     {
-        var job   = Make.DriverRouteJob();
+        var job   = Make.BestRouteJob();
         var route = Make.CreatedRoute(); // already Created, not Calculating
         _jobs.GetByCorrelationIdAsync(job.CorrelationId, default).Returns(job);
         _routes.GetActiveByDriverIdAsync(job.RequesterId, default).Returns(route);
 
-        await Handler().HandleAsync(DriverRouteResult(job.CorrelationId), default);
+        await Handler().HandleAsync(BestRouteResult(job.CorrelationId), default);
 
         await _events.DidNotReceiveWithAnyArgs()
                      .PublishAsync(default!, Arg.Any<RouteReadyEvent>(), default);
     }
 
-    // ─── PassengerMatch success ───────────────────────────────────────────────
+    // ─── RideMatching success ─────────────────────────────────────────────────
 
     [Fact]
-    public async Task HandleAsync_PassengerMatch_MarksJobCompleteAndPublishesEvent()
+    public async Task HandleAsync_RideMatching_MarksJobCompleteAndPublishesEvent()
     {
         var passengerId = Guid.NewGuid();
-        var job         = Make.PassengerMatchJob(requesterId: passengerId);
+        var job         = Make.RideMatchingJob(requesterId: passengerId);
         _jobs.GetByCorrelationIdAsync(job.CorrelationId, default).Returns(job);
 
-        await Handler().HandleAsync(PassengerMatchResult(job.CorrelationId), default);
+        await Handler().HandleAsync(RideMatchingResult(job.CorrelationId), default);
 
         Assert.Equal(JobStatus.Completed, job.Status);
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RouteSearchCompletedEvent>(e => e.PassengerId == passengerId),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_PassengerMatch_JobNotFound_ReturnsEarly()
+    public async Task HandleAsync_RideMatching_JobNotFound_ReturnsEarly()
     {
         _jobs.GetByCorrelationIdAsync(Arg.Any<Guid>(), default).Returns((RouteJob?)null);
 
-        await Handler().HandleAsync(PassengerMatchResult(Guid.NewGuid()), default);
+        await Handler().HandleAsync(RideMatchingResult(Guid.NewGuid()), default);
 
         await _events.DidNotReceiveWithAnyArgs()
                      .PublishAsync(default!, Arg.Any<RouteSearchCompletedEvent>(), default);
@@ -99,7 +102,7 @@ public class RouteComputedHandlerTests
     [Fact]
     public async Task HandleAsync_Failed_MarksJobFailedWithError()
     {
-        var job = Make.DriverRouteJob();
+        var job = Make.BestRouteJob();
         _jobs.GetByCorrelationIdAsync(job.CorrelationId, default).Returns(job);
 
         await Handler().HandleAsync(FailedResult(job.CorrelationId), default);
@@ -111,7 +114,7 @@ public class RouteComputedHandlerTests
     [Fact]
     public async Task HandleAsync_Failed_DoesNotPublishAnyEvents()
     {
-        var job = Make.DriverRouteJob();
+        var job = Make.BestRouteJob();
         _jobs.GetByCorrelationIdAsync(job.CorrelationId, default).Returns(job);
 
         await Handler().HandleAsync(FailedResult(job.CorrelationId), default);
@@ -125,7 +128,6 @@ public class RouteComputedHandlerTests
     {
         _jobs.GetByCorrelationIdAsync(Arg.Any<Guid>(), default).Returns((RouteJob?)null);
 
-        // Should not throw
         await Handler().HandleAsync(FailedResult(Guid.NewGuid()), default);
 
         await _uow.DidNotReceiveWithAnyArgs().CommitAsync(default);

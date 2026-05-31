@@ -78,28 +78,24 @@ func (n *Notifier) Notify(ctx context.Context, userID string, env model.Envelope
 // ok=false for events that should not produce a push.
 func pushContent(env model.Envelope) (title, body, priority string, ok bool) {
 	switch env.EventType {
-	case model.EventRouteSelected:
-		name := "A passenger"
-		if p, err := model.DecodePayload[model.RouteSelectedPayload](env); err == nil && p.PassengerDisplayName != "" {
-			name = p.PassengerDisplayName
-		}
-		return "New ride request", name + " selected your route", "high", true
-	case model.EventMatchConfirmed:
-		return "Ride confirmed", "Your driver confirmed the match", "high", true
-	case model.EventMatchDeclined:
+	case model.EventRideRequested:
+		return "New ride request", "A passenger requested your route", "high", true
+	case model.EventRideAccepted:
+		return "Ride confirmed", "Your driver accepted the request", "high", true
+	case model.EventRideRejected:
 		return "Request declined", "The driver declined your request", "high", true
-	case model.EventDriverArrived:
-		return "Driver arrived", "Your driver is waiting at the pickup point", "high", true
-	case model.EventRideStarted:
-		return "Ride started", "Your ride is now in progress", "normal", true
+	case model.EventRouteReady:
+		return "Route ready", "Your route has been calculated", "normal", true
+	case model.EventRouteSearchCompleted:
+		return "Matches found", "Available routes found for your trip", "normal", true
+	case model.EventRideEnded:
+		return "Seat available", "A ride you were waitlisted for may have a free seat", "normal", true
+	case model.EventRouteDeleted:
+		return "Route cancelled", "The driver cancelled the route", "high", true
 	case model.EventRideCompleted:
 		return "Ride complete", "Your ride has ended", "normal", true
 	case model.EventRideCancelled:
 		return "Ride cancelled", "The ride has been cancelled", "high", true
-	case model.EventRideInterrupted:
-		return "Ride interrupted", "Your ride was interrupted", "high", true
-	case model.EventRatingPrompt:
-		return "Rate your ride", "How was your trip?", "normal", true
 	default:
 		return "", "", "", false
 	}

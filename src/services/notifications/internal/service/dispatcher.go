@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"notifications/internal/model"
 )
@@ -39,9 +40,11 @@ func NewDispatcher(repository IdempotencyRepository, publisher Publisher, pusher
 func (d *Dispatcher) Dispatch(ctx context.Context, envelope model.Envelope) error {
 	claimed, err := d.idempotencyRepository.ClaimEvent(ctx, envelope.EventId)
 	if err != nil {
+		log.Printf("dispatch: ClaimEvent failed eventId=%s: %v", envelope.EventId, err)
 		return err
 	}
 	if !claimed {
+		log.Printf("dispatch: skipping duplicate eventId=%s type=%s", envelope.EventId, envelope.EventType)
 		return nil
 	}
 
@@ -50,12 +53,18 @@ func (d *Dispatcher) Dispatch(ctx context.Context, envelope model.Envelope) erro
 		return fmt.Errorf("resolve recipients for %s: %w", envelope.EventType, err)
 	}
 
+	if len(users) == 0 {
+		log.Printf("dispatch: no recipients for type=%s eventId=%s", envelope.EventType, envelope.EventId)
+		return nil
+	}
+
+	log.Printf("dispatch: routing type=%s eventId=%s to [%s]",
+		envelope.EventType, envelope.EventId, strings.Join(users, ", "))
+
 	for _, userID := range users {
 		if userID == "" {
 			continue
 		}
-		// SSE fan-out via Redis pub/sub; push is best-effort. Neither failure
-		// must block other recipients or prevent the claim from standing.
 		if err = d.publisher.Publish(ctx, userID, envelope); err != nil {
 			log.Printf("dispatch: publish to %s for %s: %v", userID, envelope.EventType, err)
 		}
@@ -71,40 +80,59 @@ func (d *Dispatcher) Dispatch(ctx context.Context, envelope model.Envelope) erro
 // given event, derived from the decoded payload.
 func recipients(env model.Envelope) ([]string, error) {
 	switch env.EventType {
-	case model.EventRouteSelected:
-		p, err := model.DecodePayload[model.RouteSelectedPayload](env)
+
+	// ── notification-triggers ────────────────────────────────────────────────
+
+	case model.EventRideRequested:
+		p, err := model.DecodePayload[model.RideRequestedPayload](env)
 		if err != nil {
 			return nil, err
 		}
 		return []string{p.DriverId}, nil
 
-	case model.EventMatchConfirmed:
-		p, err := model.DecodePayload[model.MatchConfirmedPayload](env)
+	case model.EventRideRejected:
+		p, err := model.DecodePayload[model.RideRejectedPayload](env)
 		if err != nil {
 			return nil, err
 		}
 		return []string{p.PassengerId}, nil
 
-	case model.EventMatchDeclined:
-		p, err := model.DecodePayload[model.MatchDeclinedPayload](env)
+	case model.EventRideAccepted:
+		p, err := model.DecodePayload[model.RideAcceptedPayload](env)
 		if err != nil {
 			return nil, err
 		}
 		return []string{p.PassengerId}, nil
 
-	case model.EventDriverArrived:
-		p, err := model.DecodePayload[model.DriverArrivedPayload](env)
+	case model.EventRouteReady:
+		p, err := model.DecodePayload[model.RouteReadyPayload](env)
+		if err != nil {
+			return nil, err
+		}
+		return []string{p.DriverId}, nil
+
+	case model.EventRouteSearchCompleted:
+		p, err := model.DecodePayload[model.RouteSearchCompletedPayload](env)
 		if err != nil {
 			return nil, err
 		}
 		return []string{p.PassengerId}, nil
 
-	case model.EventRideStarted:
-		p, err := model.DecodePayload[model.RideStartedPayload](env)
+	case model.EventRideEnded:
+		p, err := model.DecodePayload[model.RideEndedPayload](env)
 		if err != nil {
 			return nil, err
 		}
-		return []string{p.PassengerId, p.DriverId}, nil
+		return p.NotifyPassengerIds, nil
+
+	case model.EventRouteDeleted:
+		p, err := model.DecodePayload[model.RouteDeletedPayload](env)
+		if err != nil {
+			return nil, err
+		}
+		return p.AffectedPassengerIds, nil
+
+	// ── ride-completions ─────────────────────────────────────────────────────
 
 	case model.EventRideCompleted:
 		p, err := model.DecodePayload[model.RideCompletedPayload](env)
@@ -113,34 +141,19 @@ func recipients(env model.Envelope) ([]string, error) {
 		}
 		return []string{p.PassengerId, p.DriverId}, nil
 
-	case model.EventRideInterrupted:
-		p, err := model.DecodePayload[model.RideInterruptedPayload](env)
-		if err != nil {
-			return nil, err
-		}
-		return []string{p.PassengerId}, nil
-
 	case model.EventRideCancelled:
 		p, err := model.DecodePayload[model.RideCancelledPayload](env)
 		if err != nil {
 			return nil, err
 		}
-		// notify the OTHER party (the one who did not cancel)
 		switch p.CancelledBy {
 		case "passenger":
 			return []string{p.DriverId}, nil
 		case "driver":
 			return []string{p.PassengerId}, nil
-		default: // "system" → both
+		default:
 			return []string{p.PassengerId, p.DriverId}, nil
 		}
-
-	case model.EventRatingPrompt:
-		p, err := model.DecodePayload[model.RatingPromptPayload](env)
-		if err != nil {
-			return nil, err
-		}
-		return []string{p.PassengerId, p.DriverId}, nil
 
 	default:
 		return nil, nil

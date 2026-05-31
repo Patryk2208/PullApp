@@ -16,9 +16,9 @@ public class Route
     public int ActiveRideCount { get; private set; }
 
     // Populated by route-calc once the async job completes.
-    public string? GeometryJson { get; private set; }
-    public int? EtaSeconds { get; private set; }
-    public int? DistanceMeters { get; private set; }
+    public IReadOnlyList<GeoPoint>? RoutePoints { get; private set; }
+    public double? DurationSeconds { get; private set; }
+    public double? DistanceMeters { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? ActivatedAt { get; private set; }
@@ -38,10 +38,10 @@ public class Route
         };
 
     // Called when route-calc returns the computed geometry (flow 0 completion).
-    public void SetGeometry(string geometryJson, int etaSeconds, int distanceMeters)
+    public void SetGeometry(IReadOnlyList<GeoPoint> points, double durationSeconds, double distanceMeters)
     {
-        GeometryJson = geometryJson;
-        EtaSeconds = etaSeconds;
+        RoutePoints = points;
+        DurationSeconds = durationSeconds;
         DistanceMeters = distanceMeters;
         Status = RouteStatus.Created;
     }

@@ -12,7 +12,7 @@ public class DeclareDriverEndHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private DeclareDriverEndHandler Handler() =>
-        new(_rides, _routes, _rideRequests, _payments, _events, new TripPlannerMetrics(), _uow, NullLogger<DeclareDriverEndHandler>.Instance);
+        new(_rides, _routes, _rideRequests, _payments, _events, new KafkaTopics(), new TripPlannerMetrics(), _uow, NullLogger<DeclareDriverEndHandler>.Instance);
 
     private static Ride StartedRideWithPassengerEnd(Guid driverId, Guid routeId)
     {
@@ -36,9 +36,9 @@ public class DeclareDriverEndHandlerTests
 
         await _payments.Received(1).ChargeAsync(ride.FrozenPriceId!.Value, Arg.Any<CancellationToken>());
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers, Arg.Any<RideEndedEvent>(), Arg.Any<CancellationToken>());
+            "notification-triggers", Arg.Any<RideEndedEvent>(), Arg.Any<CancellationToken>());
         await _events.Received(1).PublishAsync(
-            Topics.RideCompletions, Arg.Any<RideCompletedEvent>(), Arg.Any<CancellationToken>());
+            "ride-completions", Arg.Any<RideCompletedEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class DeclareDriverEndHandlerTests
         await Handler().HandleAsync(new(driverId, ride.Id), default);
 
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RideEndedEvent>(e => e.NotifyPassengerIds.Contains(rejectedReq.PassengerId)),
             Arg.Any<CancellationToken>());
     }

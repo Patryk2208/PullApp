@@ -12,7 +12,7 @@ public class SubmitRouteSearchHandlerTests
     private SubmitRouteSearchHandler Handler() => new(_jobs, _compute, _geo, new TripPlannerMetrics(), _uow, NullLogger<SubmitRouteSearchHandler>.Instance);
 
     private SubmitRouteSearchCommand ValidCmd(Guid? passengerId = null) =>
-        new(passengerId ?? Guid.NewGuid(), Make.PointA, Make.PointB);
+        new(passengerId ?? Guid.NewGuid(), Make.PointA, Make.PointB, DepartureDate: 1_700_000_000, SeatsNeeded: 1);
 
     [Fact]
     public async Task HandleAsync_HappyPath_ReturnsJobId()

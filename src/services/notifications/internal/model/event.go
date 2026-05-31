@@ -5,24 +5,19 @@ import (
 	"time"
 )
 
-// Event type constants — match trip-planner's EventType string values.
+// Event type constants — match trip-planner's IDomainEvent.EventType strings exactly.
 const (
-	EventRideCompleted   = "ride_completed"
-	EventRideCancelled   = "ride_cancelled"
-	EventRideInterrupted = "ride_interrupted"
-	EventRouteSelected   = "route_selected"
-	EventMatchConfirmed  = "match_confirmed"
-	EventMatchDeclined   = "match_declined"
-	EventDriverArrived   = "driver_arrived"
-	EventRideStarted     = "ride_started"
-	EventRatingPrompt    = "rating_prompt"
-)
-
-// Topic constants — match trip-planner's Topics class.
-const (
-	TopicRideCompletions      = "ride-completions"
-	TopicUserActions          = "user-actions"
-	TopicNotificationTriggers = "notification-triggers"
+	// notification-triggers topic
+	EventRideRequested        = "ride_requested"
+	EventRideRejected         = "ride_rejected"
+	EventRideAccepted         = "ride_accepted"
+	EventRouteReady           = "route_ready"
+	EventRouteSearchCompleted = "route_search_completed"
+	EventRideEnded            = "ride_ended"
+	EventRouteDeleted         = "route_deleted"
+	// ride-completions topic
+	EventRideCompleted = "ride_completed"
+	EventRideCancelled = "ride_cancelled"
 )
 
 // Envelope is the outer wrapper trip-planner publishes for every Kafka event.
@@ -47,79 +42,71 @@ type GeoPoint struct {
 	Lng float64 `json:"Lng"`
 }
 
+// ── notification-triggers ─────────────────────────────────────────────────────
+
+type RideRequestedPayload struct {
+	RequestId   string   `json:"RequestId"`
+	RouteId     string   `json:"RouteId"`
+	DriverId    string   `json:"DriverId"`
+	PassengerId string   `json:"PassengerId"`
+	StartPoint  GeoPoint `json:"StartPoint"`
+	EndPoint    GeoPoint `json:"EndPoint"`
+}
+
+type RideRejectedPayload struct {
+	RequestId   string `json:"RequestId"`
+	RouteId     string `json:"RouteId"`
+	DriverId    string `json:"DriverId"`
+	PassengerId string `json:"PassengerId"`
+}
+
+type RideAcceptedPayload struct {
+	RideId      string  `json:"RideId"`
+	RequestId   string  `json:"RequestId"`
+	RouteId     string  `json:"RouteId"`
+	DriverId    string  `json:"DriverId"`
+	PassengerId string  `json:"PassengerId"`
+	ChatRoomId  *string `json:"ChatRoomId"`
+}
+
+type RouteReadyPayload struct {
+	RouteId         string     `json:"RouteId"`
+	DriverId        string     `json:"DriverId"`
+	RoutePoints     []GeoPoint `json:"RoutePoints"`
+	DistanceMeters  float64    `json:"DistanceMeters"`
+	DurationSeconds float64    `json:"DurationSeconds"`
+}
+
+type RouteSearchCompletedPayload struct {
+	JobId       string `json:"JobId"`
+	PassengerId string `json:"PassengerId"`
+}
+
+type RideEndedPayload struct {
+	RideId             string   `json:"RideId"`
+	RouteId            string   `json:"RouteId"`
+	DriverId           string   `json:"DriverId"`
+	PassengerId        string   `json:"PassengerId"`
+	NotifyPassengerIds []string `json:"NotifyPassengerIds"`
+}
+
+type RouteDeletedPayload struct {
+	RouteId              string   `json:"RouteId"`
+	DriverId             string   `json:"DriverId"`
+	AffectedPassengerIds []string `json:"AffectedPassengerIds"`
+}
+
 // ── ride-completions ──────────────────────────────────────────────────────────
 
 type RideCompletedPayload struct {
-	RideId            string    `json:"RideId"`
-	DriverId          string    `json:"DriverId"`
-	PassengerId       string    `json:"PassengerId"`
-	FrozenPriceId     string    `json:"FrozenPriceId"`
-	FrozenPriceAmount float64   `json:"FrozenPriceAmount"`
-	DistanceMeters    int       `json:"DistanceMeters"`
-	DurationSeconds   int       `json:"DurationSeconds"`
-	CompletedAt       time.Time `json:"CompletedAt"`
+	RideId      string `json:"RideId"`
+	DriverId    string `json:"DriverId"`
+	PassengerId string `json:"PassengerId"`
 }
 
 type RideCancelledPayload struct {
-	RideId            string    `json:"RideId"`
-	DriverId          string    `json:"DriverId"`
-	PassengerId       string    `json:"PassengerId"`
-	FrozenPriceId     *string   `json:"FrozenPriceId"`
-	CancelledBy       string    `json:"CancelledBy"`
-	CancellationPhase string    `json:"CancellationPhase"`
-	CancelledAt       time.Time `json:"CancelledAt"`
-}
-
-type RideInterruptedPayload struct {
-	RideId        string    `json:"RideId"`
-	DriverId      string    `json:"DriverId"`
-	PassengerId   string    `json:"PassengerId"`
-	FrozenPriceId *string   `json:"FrozenPriceId"`
-	InterruptedAt time.Time `json:"InterruptedAt"`
-}
-
-// ── user-actions ──────────────────────────────────────────────────────────────
-
-type RouteSelectedPayload struct {
-	RequestId             string    `json:"RequestId"`
-	DriverId              string    `json:"DriverId"`
-	PassengerId           string    `json:"PassengerId"`
-	PassengerDisplayName  string    `json:"PassengerDisplayName"`
-	PickupPoint           GeoPoint  `json:"PickupPoint"`
-	DropoffPoint          GeoPoint  `json:"DropoffPoint"`
-	EtaToPassengerSeconds int       `json:"EtaToPassengerSeconds"`
-	ExpiresAt             time.Time `json:"ExpiresAt"`
-}
-
-type MatchConfirmedPayload struct {
 	RideId      string `json:"RideId"`
 	DriverId    string `json:"DriverId"`
 	PassengerId string `json:"PassengerId"`
-}
-
-type MatchDeclinedPayload struct {
-	RequestId   string `json:"RequestId"`
-	DriverId    string `json:"DriverId"`
-	PassengerId string `json:"PassengerId"`
-}
-
-type DriverArrivedPayload struct {
-	RideId      string `json:"RideId"`
-	DriverId    string `json:"DriverId"`
-	PassengerId string `json:"PassengerId"`
-}
-
-type RideStartedPayload struct {
-	RideId      string    `json:"RideId"`
-	DriverId    string    `json:"DriverId"`
-	PassengerId string    `json:"PassengerId"`
-	StartedAt   time.Time `json:"StartedAt"`
-}
-
-// ── notification-triggers ─────────────────────────────────────────────────────
-
-type RatingPromptPayload struct {
-	RideId      string `json:"RideId"`
-	DriverId    string `json:"DriverId"`
-	PassengerId string `json:"PassengerId"`
+	CancelledBy string `json:"CancelledBy"`
 }

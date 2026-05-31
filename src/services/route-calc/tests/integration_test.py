@@ -10,7 +10,7 @@ from route_calc.model.messages import ResultMessage
 
 @pytest.mark.asyncio
 async def test_flow(mock_compute_message_factory):
-    with open("./route_calc/generated/config.json", "r", encoding="utf-8") as f:
+    with open("./route_calc/config.json", "r", encoding="utf-8") as f:
         cfg = json.load(f)
     connection_string = f"amqp://{cfg['queue']["username"]}:{cfg['queue']['password']}@{cfg['queue']['host']}:{cfg['queue']['port']}"
     connection = await connect_robust(url=connection_string)

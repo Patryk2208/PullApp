@@ -153,9 +153,9 @@ func main() {
 
 	// one consumer group per topic, each in its own goroutine
 	topics := []string{
-		model.TopicRideCompletions,
-		model.TopicUserActions,
-		model.TopicNotificationTriggers,
+		cfg.KafkaTopicRideCompletions,
+		cfg.KafkaTopicUserActions,
+		cfg.KafkaTopicNotificationTriggers,
 	}
 	var wg sync.WaitGroup
 	for _, topic := range topics {

@@ -1,11 +1,14 @@
 import asyncio
+import os
 import random
 from typing import List
 
 import pytest
+
+os.environ.setdefault("ROUTE_CALC_SLOW_ALGORITHM_SECONDS", "0")
 from time import sleep
 
-from route_calc.model.algorithms import BestRouteParams, ClosestRoutesParams
+from route_calc.model.algorithms import BestRouteParams, ClosestRoutesParams, RideMatchingQuery, DriverRoute
 from route_calc.model.common import AlgorithmType, Point, JobStatus
 from route_calc.model.job_context import JobContext
 from route_calc.model.messages import ComputeMessage, ResultMessage
@@ -114,6 +117,16 @@ def mock_compute_message_factory():
                 point=Point(lat=4, lon=7),
                 k=10,
                 radius_meters=1000
+            )
+        elif alg == AlgorithmType.RIDE_MATCHING:
+            params = RideMatchingQuery(
+                passenger_id="test_passenger",
+                start=Point(lat=52.2, lon=21.0),
+                end=Point(lat=50.1, lon=19.9),
+                departure_date=1234567890,
+                seats_needed=2,
+                max_detour_km=10,
+                time_window_minutes=120
             )
         else:
             raise ValueError(f"Unsupported algorithm: {alg}")

@@ -1,6 +1,9 @@
 package model
 
-import "sync"
+import (
+	"log"
+	"sync"
+)
 
 // UsersMapper holds one buffered channel per connected user. The SSE handler
 // registers a channel on connect; the streamer pushes DTOs into it.
@@ -53,8 +56,10 @@ func (m *UsersMapper) Send(userID string, n Notification) {
 
 	ch, ok := m.UsersMap[userID]
 	if !ok {
+		log.Printf("User %s not found", userID)
 		return
 	}
+	log.Printf("Sending notification to %s", userID)
 	select {
 	case ch <- n:
 	default:

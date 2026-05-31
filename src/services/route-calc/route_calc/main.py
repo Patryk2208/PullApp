@@ -3,6 +3,7 @@ import asyncio
 from route_calc.algorithms.algorithms_orchestrator import AlgorithmsOrchestrator
 from route_calc.api.consumer import Consumer
 from route_calc.infra.config import load_config
+from route_calc.infra.db import RouteDB
 from route_calc.infra.health import start_health_server
 from route_calc.infra.logger import setup_logging
 from route_calc.infra.queue import ComputeQueue
@@ -15,7 +16,8 @@ async def main():
     logger.info("Starting route-calc")
     q = ComputeQueue(config=cfg["queue"], logger=logger)
     await start_health_server(queue=q)
-    a_o = AlgorithmsOrchestrator(config=cfg["algorithms"], logger=logger)
+    db = RouteDB(config=cfg["trip_planner_db"], logger=logger)
+    a_o = AlgorithmsOrchestrator(config=cfg["algorithms"], db=db, logger=logger)
     c = Consumer(config=cfg, queue=q, alg_orchestrator=a_o, logger=logger)
     try:
         await c.run()

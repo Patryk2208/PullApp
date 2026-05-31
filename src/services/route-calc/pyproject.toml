@@ -5,19 +5,17 @@ description = ""
 authors = [
     {name = "Patryk Pol"}
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 
 
 [tool.poetry.dependencies]
-python = ">=3.13,<=3.14"
+python = ">=3.13,<3.14"
 
 # validation
 pydantic = ">=2.12.5,<2.13"
 
 # --- database (Postgres + PostGIS) ---
-psycopg = ">=3.3.3,<3.4"
-sqlalchemy = ">=2.0.48,<2.1"
-geoalchemy2 = ">=0.18.4,<0.19"
+psycopg = {version = ">=3.3.3,<3.4", extras = ["pool"]}
 
 # --- messaging (RabbitMQ) ---
 aio-pika = ">=9.6.2,<9.7"
@@ -36,10 +34,15 @@ opentelemetry-exporter-otlp-proto-grpc = ">=1.41.0,<2.0"
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.0,<9.0"
 pytest-asyncio = ">=0.23,<0.24"
+testcontainers = {version = ">=4.0,<5.0", extras = ["postgres"]}
+pytest-timeout = "^2.4.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+markers = [
+    "e2e: end-to-end tests requiring route-calc service (docker-compose tests profile)",
+]
+addopts = "--ignore=tests/autoscaling_test.py --ignore=tests/rabbitmq_e2e_test.py --ignore=tests/osrm_integration_test.py --ignore=tests/integration_test.py"
 
 
 [tool.poetry]

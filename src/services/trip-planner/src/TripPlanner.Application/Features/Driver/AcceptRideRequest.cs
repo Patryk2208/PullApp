@@ -23,6 +23,7 @@ public class AcceptRideRequestHandler(
     IPaymentsService payments,
     IChatService chat,
     IEventPublisher events,
+    KafkaTopics topics,
     TripPlannerMetrics metrics,
     IUnitOfWork uow,
     ILogger<AcceptRideRequestHandler> logger)
@@ -105,7 +106,7 @@ public class AcceptRideRequestHandler(
                     await payments.UnfreezeAsync(pending.FrozenPriceId.Value, ct);
                 pending.Reject();
                 await rideRequests.UpdateAsync(pending, ct);
-                await events.PublishAsync(Topics.NotificationTriggers,
+                await events.PublishAsync(topics.NotificationTriggers,
                     new RideRejectedEvent(pending.Id, route.Id, route.DriverId, pending.PassengerId), ct);
             }
         }
@@ -116,7 +117,7 @@ public class AcceptRideRequestHandler(
         await rides.UpdateAsync(ride, ct);
 
         // 7. Publish RideAcceptedEvent → notifications service alerts the passenger.
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RideAcceptedEvent(ride.Id, request.Id, route.Id, route.DriverId, request.PassengerId, chatRoomId), ct);
 
         metrics.RideTransition("pending_request", "ride_created", "driver_accepted");

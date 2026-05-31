@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from route_calc.model.common import Point
 
+from route_calc.generated.queue_pb2 import MatchedRoute as ProtoMatchedRoute
+from route_calc.generated.queue_pb2 import RideMatchingResult as ProtoRideMatchingResult
 from route_calc.generated.queue_pb2 import BestRouteResult as ProtoBestRouteResult
 from route_calc.generated.queue_pb2 import ClosestRoute as ProtoClosestRoute
 from route_calc.generated.queue_pb2 import ClosestRoutesResult as ProtoClosestRoutesResult
@@ -78,4 +80,51 @@ class ClosestRoutesResult:
             routes=[ClosestRoute.from_proto(r) for r in proto.routes]
         )
 
-AlgorithmResult = BestRouteResult | ClosestRoutesResult
+
+@dataclass
+class MatchedRoute:
+    route_id: str
+    driver_id: str
+    match_score: float
+    detour_km: float
+    pickup_point_index: int
+    dropoff_point_index: int
+
+    def to_proto(self) -> ProtoMatchedRoute:
+        proto = ProtoMatchedRoute(
+            route_id=self.route_id,
+            driver_id=self.driver_id,
+            match_score=self.match_score,
+            detour_km=self.detour_km,
+            pickup_point_index=self.pickup_point_index,
+            dropoff_point_index=self.dropoff_point_index
+        )
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoMatchedRoute) -> 'MatchedRoute':
+        return cls(
+            route_id=proto.route_id,
+            driver_id=proto.driver_id,
+            match_score=proto.match_score,
+            detour_km=proto.detour_km,
+            pickup_point_index=proto.pickup_point_index,
+            dropoff_point_index=proto.dropoff_point_index
+        )
+
+@dataclass
+class RideMatchingResult:
+    matches: List[MatchedRoute]
+
+    def to_proto(self) -> ProtoRideMatchingResult:
+        proto = ProtoRideMatchingResult()
+        proto.matches.extend([m.to_proto() for m in self.matches])
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoRideMatchingResult) -> 'RideMatchingResult':
+        return cls(
+            matches=[MatchedRoute.from_proto(m) for m in proto.matches]
+        )
+
+AlgorithmResult = RideMatchingResult | BestRouteResult | ClosestRoutesResult

@@ -13,7 +13,7 @@ public class AcceptRideRequestHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private AcceptRideRequestHandler Handler() =>
-        new(_routes, _rideRequests, _rides, _payments, _chat, _events, new TripPlannerMetrics(), _uow, NullLogger<AcceptRideRequestHandler>.Instance);
+        new(_routes, _rideRequests, _rides, _payments, _chat, _events, new KafkaTopics(), new TripPlannerMetrics(), _uow, NullLogger<AcceptRideRequestHandler>.Instance);
 
     private void SetupHappyPath(RideRequest req, Route route)
     {
@@ -86,7 +86,7 @@ public class AcceptRideRequestHandlerTests
         Assert.Equal(RideRequestStatus.Rejected, otherReq.Status);
         await _payments.Received(1).UnfreezeAsync(otherReq.FrozenPriceId!.Value, Arg.Any<CancellationToken>());
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RideRejectedEvent>(e => e.RequestId == otherReq.Id),
             Arg.Any<CancellationToken>());
     }

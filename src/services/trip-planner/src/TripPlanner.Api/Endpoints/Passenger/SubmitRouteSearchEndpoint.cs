@@ -15,7 +15,7 @@ namespace TripPlanner.Api.Endpoints.Passenger;
 // 503 Service Unavail – route-calc unavailable
 public class SubmitRouteSearchEndpoint : IEndpoint
 {
-    public record Request(GeoPoint Start, GeoPoint End);
+    public record Request(GeoPoint Start, GeoPoint End, long DepartureDate, int SeatsNeeded, int MaxDetourKm = 10, int TimeWindowMinutes = 120);
     public record Response(Guid JobId);
 
     public void MapEndpoint(IEndpointRouteBuilder app) =>
@@ -26,7 +26,8 @@ public class SubmitRouteSearchEndpoint : IEndpoint
             CancellationToken ct) =>
         {
             var passengerId = HttpUtils.GetPassengerId(http);
-            var result      = await handler.HandleAsync(new(passengerId, req.Start, req.End), ct);
+            var result      = await handler.HandleAsync(
+                new(passengerId, req.Start, req.End, req.DepartureDate, req.SeatsNeeded, req.MaxDetourKm, req.TimeWindowMinutes), ct);
             return Results.Accepted((string?)null, new Response(result.JobId));
         });
 }

@@ -17,6 +17,18 @@ import (
 	"notifications/internal/service"
 )
 
+const (
+	topicUserActions = "user-actions"
+
+	topicNotificationTriggers = "notification-triggers"
+)
+
+type routeSelectedPayload struct {
+	RequestId   string `json:"RequestId"`
+	DriverId    string `json:"DriverId"`
+	PassengerId string `json:"PassengerId"`
+}
+
 // memIdem is an in-memory IdempotencyRepository for the pipeline test.
 type memIdem struct {
 	mu   sync.Mutex
@@ -100,7 +112,7 @@ func TestConsumerPipeline(t *testing.T) {
 	broker, cleanup := startKafka(t)
 	defer cleanup()
 
-	topic := model.TopicUserActions
+	topic := topicNotificationTriggers
 	createTopic(t, broker, topic)
 
 	// wire a real dispatcher over an in-memory idempotency store + real streamer
@@ -118,14 +130,14 @@ func TestConsumerPipeline(t *testing.T) {
 	go func() { _ = consumer.Run(ctx) }()
 
 	// produce a route_selected event addressed to driver-1
-	payload, _ := json.Marshal(model.RouteSelectedPayload{
+	payload, _ := json.Marshal(model.RideRequestedPayload{
 		RequestId:   "req-1",
 		DriverId:    "driver-1",
 		PassengerId: "passenger-1",
 	})
 	env := model.Envelope{
 		EventId:    "evt-1",
-		EventType:  model.EventRouteSelected,
+		EventType:  model.EventRideRequested,
 		OccurredAt: time.Now(),
 		Payload:    payload,
 	}
@@ -175,8 +187,8 @@ func TestConsumerPipeline(t *testing.T) {
 	producer.Wait()
 
 	if ok {
-		if got.Type != model.EventRouteSelected {
-			t.Errorf("Type = %q, want %q", got.Type, model.EventRouteSelected)
+		if got.Type != model.EventRideRequested {
+			t.Errorf("Type = %q, want %q", got.Type, model.EventRideRequested)
 		}
 		if string(got.Payload) != string(payload) {
 			t.Errorf("Payload = %s, want %s", got.Payload, payload)

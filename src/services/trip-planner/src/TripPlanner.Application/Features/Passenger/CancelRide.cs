@@ -23,6 +23,7 @@ public class CancelRideHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
+    KafkaTopics topics,
     TripPlannerMetrics metrics,
     IUnitOfWork uow,
     ILogger<CancelRideHandler> logger)
@@ -78,11 +79,11 @@ public class CancelRideHandler(
         var notifyPassengerIds = rejectedRequests.Select(r => r.PassengerId).ToList();
 
         // 8. Publish RideEndedEvent (notifies rejected passengers that a seat may be free).
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RideEndedEvent(ride.Id, ride.RouteId, ride.DriverId, ride.PassengerId, notifyPassengerIds), ct);
 
         // 9. Publish RideCancelledEvent (billing/audit trail).
-        await events.PublishAsync(Topics.RideCompletions,
+        await events.PublishAsync(topics.RideCompletions,
             new RideCancelledEvent(ride.Id, ride.DriverId, ride.PassengerId,
                 ride.FrozenPriceId, "passenger", ride.EndedAt!.Value), ct);
 

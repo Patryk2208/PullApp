@@ -137,6 +137,9 @@ cluster-start: _check-minikube
 	@minikube status >/dev/null 2>&1 \
 		&& printf "$(YELLOW)Minikube already running$(RESET)\n" \
 		|| minikube start
+	@printf "$(CYAN)Raising inotify limits for Promtail...$(RESET)\n"
+	@minikube ssh -- sudo sysctl fs.inotify.max_user_instances=512
+	@minikube ssh -- sudo sysctl fs.inotify.max_user_watches=524288
 	@kubectl get namespace $(NAMESPACE) >/dev/null 2>&1 \
 		|| kubectl create namespace $(NAMESPACE)
 
@@ -155,7 +158,7 @@ cluster-status: _check-kubectl
 
 # ── Observability ─────────────────────────────────────────────────────────────
 
-.PHONY: obs-install obs-upgrade obs-uninstall obs-status obs-dashboards
+.PHONY: obs-install obs-upgrade obs-uninstall obs-status obs-dashboards obs-promtail
 
 obs-install: _check-helm _check-kubectl
 	@printf "$(CYAN)Adding Helm repos...$(RESET)\n"
@@ -180,6 +183,10 @@ obs-install: _check-helm _check-kubectl
 	helm upgrade --install otel-collector open-telemetry/opentelemetry-collector \
 		--namespace $(OBS_NS) --version 0.120.0 \
 		-f $(OBS_DIR)/otel-collector.yaml
+	@printf "$(CYAN)Installing Promtail...$(RESET)\n"
+	helm upgrade --install promtail grafana/promtail \
+		--namespace $(OBS_NS) --version 6.16.6 \
+		-f $(OBS_DIR)/promtail.yaml
 	@printf "$(GREEN)Observability stack installed.$(RESET)\n"
 	@printf "  Grafana: make pf-grafana  (admin / pullapp-grafana)\n"
 
@@ -196,12 +203,16 @@ obs-upgrade: _check-helm
 	helm upgrade otel-collector open-telemetry/opentelemetry-collector \
 		--namespace $(OBS_NS) --version 0.120.0 \
 		-f $(OBS_DIR)/otel-collector.yaml
+	helm upgrade promtail grafana/promtail \
+		--namespace $(OBS_NS) --version 6.16.6 \
+		-f $(OBS_DIR)/promtail.yaml
 
 obs-uninstall: _check-helm
 	helm uninstall kube-prometheus-stack --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall loki                  --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall tempo                 --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall otel-collector        --namespace $(OBS_NS) 2>/dev/null || true
+	helm uninstall promtail              --namespace $(OBS_NS) 2>/dev/null || true
 
 obs-dashboards: _check-kubectl
 	@printf "$(CYAN)Applying Grafana dashboards...$(RESET)\n"

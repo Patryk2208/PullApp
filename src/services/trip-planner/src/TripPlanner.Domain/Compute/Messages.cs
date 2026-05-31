@@ -1,6 +1,6 @@
 namespace TripPlanner.Domain.Compute;
 
-public enum JobType { DriverRoute, PassengerMatch }
+public enum JobType { BestRoute, RideMatching }
 
 // ─── What Trip Planner enqueues ───────────────────────────────────────────────
 
@@ -11,31 +11,31 @@ public abstract record ComputeJob(
     DateTimeOffset CreatedAt,
     int RetryCount = 0);
 
-public record DriverRouteComputeJob(
+public record BestRouteComputeJob(
     Guid JobId,
     Guid DriverId,
-    DriverRouteJobPayload Payload,
+    BestRouteJobPayload Payload,
     DateTimeOffset CreatedAt,
     int RetryCount = 0)
-    : ComputeJob(JobId, JobType.DriverRoute, DriverId, CreatedAt, RetryCount);
+    : ComputeJob(JobId, JobType.BestRoute, DriverId, CreatedAt, RetryCount);
 
-public record PassengerMatchComputeJob(
+public record RideMatchingComputeJob(
     Guid JobId,
     Guid PassengerId,
-    PassengerMatchJobPayload Payload,
+    RideMatchingJobPayload Payload,
     DateTimeOffset CreatedAt,
     int RetryCount = 0)
-    : ComputeJob(JobId, JobType.PassengerMatch, PassengerId, CreatedAt, RetryCount);
+    : ComputeJob(JobId, JobType.RideMatching, PassengerId, CreatedAt, RetryCount);
 
 // ─── What Trip Planner dequeues ───────────────────────────────────────────────
 
 public abstract record ComputeJobResult(Guid JobId, JobType JobType, bool Success, string? Error);
 
-public record DriverRouteComputeResult(Guid JobId, DriverRouteJobResult Result)
-    : ComputeJobResult(JobId, JobType.DriverRoute, true, null);
+public record BestRouteComputeResult(Guid JobId, BestRouteJobResult Result)
+    : ComputeJobResult(JobId, JobType.BestRoute, true, null);
 
-public record PassengerMatchComputeResult(Guid JobId, PassengerMatchJobResult Result)
-    : ComputeJobResult(JobId, JobType.PassengerMatch, true, null);
+public record RideMatchingComputeResult(Guid JobId, RideMatchingJobResult Result)
+    : ComputeJobResult(JobId, JobType.RideMatching, true, null);
 
 public record FailedComputeResult(Guid JobId, JobType JobType, string Error)
     : ComputeJobResult(JobId, JobType, false, Error);
