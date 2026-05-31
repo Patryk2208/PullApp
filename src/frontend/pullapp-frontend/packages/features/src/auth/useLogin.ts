@@ -12,9 +12,11 @@ export function useLogin(repository: IAuthRepository) {
 		setError(null);
 		
 		const result = await repository.login(credentials);
+		console.log('login receives', result);
 		
 		if (result.ok) {
-			setToken(result.value.accessToken);
+			console.log('login calls setToken', result.value.token);
+			setToken(result.value.token);
 		} else {
 			setError(result.error);	
 		}

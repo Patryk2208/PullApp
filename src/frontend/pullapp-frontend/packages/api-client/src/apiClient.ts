@@ -23,8 +23,8 @@ export const authenticatedApiClient = axios.create({
 // REQUEST INTERCEPTOR: dokleja do requestów token pobrany przez bezpieczny provider
 authenticatedApiClient.interceptors.request.use(
 	(config) => {
-		console.log('request interceptor', config); // TODO
 		const token = tokenProvider();
+		console.log('request interceptor', token); // TODO
 		if (token && config.headers) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}

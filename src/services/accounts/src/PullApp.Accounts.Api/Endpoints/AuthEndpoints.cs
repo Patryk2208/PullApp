@@ -29,6 +29,6 @@ public class AuthEndpoints : IEndpoint
 		CancellationToken ct)
 	{
 		var token = await sender.Send(command, ct);
-		return Results.Ok(new { AccessToken = token });
+		return Results.Ok(token);
 	}
 }
