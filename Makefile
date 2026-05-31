@@ -49,6 +49,7 @@ help:
 	@printf "  make obs-install        Install Prometheus+Grafana, Loki, Tempo, OTel Collector\n"
 	@printf "  make obs-upgrade        Upgrade all obs Helm releases to pinned versions\n"
 	@printf "  make obs-uninstall      Remove all obs Helm releases\n"
+	@printf "  make obs-dashboards     Apply Grafana dashboard ConfigMaps\n"
 	@printf "  make obs-status         Show obs pod status\n"
 	@printf "\n$(CYAN)KEDA$(RESET)\n"
 	@printf "  make keda-install       Install KEDA $(KEDA_VERSION) (required for route-calc autoscaling)\n"
@@ -154,7 +155,7 @@ cluster-status: _check-kubectl
 
 # ── Observability ─────────────────────────────────────────────────────────────
 
-.PHONY: obs-install obs-upgrade obs-uninstall obs-status
+.PHONY: obs-install obs-upgrade obs-uninstall obs-status obs-dashboards
 
 obs-install: _check-helm _check-kubectl
 	@printf "$(CYAN)Adding Helm repos...$(RESET)\n"
@@ -201,6 +202,10 @@ obs-uninstall: _check-helm
 	helm uninstall loki                  --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall tempo                 --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall otel-collector        --namespace $(OBS_NS) 2>/dev/null || true
+
+obs-dashboards: _check-kubectl
+	@printf "$(CYAN)Applying Grafana dashboards...$(RESET)\n"
+	kubectl apply -f $(OBS_DIR)/grafana/dashboards/
 
 obs-status: _check-kubectl
 	@printf "$(BOLD)--- Observability pods ($(OBS_NS)) ---$(RESET)\n"

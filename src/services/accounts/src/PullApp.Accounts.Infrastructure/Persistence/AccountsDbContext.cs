@@ -17,6 +17,7 @@ public class AccountsDbContext : DbContext
 		modelBuilder.Entity<User>(entity =>
 		{
 			entity.HasKey(e => e.Id);
+			entity.Property(e => e.Id).ValueGeneratedNever();
 			
 			entity.Property(e => e.Email).IsRequired();
 			entity.HasIndex(e => e.Email).IsUnique();

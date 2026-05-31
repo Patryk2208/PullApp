@@ -18,6 +18,7 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {
+        o.MapInboundClaims = false;
         o.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer           = true,
@@ -31,7 +32,10 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o =>
+    o.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 builder.Services
     .AddReverseProxy()
@@ -85,8 +89,8 @@ app.Use(async (ctx, next) =>
 {
     if (ctx.User.Identity?.IsAuthenticated == true)
     {
-        var userId = ctx.User.FindFirst("sub")?.Value ?? ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var role   = ctx.User.FindFirst("role")?.Value ?? ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+        var userId = ctx.User.FindFirst("sub")?.Value;
+        var role   = ctx.User.FindFirst("role")?.Value;
         if (userId is not null) ctx.Request.Headers["X-User-Id"]   = userId;
         if (role   is not null) ctx.Request.Headers["X-User-Role"] = role;
     }

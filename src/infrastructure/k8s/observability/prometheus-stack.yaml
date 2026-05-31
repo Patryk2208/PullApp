@@ -28,7 +28,7 @@ prometheus:
         cpu: 500m
 
 kubeStateMetrics:
-  enabled: false
+  enabled: true
 
 nodeExporter:
   enabled: false
