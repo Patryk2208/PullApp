@@ -56,8 +56,6 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASS: ${RABBITMQ_PASS}
-    volumes:
-      - ../../services/route-calc:/app
     networks:
       - pullapp-network
     command: pytest tests/rabbitmq_integration_test.py -v
@@ -79,8 +77,6 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASS: ${RABBITMQ_PASS}
-    volumes:
-      - ../../services/route-calc:/app
     networks:
       - pullapp-network
     command: pytest tests/rabbitmq_e2e_test.py -v

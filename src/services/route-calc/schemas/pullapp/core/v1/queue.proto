@@ -5,15 +5,18 @@ package core.v1;
 // ─── Outbound: Trip Planner → Route-Calc ────────────────────────────────────
 
 message ComputeMessage {
-    string job_id       = 1;   // UUID
-    string job_type     = 2;   // "driver_route" | "passenger_match"
+    string job_id             = 1;   // UUID
+    string job_type           = 2;   // "driver_route" | "passenger_match" | "ride_matching"
     string requesting_user_id = 3;   // driver_id or passenger_id UUID
-    int64  created_at   = 4;   // Unix timestamp millis
-    int32  retry_count  = 5;
+    int64  created_at         = 4;   // Unix timestamp millis
+    int32  retry_count        = 5;
 
     oneof params {
         DriverRouteParams    driver_route    = 20;
         PassengerMatchParams passenger_match = 21;
+        RideMatchingQuery    ride_matching   = 22;
+        BestRouteParams      best_route      = 23;
+        ClosestRoutesParams  closest_routes  = 24;
     }
 }
 
@@ -33,9 +36,30 @@ message PassengerMatchConstraints {
 }
 
 message PassengerMatchParams {
-    Point                    start       = 1;
-    Point                    end         = 2;
+    Point                     start       = 1;
+    Point                     end         = 2;
     PassengerMatchConstraints constraints = 3;
+}
+
+message RideMatchingQuery {
+    string passenger_id              = 1;
+    Point  start                     = 2;
+    Point  end                       = 3;
+    int64  departure_date            = 4;
+    int32  seats_needed              = 5;
+    repeated DriverRoute candidate_routes = 6;
+    int32  max_detour_km             = 7;
+    int32  time_window_minutes       = 8;
+}
+
+message DriverRoute {
+    string route_id                 = 1;
+    string driver_id                = 2;
+    repeated Point route_points     = 3;
+    int64  departure_date           = 4;
+    int32  departure_time_minutes   = 5;
+    int32  seats_available          = 6;
+    double estimated_duration_hours = 7;
 }
 
 // ─── Inbound: Route-Calc → Trip Planner ─────────────────────────────────────
@@ -49,6 +73,9 @@ message ResultMessage {
     oneof result {
         DriverRouteResult    driver_route    = 20;
         PassengerMatchResult passenger_match = 21;
+        RideMatchingResult   ride_matching   = 22;
+        BestRouteParams      best_route      = 23;
+        ClosestRoutesParams  closest_routes  = 24;
     }
 }
 
@@ -68,4 +95,46 @@ message MatchEntry {
 
 message PassengerMatchResult {
     repeated MatchEntry matches = 1;
+}
+
+
+message RideMatchingResult {
+    repeated MatchedRoute matches = 1;
+}
+
+message MatchedRoute {
+    string route_id            = 1;
+    string driver_id           = 2;
+    double match_score         = 3; // 0.0 to 1.0, higher is better
+    double detour_km           = 4; // How much longer than ideal passenger route
+    int32  pickup_point_index  = 5; // Which index in driver route for pickup
+    int32  dropoff_point_index = 6; // Which index in driver route for dropoff
+}
+
+message BestRouteParams {
+    Point start = 1;
+    Point end   = 2;
+    string cost_type = 3;
+}
+
+message ClosestRoutesParams {
+    Point point = 1;
+    int32 k = 2;
+    double radius_meters = 3;
+}
+
+message BestRouteResult {
+    repeated Point points = 1;
+    double distance_meters = 2;
+    double duration_seconds = 3;
+}
+
+message ClosestRoutesResult {
+    repeated ClosestRoute routes = 1;
+}
+
+message ClosestRoute {
+    string route_id = 1;
+    double distance_to_point_meters = 2;
+    Point access_point = 3;
 }
