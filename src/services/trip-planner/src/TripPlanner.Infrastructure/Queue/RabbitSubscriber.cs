@@ -47,7 +47,7 @@ public class RabbitSubscriber<T>(
 
             try
             {
-                using var scope = scopeFactory.CreateScope();
+                await using var scope = scopeFactory.CreateAsyncScope();
                 var handler = scope.ServiceProvider.GetRequiredService<IHandler<T>>();
                 await handler.HandleAsync(domainModel, ct);
                 await _channel.BasicAckAsync(ea.DeliveryTag, false, ct);

@@ -2,21 +2,29 @@ namespace TripPlanner.Domain.Compute;
 
 // ─── Job payloads (Trip Planner → Route-Calc) ────────────────────────────────
 
-public record DriverRouteJobPayload(GeoPoint Start, GeoPoint End);
+public record BestRouteJobPayload(GeoPoint Start, GeoPoint End, string CostType = "distance");
 
-public record MatchConstraints(double MaxDetourKm = 5, int MaxResults = 5);
-
-public record PassengerMatchJobPayload(GeoPoint Start, GeoPoint End, MatchConstraints Constraints);
+public record RideMatchingJobPayload(
+    GeoPoint Start,
+    GeoPoint End,
+    long DepartureDate,
+    int SeatsNeeded,
+    int MaxDetourKm = 10,
+    int TimeWindowMinutes = 120);
 
 // ─── Job results (Route-Calc → Trip Planner) ─────────────────────────────────
 
-public record DriverRouteJobResult(string RouteGeomJson, int EtaSeconds, int DistanceMeters);
+public record BestRouteJobResult(
+    IReadOnlyList<GeoPoint> Points,
+    double DistanceMeters,
+    double DurationSeconds);
 
 public record MatchEntry(
-    Guid DriverRouteId,
-    Guid DriverId,
-    int EtaToPassengerSeconds,
-    int DetourMeters,
-    double Score);
+    string RouteId,
+    string DriverId,
+    double MatchScore,
+    double DetourKm,
+    int PickupPointIndex,
+    int DropoffPointIndex);
 
-public record PassengerMatchJobResult(IReadOnlyList<MatchEntry> Matches);
+public record RideMatchingJobResult(IReadOnlyList<MatchEntry> Matches);

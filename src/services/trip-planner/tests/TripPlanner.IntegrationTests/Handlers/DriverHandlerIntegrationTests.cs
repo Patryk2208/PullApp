@@ -25,7 +25,7 @@ public class DriverHandlerIntegrationTests(PostgresFixture db) : IAsyncLifetime
     {
         var route = Route.Create(driverId ?? Guid.NewGuid(), PointA, PointB, capacity: 3);
         new PostgresRouteRepository(s).AddAsync(route, default).GetAwaiter().GetResult();
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([PointA, PointB], 300.0, 5000.0);
         if (activate) route.Activate(PointA);
         new PostgresRouteRepository(s).UpdateAsync(route, default).GetAwaiter().GetResult();
         return route;

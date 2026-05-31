@@ -1,8 +1,11 @@
 import asyncio
+import os
 import random
 from typing import List
 
 import pytest
+
+os.environ.setdefault("ROUTE_CALC_SLOW_ALGORITHM_SECONDS", "0")
 from time import sleep
 
 from route_calc.model.algorithms import BestRouteParams, ClosestRoutesParams, RideMatchingQuery, DriverRoute
@@ -122,7 +125,6 @@ def mock_compute_message_factory():
                 end=Point(lat=50.1, lon=19.9),
                 departure_date=1234567890,
                 seats_needed=2,
-                candidate_routes=[],
                 max_detour_km=10,
                 time_window_minutes=120
             )

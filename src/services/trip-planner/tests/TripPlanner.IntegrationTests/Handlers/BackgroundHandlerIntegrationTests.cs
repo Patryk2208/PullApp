@@ -26,10 +26,10 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
     private async Task<RouteJob?> LoadJob(Guid id) =>
         await new PostgresRouteJobRepository(db.NewSession()).GetByIdAsync(id, default);
 
-    // ─── DriverRoute success ─────────────────────────────────────────────────
+    // ─── BestRoute success ───────────────────────────────────────────────────
 
     [Fact]
-    public async Task RouteComputed_DriverRoute_SetsGeometryOnRouteAndCompletesJob()
+    public async Task RouteComputed_BestRoute_SetsGeometryOnRouteAndCompletesJob()
     {
         var driverId = Guid.NewGuid();
         var route    = Route.Create(driverId, PointA, PointB, capacity: 2);
@@ -38,7 +38,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
         {
             Id            = Guid.NewGuid(),
             CorrelationId = corrId,
-            JobType       = JobType.DriverRoute,
+            JobType       = JobType.BestRoute,
             RequesterId   = driverId,
             PayloadJson   = "{}",
             CreatedAt     = DateTimeOffset.UtcNow,
@@ -56,23 +56,23 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
             events, new TripPlannerMetrics(), session, NullLogger<RouteComputedHandler>.Instance);
 
         await handler.HandleAsync(
-            new DriverRouteComputeResult(corrId,
-                new DriverRouteJobResult("{\"type\":\"LineString\"}", EtaSeconds: 600, DistanceMeters: 10000)),
+            new BestRouteComputeResult(corrId,
+                new BestRouteJobResult([PointA, PointB], DistanceMeters: 10000, DurationSeconds: 600)),
             default);
 
         var loadedRoute = await LoadRoute(route.Id);
         var loadedJob   = await LoadJob(job.Id);
 
-        Assert.Equal(RouteStatus.Created,        loadedRoute!.Status);
-        Assert.Equal("{\"type\":\"LineString\"}", loadedRoute.GeometryJson);
-        Assert.Equal(JobStatus.Completed,         loadedJob!.Status);
+        Assert.Equal(RouteStatus.Created, loadedRoute!.Status);
+        Assert.NotNull(loadedRoute.RoutePoints);
+        Assert.Equal(JobStatus.Completed, loadedJob!.Status);
         Assert.NotNull(loadedJob.CompletedAt);
     }
 
-    // ─── PassengerMatch success ───────────────────────────────────────────────
+    // ─── RideMatching success ─────────────────────────────────────────────────
 
     [Fact]
-    public async Task RouteComputed_PassengerMatch_CompletesJob()
+    public async Task RouteComputed_RideMatching_CompletesJob()
     {
         var passengerId = Guid.NewGuid();
         var corrId      = Guid.NewGuid();
@@ -80,7 +80,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
         {
             Id            = Guid.NewGuid(),
             CorrelationId = corrId,
-            JobType       = JobType.PassengerMatch,
+            JobType       = JobType.RideMatching,
             RequesterId   = passengerId,
             PayloadJson   = "{}",
             CreatedAt     = DateTimeOffset.UtcNow,
@@ -97,7 +97,7 @@ public class BackgroundHandlerIntegrationTests(PostgresFixture db) : IAsyncLifet
             events, new TripPlannerMetrics(), session, NullLogger<RouteComputedHandler>.Instance);
 
         await handler.HandleAsync(
-            new PassengerMatchComputeResult(corrId, new PassengerMatchJobResult([])),
+            new RideMatchingComputeResult(corrId, new RideMatchingJobResult([])),
             default);
 
         var loadedJob = await LoadJob(job.Id);

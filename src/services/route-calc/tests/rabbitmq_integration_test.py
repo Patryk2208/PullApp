@@ -59,7 +59,7 @@ class SimpleJobMessage:
         }).encode()
 
 
-async def connect_to_rabbitmq() -> tuple[aio_pika.RobustConnection, aio_pika.AbstractRobustChannel]:
+async def connect_to_rabbitmq() -> tuple[aio_pika.RobustConnection, aio_pika.RobustChannel]:
     """
     Connect to RabbitMQ
 
@@ -76,7 +76,7 @@ async def connect_to_rabbitmq() -> tuple[aio_pika.RobustConnection, aio_pika.Abs
     return connection, channel
 
 
-async def declare_queues(channel: aio_pika.AbstractRobustChannel):
+async def declare_queues(channel: aio_pika.RobustChannel):
     """Declare compute and results queues"""
 
     compute_queue = await channel.declare_queue(

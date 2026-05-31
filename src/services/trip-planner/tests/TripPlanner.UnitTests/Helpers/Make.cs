@@ -16,7 +16,7 @@ public static class Make
     public static Route CreatedRoute(Guid? driverId = null, int capacity = 3)
     {
         var r = CalculatingRoute(driverId, capacity);
-        r.SetGeometry("{}", etaSeconds: 300, distanceMeters: 5000);
+        r.SetGeometry([PointA, PointB], durationSeconds: 300.0, distanceMeters: 5000.0);
         return r;
     }
 
@@ -68,21 +68,21 @@ public static class Make
 
     // ─── RouteJobs ────────────────────────────────────────────────────────────
 
-    public static RouteJob DriverRouteJob(Guid? requesterId = null, Guid? correlationId = null) => new()
+    public static RouteJob BestRouteJob(Guid? requesterId = null, Guid? correlationId = null) => new()
     {
         Id            = Guid.NewGuid(),
         CorrelationId = correlationId ?? Guid.NewGuid(),
-        JobType       = JobType.DriverRoute,
+        JobType       = JobType.BestRoute,
         RequesterId   = requesterId  ?? Guid.NewGuid(),
         PayloadJson   = "{}",
         CreatedAt     = DateTimeOffset.UtcNow,
     };
 
-    public static RouteJob PassengerMatchJob(Guid? requesterId = null, Guid? correlationId = null) => new()
+    public static RouteJob RideMatchingJob(Guid? requesterId = null, Guid? correlationId = null) => new()
     {
         Id            = Guid.NewGuid(),
         CorrelationId = correlationId ?? Guid.NewGuid(),
-        JobType       = JobType.PassengerMatch,
+        JobType       = JobType.RideMatching,
         RequesterId   = requesterId  ?? Guid.NewGuid(),
         PayloadJson   = "{}",
         CreatedAt     = DateTimeOffset.UtcNow,

@@ -43,11 +43,11 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         var handler = new SubmitRouteSearchHandler(
             new PostgresRouteJobRepository(session), compute, geo, new TripPlannerMetrics(), session, NullLogger<SubmitRouteSearchHandler>.Instance);
 
-        var result = await handler.HandleAsync(new(Guid.NewGuid(), PointA, PointB), default);
+        var result = await handler.HandleAsync(new(Guid.NewGuid(), PointA, PointB, DepartureDate: 1_700_000_000, SeatsNeeded: 1), default);
 
         var job = await LoadJob(result.JobId);
         Assert.NotNull(job);
-        Assert.Equal(JobType.PassengerMatch, job!.JobType);
+        Assert.Equal(JobType.RideMatching, job!.JobType);
         Assert.Equal(JobStatus.Pending, job.Status);
     }
 
@@ -58,7 +58,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
     {
         var driverId = Guid.NewGuid();
         var route    = Route.Create(driverId, PointA, PointB, capacity: 3);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         var seedSess = db.NewSession();
         await new PostgresRouteRepository(seedSess).AddAsync(route, default);
         await new PostgresRouteRepository(seedSess).UpdateAsync(route, default);

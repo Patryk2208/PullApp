@@ -23,7 +23,7 @@ public class RouteTests
         Assert.Equal(end.Latitude,        route.End.Latitude);
         Assert.Equal(2,                   route.Capacity);
         Assert.Equal(0,                   route.ActiveRideCount);
-        Assert.Null(route.GeometryJson);
+        Assert.Null(route.RoutePoints);
         Assert.Null(route.CurrentLocation);
         Assert.Null(route.ActivatedAt);
     }
@@ -34,13 +34,14 @@ public class RouteTests
     public void SetGeometry_TransitionsToCreatedAndStoresFields()
     {
         var route = NewRoute();
+        var pts   = new[] { new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1) };
 
-        route.SetGeometry("{\"type\":\"LineString\"}", etaSeconds: 600, distanceMeters: 10000);
+        route.SetGeometry(pts, durationSeconds: 600.0, distanceMeters: 10000.0);
 
-        Assert.Equal(RouteStatus.Created,        route.Status);
-        Assert.Equal("{\"type\":\"LineString\"}", route.GeometryJson);
-        Assert.Equal(600,                        route.EtaSeconds);
-        Assert.Equal(10000,                      route.DistanceMeters);
+        Assert.Equal(RouteStatus.Created, route.Status);
+        Assert.Equal(2,                   route.RoutePoints!.Count);
+        Assert.Equal(600.0,               route.DurationSeconds);
+        Assert.Equal(10000.0,             route.DistanceMeters);
     }
 
     // ─── Activate ────────────────────────────────────────────────────────────
@@ -50,7 +51,7 @@ public class RouteTests
     {
         var route    = NewRoute();
         var location = new GeoPoint(52.2, 21.0);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
 
         route.Activate(location);
 
@@ -78,7 +79,7 @@ public class RouteTests
     public void TryAddRide_IncrementsActiveRideCount()
     {
         var route = NewRoute(capacity: 3);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
 
         var result = route.TryAddRide();
@@ -92,7 +93,7 @@ public class RouteTests
     public void TryAddRide_WhenLastSlot_SetsStatusToFull()
     {
         var route = NewRoute(capacity: 1);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
 
         var result = route.TryAddRide();
@@ -106,7 +107,7 @@ public class RouteTests
     public void TryAddRide_WhenAlreadyFull_ReturnsFalseAndCountUnchanged()
     {
         var route = NewRoute(capacity: 1);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
         route.TryAddRide(); // fills it
 
@@ -122,7 +123,7 @@ public class RouteTests
     public void RemoveRide_DecrementsCount()
     {
         var route = NewRoute(capacity: 3);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
         route.TryAddRide();
         route.TryAddRide();
@@ -136,7 +137,7 @@ public class RouteTests
     public void RemoveRide_WhenWasFull_ReturnsStatusToActive()
     {
         var route = NewRoute(capacity: 1);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
         route.TryAddRide(); // → Full
 

@@ -44,7 +44,7 @@ public class AcceptRideRequestConcurrencyTests(PostgresFixture db) : IAsyncLifet
     {
         var driverId = Guid.NewGuid();
         var route    = Route.Create(driverId, PointA, PointB, capacity: 1);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(PointA);
 
         var req1 = RideRequest.Create(route.Id, Guid.NewGuid(), PointA, PointB);

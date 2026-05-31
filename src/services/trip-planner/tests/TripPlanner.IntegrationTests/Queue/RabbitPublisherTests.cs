@@ -41,23 +41,22 @@ public class RabbitPublisherTests(RabbitMqFixture rabbit)
         throw new TimeoutException($"No message arrived in queue '{queue}' within timeout.");
     }
 
-    // ─── DriverRoute ──────────────────────────────────────────────────────────
+    // ─── BestRoute ────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Publish_DriverRouteJob_MessageArrivesInQueue()
+    public async Task Publish_BestRouteJob_MessageArrivesInQueue()
     {
         var (publisher, factory) = CreatePublisher();
         var jobId  = Guid.NewGuid();
         var driver = Guid.NewGuid();
-        var job    = new DriverRouteComputeJob(
+        var job    = new BestRouteComputeJob(
             JobId:    jobId,
             DriverId: driver,
-            Payload:  new DriverRouteJobPayload(new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)),
+            Payload:  new BestRouteJobPayload(new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)),
             CreatedAt: DateTimeOffset.UtcNow);
 
         await publisher.PublishAsync(job, default);
 
-        // Consume raw bytes directly.
         var conn    = await factory.CreateConnectionAsync();
         var channel = await conn.CreateChannelAsync(new CreateChannelOptions(false, false));
         await channel.QueueDeclareAsync(TestQueue, true, false, false);
@@ -66,27 +65,29 @@ public class RabbitPublisherTests(RabbitMqFixture rabbit)
         var msg = ComputeMessage.Parser.ParseFrom(raw.Body.Span);
 
         Assert.Equal(jobId.ToString(),  msg.JobId);
-        Assert.Equal("driver_route",    msg.JobType);
+        Assert.Equal("best_route",      msg.Algorithm);
         Assert.Equal(driver.ToString(), msg.RequestingUserId);
-        Assert.Equal(52.2, msg.DriverRoute.Start.Lat, 6);
-        Assert.Equal(52.3, msg.DriverRoute.End.Lat, 6);
+        Assert.Equal(52.2, msg.BestRoute.Start.Lat, 6);
+        Assert.Equal(52.3, msg.BestRoute.End.Lat, 6);
     }
 
-    // ─── PassengerMatch ───────────────────────────────────────────────────────
+    // ─── RideMatching ─────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Publish_PassengerMatchJob_MessageArrivesInQueue()
+    public async Task Publish_RideMatchingJob_MessageArrivesInQueue()
     {
         var (publisher, factory) = CreatePublisher();
         var jobId     = Guid.NewGuid();
         var passenger = Guid.NewGuid();
-        var job       = new PassengerMatchComputeJob(
+        var job       = new RideMatchingComputeJob(
             JobId:       jobId,
             PassengerId: passenger,
-            Payload:     new PassengerMatchJobPayload(
+            Payload:     new RideMatchingJobPayload(
                 new GeoPoint(52.2, 21.0),
                 new GeoPoint(52.3, 21.1),
-                new MatchConstraints(MaxDetourKm: 4, MaxResults: 5)),
+                DepartureDate: 1_700_000_000,
+                SeatsNeeded: 2,
+                MaxDetourKm: 10),
             CreatedAt: DateTimeOffset.UtcNow);
 
         await publisher.PublishAsync(job, default);
@@ -99,9 +100,9 @@ public class RabbitPublisherTests(RabbitMqFixture rabbit)
         var msg = ComputeMessage.Parser.ParseFrom(raw.Body.Span);
 
         Assert.Equal(jobId.ToString(),     msg.JobId);
-        Assert.Equal("passenger_match",    msg.JobType);
+        Assert.Equal("ride_matching",      msg.Algorithm);
         Assert.Equal(passenger.ToString(), msg.RequestingUserId);
-        Assert.Equal(4.0, msg.PassengerMatch.Constraints.MaxDetourKm, 6);
-        Assert.Equal(5,   msg.PassengerMatch.Constraints.MaxResults);
+        Assert.Equal(2,  msg.RideMatching.SeatsNeeded);
+        Assert.Equal(10, msg.RideMatching.MaxDetourKm);
     }
 }

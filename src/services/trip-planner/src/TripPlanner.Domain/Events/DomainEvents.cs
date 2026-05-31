@@ -79,9 +79,9 @@ public record RideEndedEvent(
 public record RouteReadyEvent(
     Guid RouteId,
     Guid DriverId,
-    string GeometryJson,
-    int EtaSeconds,
-    int DistanceMeters) : IDomainEvent
+    IReadOnlyList<GeoPoint> RoutePoints,
+    double DistanceMeters,
+    double DurationSeconds) : IDomainEvent
 {
     public string EventType => "route_ready";
 }
