@@ -37,7 +37,7 @@ export interface GetUserResponse {
 	role: UserRole;
 }
 
-enum UserRole {
+export enum UserRole {
 	regularUser = 1,
 	admin = 2,
 }
