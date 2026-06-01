@@ -1,3 +1,4 @@
+'use client';
 import { TextInput, View, Text, StyleSheet, TextInputProps } from 'react-native';
 
 interface InputProps extends TextInputProps {
