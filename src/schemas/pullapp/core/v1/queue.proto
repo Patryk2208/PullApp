@@ -5,15 +5,15 @@ package core.v1;
 // ─── Outbound: Trip Planner → Route-Calc ────────────────────────────────────
 
 message ComputeMessage {
-    string job_id       = 1;   // UUID
-    string job_type     = 2;   // "driver_route" | "passenger_match"
-    string requesting_user_id = 3;   // driver_id or passenger_id UUID
-    int64  created_at   = 4;   // Unix timestamp millis
-    int32  retry_count  = 5;
+    string job_id            = 1;
+    string algorithm         = 2;   // "best_route" | "ride_matching"
+    string requesting_user_id = 3;  // driver_id or passenger_id UUID
+    int64  created_at        = 4;   // Unix timestamp millis
+    int32  retry_count       = 5;
 
     oneof params {
-        DriverRouteParams    driver_route    = 20;
-        PassengerMatchParams passenger_match = 21;
+        BestRouteParams   best_route    = 20;
+        RideMatchingQuery ride_matching = 22;
     }
 }
 
@@ -22,50 +22,68 @@ message Point {
     double lon = 2;
 }
 
-message DriverRouteParams {
-    Point start = 1;
-    Point end   = 2;
+message BestRouteParams {
+    Point  start     = 1;
+    Point  end       = 2;
+    string cost_type = 3;
 }
 
-message PassengerMatchConstraints {
-    double max_detour_km = 1;
-    int32  max_results   = 2;
-}
-
-message PassengerMatchParams {
-    Point                    start       = 1;
-    Point                    end         = 2;
-    PassengerMatchConstraints constraints = 3;
+message RideMatchingQuery {
+    string passenger_id        = 1;
+    Point  start               = 2;
+    Point  end                 = 3;
+    int64  departure_date      = 4;  // Unix timestamp
+    int32  seats_needed        = 5;
+    int32  max_detour_km       = 6;
+    int32  time_window_minutes = 7;
 }
 
 // ─── Inbound: Route-Calc → Trip Planner ─────────────────────────────────────
 
 message ResultMessage {
     string job_id   = 1;
-    string job_type = 2;
-    bool   success  = 3;
-    string error    = 4;   // "no_candidates" | "routing_error" | "timeout"
+    bool   success  = 2;
+    string error    = 3;   // "no_candidates" | "routing_error" | "timeout"
 
     oneof result {
-        DriverRouteResult    driver_route    = 20;
-        PassengerMatchResult passenger_match = 21;
+        BestRouteResult    best_route    = 20;
+        RideMatchingResult ride_matching = 22;
     }
 }
 
-message DriverRouteResult {
-    string route_geom_json  = 1;   // GeoJSON LineString serialised as string
-    int32  eta_seconds      = 2;
-    int32  distance_meters  = 3;
+message BestRouteResult {
+    repeated Point points           = 1;
+    double         distance_meters  = 2;
+    double         duration_seconds = 3;
 }
 
-message MatchEntry {
-    string driver_route_id             = 1;
-    string driver_id                   = 2;
-    int32  eta_to_passenger_seconds    = 3;
-    int32  detour_meters               = 4;
-    double score                       = 5;
+message RideMatchingResult {
+    repeated MatchedRoute matches = 1;
 }
 
-message PassengerMatchResult {
-    repeated MatchEntry matches = 1;
+message MatchedRoute {
+    string route_id            = 1;
+    string driver_id           = 2;
+    double match_score         = 3;
+    double detour_km           = 4;
+    int32  pickup_point_index  = 5;
+    int32  dropoff_point_index = 6;
+}
+
+// ─── Defined but not yet wired to a caller ───────────────────────────────────
+
+message ClosestRoutesParams {
+    Point  point         = 1;
+    int32  k             = 2;
+    double radius_meters = 3;
+}
+
+message ClosestRoute {
+    string route_id                 = 1;
+    double distance_to_point_meters = 2;
+    Point  access_point             = 3;
+}
+
+message ClosestRoutesResult {
+    repeated ClosestRoute routes = 1;
 }

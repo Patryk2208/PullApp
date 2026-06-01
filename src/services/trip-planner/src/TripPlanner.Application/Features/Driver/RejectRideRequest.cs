@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
@@ -16,7 +18,10 @@ public class RejectRideRequestHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
-    IUnitOfWork uow)
+    KafkaTopics topics,
+    TripPlannerMetrics metrics,
+    IUnitOfWork uow,
+    ILogger<RejectRideRequestHandler> logger)
 {
     public async Task HandleAsync(RejectRideRequestCommand cmd, CancellationToken ct)
     {
@@ -46,7 +51,12 @@ public class RejectRideRequestHandler(
         await uow.CommitAsync(ct);
 
         // 5. Publish RideRejectedEvent → notifications service will alert the passenger.
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RideRejectedEvent(request.Id, route.Id, route.DriverId, request.PassengerId), ct);
+
+        metrics.RideTransition("pending_request", "rejected", "driver_declined");
+        metrics.DriverDeclined("explicit");
+        logger.LogInformation("RideRequest rejected requestId={RequestId} passengerId={PassengerId} routeId={RouteId}",
+            cmd.RequestId, request.PassengerId, route.Id);
     }
 }

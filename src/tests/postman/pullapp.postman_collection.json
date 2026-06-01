@@ -1,0 +1,730 @@
+{
+  "info": {
+    "name": "PullApp",
+    "_postman_id": "pullapp-collection-v1",
+    "description": "All HTTP endpoints for PullApp services.\n\nVariables:\n- `base_url`         — gateway (default: http://localhost:8080, via `make pf-gateway`)\n- `accounts_url`     — accounts direct (default: http://localhost:5001)\n- `trip_planner_url` — trip-planner direct (default: http://localhost:5002)\n- `token`            — JWT; set automatically by the Login request test script\n- `userId`           — set automatically by the Login request test script\n- `routeId`          — paste from CreateRoute response\n- `requestId`        — paste from CreateRideRequest response\n- `rideId`           — paste from AcceptRideRequest response\n\nAuth flow via gateway:\n  1. POST /api/auth/register → register user\n  2. POST /api/auth/login    → captures `token` + `userId`\n  3. All trip-planner requests via gateway use Bearer token; gateway injects X-User-Id.\n\nDirect service access (trip-planner folder):\n  Uses `X-User-Id` header directly — useful when bypassing gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",            "value": "http://localhost:8080", "type": "string" },
+    { "key": "accounts_url",        "value": "http://localhost:5001", "type": "string" },
+    { "key": "trip_planner_url",    "value": "http://localhost:5002", "type": "string" },
+    { "key": "notifications_url",   "value": "http://localhost:5003", "type": "string" },
+    { "key": "driver_tracker_url",  "value": "http://localhost:5004", "type": "string" },
+    { "key": "token",               "value": "",                      "type": "string" },
+    { "key": "userId",              "value": "",                      "type": "string" },
+    { "key": "routeId",             "value": "",                      "type": "string" },
+    { "key": "requestId",           "value": "",                      "type": "string" },
+    { "key": "rideId",              "value": "",                      "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Accounts",
+      "description": "Auth endpoints exposed at /api/auth/* (anonymous, no JWT required).\nAll requests go through the gateway which forwards them to the accounts service.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jan\",\n  \"surname\": \"Kowalski\",\n  \"email\": \"jan.kowalski@example.com\",\n  \"password\": \"Secret123!\",\n  \"birthDate\": \"1995-06-15\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Registers a new user.\n\n201 Created → { userId }\n409 Conflict → email already taken"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var body = pm.response.json();",
+                  "    pm.collectionVariables.set('token', body.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jan.kowalski@example.com\",\n  \"password\": \"Secret123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Logs in and returns a JWT.\n\n200 OK → { accessToken }\n401 Unauthorized → bad credentials\n\nTest script captures `token` collection variable automatically."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Trip Planner — via Gateway",
+      "description": "Trip-planner endpoints reached through the gateway.\nAll requests require a valid JWT (`Authorization: Bearer {{token}}`).\nThe gateway validates the JWT and injects X-User-Id / X-User-Role headers before forwarding.\n\nGateway route: /api/route/{**catch-all} → trip-planner service",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Driver",
+          "item": [
+            {
+              "name": "Create Route",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/routes",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "routes"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start\": { \"latitude\": 52.2297, \"longitude\": 21.0122 },\n  \"end\":   { \"latitude\": 52.2500, \"longitude\": 21.0400 },\n  \"capacity\": 3\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Driver submits a new route. Geometry is computed asynchronously by route-calc.\n\n202 Accepted → { routeId }\n403 Forbidden → driver not authorised to drive\n422 Unprocessable → start/end outside service area\n503 Service Unavail → accounts or route-calc unavailable"
+              },
+              "response": []
+            },
+            {
+              "name": "Activate Route",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/routes/{{routeId}}/activate",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "routes", "{{routeId}}", "activate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"currentLocation\": { \"latitude\": 52.2297, \"longitude\": 21.0122 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Driver signals they are at the start location and ready.\nWaitingForActivation rides transition to WaitingForDriver.\n\n204 No Content\n403 Forbidden → route belongs to different driver\n404 Not Found\n409 Conflict → route not in Created status\n422 Unprocessable → driver not near Route.Start"
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Route",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/routes/{{routeId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "routes", "{{routeId}}"]
+                },
+                "description": "Driver deletes a route. Passengers with accepted rides are notified.\n\n204 No Content\n403 Forbidden → route belongs to different driver\n404 Not Found\n409 Conflict → route is Active and has existing rides"
+              },
+              "response": []
+            },
+            {
+              "name": "Accept Ride Request",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/requests/{{requestId}}/accept",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "requests", "{{requestId}}", "accept"]
+                },
+                "description": "Driver accepts a pending RideRequest. Creates a Ride; may mark route Full.\nIf route became Full, remaining pending requests are auto-rejected.\n\n200 OK → { rideId, chatRoomId }\n403 Forbidden → request belongs to different driver's route\n404 Not Found → ride request not found\n409 Conflict → route is Full, or request is no longer Pending\n503 Service Unavail → payments or chat unavailable"
+              },
+              "response": []
+            },
+            {
+              "name": "Reject Ride Request",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/requests/{{requestId}}/reject",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "requests", "{{requestId}}", "reject"]
+                },
+                "description": "Driver rejects a pending RideRequest. Passenger funds are unfrozen.\n\n204 No Content\n403 Forbidden → request belongs to different driver's route\n404 Not Found → ride request not found\n409 Conflict → request is no longer Pending\n503 Service Unavail → payments unavailable"
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Driver Pickup",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/rides/{{rideId}}/pickup",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "rides", "{{rideId}}", "pickup"]
+                },
+                "description": "Driver declares the passenger has been picked up.\nRide transitions to Started only after passenger also declares pickup.\n\n204 No Content\n403 Forbidden → ride belongs to different driver\n404 Not Found\n409 Conflict → ride not in WaitingForDriver status"
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Driver End",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/route/driver/rides/{{rideId}}/end",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "driver", "rides", "{{rideId}}", "end"]
+                },
+                "description": "Driver declares the ride is over.\nPassenger must declare end first; out-of-order returns 403.\nWhen both declare: payment charged, events published.\n\n204 No Content\n403 Forbidden → ride belongs to different driver, or passenger hasn't declared end yet\n404 Not Found\n409 Conflict → ride not in Started status\n503 Service Unavail → payments unavailable"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Passenger",
+          "item": [
+            {
+              "name": "Submit Route Search",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": {
+                  "raw": "{{base_url}}/api/route/passenger/routes/search",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "passenger", "routes", "search"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start\": { \"latitude\": 52.2297, \"longitude\": 21.0122 },\n  \"end\":   { \"latitude\": 52.2500, \"longitude\": 21.0400 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Passenger submits a route search. Matching is async via RabbitMQ/route-calc.\nResults delivered via SSE/push (RouteSearchCompletedEvent).\n\n202 Accepted → { jobId }\n422 Unprocessable → start/end outside service area\n503 Service Unavail → route-calc unavailable"
+              },
+              "response": []
+            },
+            {
+              "name": "Create Ride Request",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": {
+                  "raw": "{{base_url}}/api/route/passenger/routes/{{routeId}}/requests",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "passenger", "routes", "{{routeId}}", "requests"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start\": { \"latitude\": 52.2300, \"longitude\": 21.0130 },\n  \"end\":   { \"latitude\": 52.2480, \"longitude\": 21.0380 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Passenger picks a route and creates a RideRequest.\nPrice quoted and funds frozen atomically via payments service.\nDriver notified via RideRequestedEvent.\n\n201 Created → { requestId }\n404 Not Found → route not found\n409 Conflict → route is Full\n422 Unprocessable → passenger start/end outside service area\n503 Service Unavail → payments unavailable"
+              },
+              "response": []
+            },
+            {
+              "name": "Cancel Ride",
+              "request": {
+                "method": "DELETE",
+                "url": {
+                  "raw": "{{base_url}}/api/route/passenger/rides/{{rideId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "passenger", "rides", "{{rideId}}"]
+                },
+                "description": "Passenger cancels a ride before it starts.\n  WaitingForActivation → no charge, funds unfrozen.\n  WaitingForDriver     → cancellation fee charged, remainder unfrozen.\n  Started              → 409 (use POST .../end instead).\n\n204 No Content\n403 Forbidden → ride belongs to different passenger\n404 Not Found\n409 Conflict → ride is Started\n503 Service Unavail → payments unavailable"
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Passenger Pickup",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/route/passenger/rides/{{rideId}}/pickup",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "passenger", "rides", "{{rideId}}", "pickup"]
+                },
+                "description": "Passenger confirms they have been picked up.\nDriver must declare pickup first; out-of-order returns 403.\nRide transitions to Started when both parties have declared.\n\n204 No Content\n403 Forbidden → ride belongs to different passenger, or driver hasn't declared yet\n404 Not Found\n409 Conflict → ride not in WaitingForDriver status"
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Passenger End",
+              "request": {
+                "method": "POST",
+                "url": {
+                  "raw": "{{base_url}}/api/route/passenger/rides/{{rideId}}/end",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "route", "passenger", "rides", "{{rideId}}", "end"]
+                },
+                "description": "Passenger declares the ride is over. Must declare BEFORE the driver.\nFull completion (payment + events) happens when driver also calls their /end.\n\n204 No Content\n403 Forbidden → ride belongs to different passenger\n404 Not Found\n409 Conflict → ride not in Started status"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Trip Planner — Direct",
+      "description": "Same endpoints hit directly against trip-planner (bypassing gateway).\nUses `X-User-Id` header instead of JWT — useful for local integration testing.\nSet `trip_planner_url` to the service's direct address (e.g. via kubectl port-forward).",
+      "item": [
+        {
+          "name": "Driver",
+          "item": [
+            {
+              "name": "Create Route (direct)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-User-Id",    "value": "{{userId}}" }
+                ],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/routes",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "routes"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start\": { \"latitude\": 52.2297, \"longitude\": 21.0122 },\n  \"end\":   { \"latitude\": 52.2500, \"longitude\": 21.0400 },\n  \"capacity\": 3\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Activate Route (direct)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-User-Id",    "value": "{{userId}}" }
+                ],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/routes/{{routeId}}/activate",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "routes", "{{routeId}}", "activate"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"currentLocation\": { \"latitude\": 52.2297, \"longitude\": 21.0122 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Route (direct)",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/routes/{{routeId}}",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "routes", "{{routeId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Accept Ride Request (direct)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/requests/{{requestId}}/accept",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "requests", "{{requestId}}", "accept"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Reject Ride Request (direct)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/requests/{{requestId}}/reject",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "requests", "{{requestId}}", "reject"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Driver Pickup (direct)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/rides/{{rideId}}/pickup",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "rides", "{{rideId}}", "pickup"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Driver End (direct)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/driver/rides/{{rideId}}/end",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["driver", "rides", "{{rideId}}", "end"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Passenger",
+          "item": [
+            {
+              "name": "Submit Route Search (direct)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-User-Id",    "value": "{{userId}}" }
+                ],
+                "url": {
+                  "raw": "{{trip_planner_url}}/passenger/routes/search",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["passenger", "routes", "search"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start\": { \"latitude\": 52.2297, \"longitude\": 21.0122 },\n  \"end\":   { \"latitude\": 52.2500, \"longitude\": 21.0400 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Ride Request (direct)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-User-Id",    "value": "{{userId}}" }
+                ],
+                "url": {
+                  "raw": "{{trip_planner_url}}/passenger/routes/{{routeId}}/requests",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["passenger", "routes", "{{routeId}}", "requests"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"start\": { \"latitude\": 52.2300, \"longitude\": 21.0130 },\n  \"end\":   { \"latitude\": 52.2480, \"longitude\": 21.0380 }\n}",
+                  "options": { "raw": { "language": "json" } }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Cancel Ride (direct)",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/passenger/rides/{{rideId}}",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["passenger", "rides", "{{rideId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Passenger Pickup (direct)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/passenger/rides/{{rideId}}/pickup",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["passenger", "rides", "{{rideId}}", "pickup"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Declare Passenger End (direct)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-User-Id", "value": "{{userId}}" }],
+                "url": {
+                  "raw": "{{trip_planner_url}}/passenger/rides/{{rideId}}/end",
+                  "host": ["{{trip_planner_url}}"],
+                  "path": ["passenger", "rides", "{{rideId}}", "end"]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "description": "Health check endpoints for all services. Hit each service directly or via gateway.",
+      "item": [
+        {
+          "name": "Gateway — /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Gateway — /health/live",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/live",
+              "host": ["{{base_url}}"],
+              "path": ["health", "live"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Gateway — /health/ready",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": ["{{base_url}}"],
+              "path": ["health", "ready"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accounts — /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{accounts_url}}/health",
+              "host": ["{{accounts_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accounts — /health/live",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{accounts_url}}/health/live",
+              "host": ["{{accounts_url}}"],
+              "path": ["health", "live"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accounts — /health/ready",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{accounts_url}}/health/ready",
+              "host": ["{{accounts_url}}"],
+              "path": ["health", "ready"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trip Planner — /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{trip_planner_url}}/health",
+              "host": ["{{trip_planner_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trip Planner — /health/live",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{trip_planner_url}}/health/live",
+              "host": ["{{trip_planner_url}}"],
+              "path": ["health", "live"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trip Planner — /health/ready",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{trip_planner_url}}/health/ready",
+              "host": ["{{trip_planner_url}}"],
+              "path": ["health", "ready"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Notifications — /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{notifications_url}}/health",
+              "host": ["{{notifications_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver Tracker — /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{driver_tracker_url}}/health",
+              "host": ["{{driver_tracker_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications — Direct",
+      "description": "Hit notifications service directly (bypass gateway).\nUses `X-User-Id` header instead of JWT.\n\nEndpoints:\n  GET  /stream          — SSE event stream (keep-alive, long-lived connection)\n  POST /devices/register — register FCM push token\n  GET  /health",
+      "item": [
+        {
+          "name": "SSE Stream",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Id", "value": "{{userId}}" },
+              { "key": "Accept",    "value": "text/event-stream" }
+            ],
+            "url": {
+              "raw": "{{notifications_url}}/stream",
+              "host": ["{{notifications_url}}"],
+              "path": ["stream"]
+            },
+            "description": "Opens an SSE connection for the user. Server sends events in the format:\n  event: <type>\\ndata: <json>\\n\\n\nKeep-alive comment lines are sent every 15 s.\nClient reconnect delay is 3 s (set via `retry: 3000` on connect).\n\nNote: Postman does not render SSE natively — use curl or a browser EventSource for live testing:\n  curl -N -H 'X-User-Id: <uuid>' http://localhost:5003/stream\n\n401 Unauthorized — missing X-User-Id header"
+          },
+          "response": []
+        },
+        {
+          "name": "Register Device Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{notifications_url}}/devices/register",
+              "host": ["{{notifications_url}}"],
+              "path": ["devices", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"token\": \"fcm-device-token-here\",\n  \"platform\": \"android\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Upserts an FCM push token for a user.\n`platform` is typically `android` or `ios`.\n\n204 No Content — token stored\n400 Bad Request — missing fields"
+          },
+          "response": []
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{notifications_url}}/health",
+              "host": ["{{notifications_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Driver Tracker — Direct",
+      "description": "Hit driver-tracker service directly (bypass gateway).\nUses `X-User-Id` header where required.\n\nEndpoints:\n  POST /position/:routeId — driver pushes a location update (HTTP polling)\n  GET  /track/:routeId    — WebSocket stream of driver positions for a route\n  GET  /health",
+      "item": [
+        {
+          "name": "Update Driver Position",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{driver_tracker_url}}/position/{{routeId}}",
+              "host": ["{{driver_tracker_url}}"],
+              "path": ["position", "{{routeId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 52.2310,\n  \"lng\": 21.0150,\n  \"timestamp\": 1748600000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Driver pushes their current location for the given route.\nStored in Redis; subscribed WebSocket clients receive the update immediately.\n\n204 No Content — position stored\n400 Bad Request — invalid routeId or missing fields"
+          },
+          "response": []
+        },
+        {
+          "name": "Track Route (WebSocket)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Connection", "value": "Upgrade" },
+              { "key": "Upgrade",    "value": "websocket" }
+            ],
+            "url": {
+              "raw": "{{driver_tracker_url}}/track/{{routeId}}",
+              "host": ["{{driver_tracker_url}}"],
+              "path": ["track", "{{routeId}}"]
+            },
+            "description": "WebSocket endpoint — upgrades the HTTP connection to WS.\nPassengers connect here to receive real-time driver position updates for a route.\n\nPostman supports WebSocket requests via New → WebSocket Request (separate from the collection HTTP flow). Use ws://localhost:5004/track/<routeId> there.\n\nAlternatively with wscat:\n  wscat -c ws://localhost:5004/track/<routeId>"
+          },
+          "response": []
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{driver_tracker_url}}/health",
+              "host": ["{{driver_tracker_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

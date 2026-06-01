@@ -73,15 +73,22 @@ class Consumer:
 
         self.logger.info(f"Processing job {ctx.job_id}")
         job_type = ctx.payload.algorithm.name.lower()
-        with _tracer.start_as_current_span("route_calc.compute", attributes={"job.id": ctx.job_id}):
+        span_attrs = {"job.id": ctx.job_id, "job.type": job_type}
+        with _tracer.start_as_current_span("route_calc.compute", attributes=span_attrs) as span:
             start = time.perf_counter()
             try:
                 result = self.algorithms_orchestrator.compute(ctx.payload)
                 elapsed = time.perf_counter() - start
-                _jobs_processed.add(1)
-                _job_duration.record(elapsed, {"job_type": job_type, "result": "success"})
+                outcome = "success" if result.status == result.status.SUCCESS else "mocked_failure"
+                span.set_attribute("job.result", outcome)
+                if outcome == "success":
+                    _jobs_processed.add(1)
+                else:
+                    _jobs_failed.add(1)
+                _job_duration.record(elapsed, {"job_type": job_type, "result": outcome})
             except Exception:
                 elapsed = time.perf_counter() - start
+                span.set_attribute("job.result", "error")
                 _jobs_failed.add(1)
                 _job_duration.record(elapsed, {"job_type": job_type, "result": "error"})
                 raise

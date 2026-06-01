@@ -12,7 +12,7 @@ public class DeleteRouteHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private DeleteRouteHandler Handler() =>
-        new(_routes, _rides, _rideRequests, _payments, _events, _uow);
+        new(_routes, _rides, _rideRequests, _payments, _events, new KafkaTopics(), _uow, NullLogger<DeleteRouteHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_ActiveRouteWithRides_ThrowsRouteNotDeletableException()
@@ -42,7 +42,7 @@ public class DeleteRouteHandlerTests
 
         await _routes.Received(1).DeleteAsync(route.Id, Arg.Any<CancellationToken>());
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RouteDeletedEvent>(e => e.AffectedPassengerIds.Contains(passengerId)),
             Arg.Any<CancellationToken>());
     }

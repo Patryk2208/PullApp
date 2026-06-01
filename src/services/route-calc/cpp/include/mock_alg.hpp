@@ -1,2 +1,71 @@
+#pragma once
+
+#include <vector>
+#include <cmath>
+#include <string>
+
+// Represents a geographic point (latitude, longitude)
+struct Point {
+    double lat;
+    double lon;
+};
+
+// Represents a potential match between passenger and driver
+struct RideMatch {
+    std::string route_id;
+    std::string driver_id;
+    double match_score;  // 0.0 to 1.0
+    double detour_km;
+    int pickup_index;
+    int dropoff_index;
+};
+
+// Calculate great-circle distance between two points in kilometers
+double distance_km(const Point& p1, const Point& p2);
+
+// Find the closest point on a driver's route to a passenger's point
+// Returns: (closest_point_index, distance_to_closest_km)
+struct ClosestPointResult {
+    int index;
+    double distance_km;
+};
+ClosestPointResult find_closest_point_on_route(
+    const Point& passenger_point,
+    const std::vector<Point>& driver_route
+);
+
+// Match a passenger's ride request to a driver's posted route
+// Returns match score (0.0-1.0) or 0.0 if no good match
+// Sets pickup_index and dropoff_index if match found
+RideMatch match_single_route(
+    const Point& passenger_start,
+    const Point& passenger_end,
+    const std::string& route_id,
+    const std::string& driver_id,
+    const std::vector<Point>& driver_route,
+    double max_detour_km = 10.0
+);
 
 std::vector<double> slow_algorithm(double input, int seconds);
+
+// Get best route between two points using OSRM
+struct BestRouteData {
+    std::vector<Point> waypoints;
+    double distance_meters;
+    double duration_seconds;
+};
+BestRouteData get_best_route_osrm(const Point& start, const Point& end, const std::string& osrm_url = "http://router.project-osrm.org");
+
+// Get alternative routes between two points using OSRM
+std::vector<BestRouteData> get_alternative_routes_osrm(const Point& start, const Point& end, int num_alternatives = 3, const std::string& osrm_url = "http://router.project-osrm.org");
+
+// Get closest routes to a point using OSRM
+struct ClosestRouteData {
+    std::string route_id;
+    std::vector<Point> waypoints;
+    double distance_to_point_meters;
+    Point access_point;
+    double total_distance_meters;
+    double total_duration_seconds;
+};
+std::vector<ClosestRouteData> get_closest_routes_osrm(const Point& point, int num_routes = 3, const std::string& osrm_url = "http://router.project-osrm.org");

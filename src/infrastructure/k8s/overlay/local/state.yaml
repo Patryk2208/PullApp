@@ -55,6 +55,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: notifications-cache
+  namespace: pullapp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: event-bus
   namespace: pullapp
 spec:

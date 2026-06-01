@@ -11,9 +11,9 @@ public class PostgresHealthCheck(NpgsqlDataSource dataSource) : IHealthCheck
         {
             await using var conn = await dataSource.OpenConnectionAsync(ct);
             await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT 1";
-            await cmd.ExecuteScalarAsync(ct);
-            return HealthCheckResult.Healthy();
+            cmd.CommandText = "SELECT version()";
+            var version = await cmd.ExecuteScalarAsync(ct) as string;
+            return HealthCheckResult.Healthy(version);
         }
         catch (Exception ex)
         {

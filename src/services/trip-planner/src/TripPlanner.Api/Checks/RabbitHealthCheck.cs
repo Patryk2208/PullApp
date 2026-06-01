@@ -10,9 +10,11 @@ public class RabbitHealthCheck(RabbitConnection rabbit) : IHealthCheck
         try
         {
             var conn = await rabbit.GetAsync(ct);
-            return conn.IsOpen
-                ? HealthCheckResult.Healthy()
-                : HealthCheckResult.Unhealthy("RabbitMQ connection is closed");
+            if (!conn.IsOpen)
+                return HealthCheckResult.Unhealthy("connection is closed");
+
+            var ep = conn.Endpoint;
+            return HealthCheckResult.Healthy($"{ep.HostName}:{ep.Port}");
         }
         catch (Exception ex)
         {

@@ -12,7 +12,7 @@ public class CancelRideHandlerTests
     private readonly IUnitOfWork            _uow          = Substitute.For<IUnitOfWork>();
 
     private CancelRideHandler Handler() =>
-        new(_rides, _routes, _rideRequests, _payments, _events, _uow);
+        new(_rides, _routes, _rideRequests, _payments, _events, new KafkaTopics(), new TripPlannerMetrics(), _uow, NullLogger<CancelRideHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_WaitingForActivation_UnfreezesFundsAndPublishesEvents()
@@ -28,9 +28,9 @@ public class CancelRideHandlerTests
         await _payments.Received(1).UnfreezeAsync(ride.FrozenPriceId!.Value, Arg.Any<CancellationToken>());
         await _payments.DidNotReceiveWithAnyArgs().ChargeCancellationAsync(default, default, default);
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers, Arg.Any<RideEndedEvent>(), Arg.Any<CancellationToken>());
+            "notification-triggers", Arg.Any<RideEndedEvent>(), Arg.Any<CancellationToken>());
         await _events.Received(1).PublishAsync(
-            Topics.RideCompletions, Arg.Any<RideCancelledEvent>(), Arg.Any<CancellationToken>());
+            "ride-completions", Arg.Any<RideCancelledEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class CancelRideHandlerTests
             ride.FrozenPriceId!.Value, ride.CancellationPrice, Arg.Any<CancellationToken>());
         await _payments.DidNotReceiveWithAnyArgs().UnfreezeAsync(default, default);
         await _events.Received(1).PublishAsync(
-            Topics.RideCompletions, Arg.Any<RideCancelledEvent>(), Arg.Any<CancellationToken>());
+            "ride-completions", Arg.Any<RideCancelledEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class CancelRideHandlerTests
         await Handler().HandleAsync(new(passengerId, ride.Id), default);
 
         await _events.Received(1).PublishAsync(
-            Topics.NotificationTriggers,
+            "notification-triggers",
             Arg.Is<RideEndedEvent>(e => e.NotifyPassengerIds.Contains(rejected.PassengerId)),
             Arg.Any<CancellationToken>());
     }

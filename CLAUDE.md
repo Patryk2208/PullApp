@@ -70,24 +70,38 @@ poetry run pytest tests/autoscaling_test.py::test_name
 
 ### Local full-stack (Kubernetes via minikube)
 
-Run from `src/infrastructure`:
+All cluster/build/deploy orchestration lives in the **top-level `Makefile`** — run
+from the repo root. `make help` lists every target. Key ones:
 
 ```bash
-./scripts/run-local.sh        # CI (act) + build images + load into minikube + deploy
-./scripts/local-ci.sh         # CI only (runs GitHub Actions locally via act)
-./scripts/local-cd.sh         # Deploy to minikube only
-
-# Access the stack after deploy
-kubectl port-forward service/gateway 8080:80 -n pullapp
+make start          # First-time setup: start minikube + install obs stack + KEDA
+make run            # Full from scratch: cluster + obs + infra + build/load + deploy
+make build          # Build all service images (make build-<svc> for one)
+make ci             # Build all, load into minikube, restart deployments
+make ci-<svc>       # CI for a single service (e.g. make ci-notifications)
+make cd             # kubectl apply kustomize overlay + wait for rollouts
+make ci-full        # Run all GitHub Actions workflows locally via act
+make pf-gateway     # Port-forward gateway → http://localhost:8080
+make status         # Cluster + pod + compose summary
 ```
 
-Prerequisites: `act`, `minikube`, `kubectl`, `kustomize`, `docker`.
+Prerequisites: `act`, `minikube`, `kubectl`, `kustomize`, `helm`, `docker`.
 
 ### Infrastructure (docker-compose for local dependencies)
 
+Compose deps (Postgres, Redis, RabbitMQ, Kafka) are also driven from the
+top-level `Makefile`:
+
 ```bash
-docker compose -f src/infrastructure/docker-compose.yaml up -d
+make infra          # Start all local deps (db, cache, messaging)
+make infra-db       # Databases only
+make infra-cache    # Caches only
+make infra-messaging # Messaging only
+make infra-down     # Stop and remove
 ```
+
+Compose files live in `src/infrastructure/compose/` (`docker-compose.yml` plus
+`databases`, `cache`, `messaging` overlays).
 
 ## Architecture
 

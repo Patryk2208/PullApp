@@ -1,3 +1,4 @@
+using System.Globalization;
 using Npgsql;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Domain.Compute;
@@ -7,23 +8,33 @@ namespace TripPlanner.Infrastructure.Postgres;
 
 public class PostgresRouteRepository(DbSession db) : IRouteRepository
 {
+    private const string SelectCols = """
+        id, driver_id, status,
+        start_lat, start_lng, end_lat, end_lng,
+        current_location_lat, current_location_lng,
+        capacity, active_ride_count,
+        ST_AsText(route_geom) AS route_geom_wkt,
+        duration_seconds, distance_meters,
+        created_at, activated_at
+        """;
+
     public async Task AddAsync(Route route, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
+        cmd.CommandText = $"""
             INSERT INTO routes
                 (id, driver_id, status,
                  start_lat, start_lng, end_lat, end_lng,
                  current_location_lat, current_location_lng,
                  capacity, active_ride_count,
-                 geometry_json, eta_seconds, distance_meters,
+                 route_geom, duration_seconds, distance_meters,
                  created_at, activated_at)
             VALUES
                 (@id, @driver_id, @status,
                  @start_lat, @start_lng, @end_lat, @end_lng,
                  @cur_lat, @cur_lng,
                  @capacity, @active_ride_count,
-                 @geometry_json, @eta_seconds, @distance_meters,
+                 {GeomParam(route.RoutePoints)}, @duration_seconds, @distance_meters,
                  @created_at, @activated_at)
             """;
         BindAll(cmd, route);
@@ -33,7 +44,7 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
     public async Task<Route?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = "SELECT * FROM routes WHERE id = @id";
+        cmd.CommandText = $"SELECT {SelectCols} FROM routes WHERE id = @id";
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         return await reader.ReadAsync(ct) ? Map(reader) : null;
@@ -43,7 +54,7 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
     public async Task<Route?> GetByIdForUpdateAsync(Guid id, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = "SELECT * FROM routes WHERE id = @id FOR UPDATE";
+        cmd.CommandText = $"SELECT {SelectCols} FROM routes WHERE id = @id FOR UPDATE";
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         return await reader.ReadAsync(ct) ? Map(reader) : null;
@@ -52,8 +63,8 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
     public async Task<Route?> GetActiveByDriverIdAsync(Guid driverId, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
-            SELECT * FROM routes
+        cmd.CommandText = $"""
+            SELECT {SelectCols} FROM routes
             WHERE driver_id = @driver_id
             ORDER BY created_at DESC
             LIMIT 1
@@ -66,14 +77,14 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
     public async Task UpdateAsync(Route route, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);
-        cmd.CommandText = """
+        cmd.CommandText = $"""
             UPDATE routes SET
                 status               = @status,
                 current_location_lat = @cur_lat,
                 current_location_lng = @cur_lng,
                 active_ride_count    = @active_ride_count,
-                geometry_json        = @geometry_json,
-                eta_seconds          = @eta_seconds,
+                route_geom           = {GeomParam(route.RoutePoints)},
+                duration_seconds     = @duration_seconds,
                 distance_meters      = @distance_meters,
                 activated_at         = @activated_at
             WHERE id = @id
@@ -83,10 +94,10 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
         cmd.Parameters.AddWithValue("cur_lat",          (object?)route.CurrentLocation?.Latitude  ?? DBNull.Value);
         cmd.Parameters.AddWithValue("cur_lng",          (object?)route.CurrentLocation?.Longitude ?? DBNull.Value);
         cmd.Parameters.AddWithValue("active_ride_count", route.ActiveRideCount);
-        cmd.Parameters.AddWithValue("geometry_json",    (object?)route.GeometryJson   ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("eta_seconds",      (object?)route.EtaSeconds     ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("distance_meters",  (object?)route.DistanceMeters ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("activated_at",     (object?)route.ActivatedAt    ?? DBNull.Value);
+        BindGeomParams(cmd, route.RoutePoints);
+        cmd.Parameters.AddWithValue("duration_seconds", (object?)route.DurationSeconds ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("distance_meters",  (object?)route.DistanceMeters  ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("activated_at",     (object?)route.ActivatedAt     ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -113,11 +124,42 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
         cmd.Parameters.AddWithValue("cur_lng",          (object?)r.CurrentLocation?.Longitude ?? DBNull.Value);
         cmd.Parameters.AddWithValue("capacity",         r.Capacity);
         cmd.Parameters.AddWithValue("active_ride_count", r.ActiveRideCount);
-        cmd.Parameters.AddWithValue("geometry_json",    (object?)r.GeometryJson   ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("eta_seconds",      (object?)r.EtaSeconds     ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("distance_meters",  (object?)r.DistanceMeters ?? DBNull.Value);
+        BindGeomParams(cmd, r.RoutePoints);
+        cmd.Parameters.AddWithValue("duration_seconds", (object?)r.DurationSeconds ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("distance_meters",  (object?)r.DistanceMeters  ?? DBNull.Value);
         cmd.Parameters.AddWithValue("created_at",       r.CreatedAt);
         cmd.Parameters.AddWithValue("activated_at",     (object?)r.ActivatedAt ?? DBNull.Value);
+    }
+
+    // Emits either ST_GeomFromText(@route_geom_wkt, 4326) or NULL literal.
+    private static string GeomParam(IReadOnlyList<GeoPoint>? points) =>
+        points is { Count: > 0 } ? "ST_GeomFromText(@route_geom_wkt, 4326)" : "NULL";
+
+    // Binds @route_geom_wkt only when geometry is present.
+    private static void BindGeomParams(NpgsqlCommand cmd, IReadOnlyList<GeoPoint>? points)
+    {
+        if (points is { Count: > 0 })
+            cmd.Parameters.AddWithValue("route_geom_wkt", ToWkt(points));
+    }
+
+    private static string ToWkt(IReadOnlyList<GeoPoint> points)
+    {
+        var coords = string.Join(", ", points.Select(p =>
+            $"{p.Longitude.ToString(CultureInfo.InvariantCulture)} {p.Latitude.ToString(CultureInfo.InvariantCulture)}"));
+        return $"LINESTRING({coords})";
+    }
+
+    private static IReadOnlyList<GeoPoint> FromWkt(string wkt)
+    {
+        // "LINESTRING(lon lat, lon lat, ...)"
+        var inner = wkt[11..^1];
+        return inner.Split(',').Select(pair =>
+        {
+            var parts = pair.Trim().Split(' ');
+            return new GeoPoint(
+                double.Parse(parts[1], CultureInfo.InvariantCulture),
+                double.Parse(parts[0], CultureInfo.InvariantCulture));
+        }).ToList();
     }
 
     private static Route Map(NpgsqlDataReader r)
@@ -130,11 +172,17 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
         route.Set("End",      new GeoPoint(r.GetDouble(r.GetOrdinal("end_lat")),   r.GetDouble(r.GetOrdinal("end_lng"))));
         route.Set("Capacity",        r.GetInt32(r.GetOrdinal("capacity")));
         route.Set("ActiveRideCount", r.GetInt32(r.GetOrdinal("active_ride_count")));
-        route.Set("GeometryJson",    NullableString(r, "geometry_json"));
-        route.Set("EtaSeconds",      NullableInt(r,    "eta_seconds"));
-        route.Set("DistanceMeters",  NullableInt(r,    "distance_meters"));
         route.Set("CreatedAt",       r.GetFieldValue<DateTimeOffset>(r.GetOrdinal("created_at")));
         route.Set("ActivatedAt",     NullableDto(r, "activated_at"));
+
+        var wktOrd = r.GetOrdinal("route_geom_wkt");
+        if (!r.IsDBNull(wktOrd))
+        {
+            var points = FromWkt(r.GetString(wktOrd));
+            route.Set("RoutePoints",     points);
+            route.Set("DurationSeconds", NullableDouble(r, "duration_seconds"));
+            route.Set("DistanceMeters",  NullableDouble(r, "distance_meters"));
+        }
 
         var curLatOrd = r.GetOrdinal("current_location_lat");
         if (!r.IsDBNull(curLatOrd))
@@ -145,16 +193,10 @@ public class PostgresRouteRepository(DbSession db) : IRouteRepository
         return route;
     }
 
-    private static string? NullableString(NpgsqlDataReader r, string col)
+    private static double? NullableDouble(NpgsqlDataReader r, string col)
     {
         var ord = r.GetOrdinal(col);
-        return r.IsDBNull(ord) ? null : r.GetString(ord);
-    }
-
-    private static int? NullableInt(NpgsqlDataReader r, string col)
-    {
-        var ord = r.GetOrdinal(col);
-        return r.IsDBNull(ord) ? null : r.GetInt32(ord);
+        return r.IsDBNull(ord) ? null : r.GetDouble(ord);
     }
 
     private static DateTimeOffset? NullableDto(NpgsqlDataReader r, string col)

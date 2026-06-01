@@ -49,6 +49,7 @@ help:
 	@printf "  make obs-install        Install Prometheus+Grafana, Loki, Tempo, OTel Collector\n"
 	@printf "  make obs-upgrade        Upgrade all obs Helm releases to pinned versions\n"
 	@printf "  make obs-uninstall      Remove all obs Helm releases\n"
+	@printf "  make obs-dashboards     Apply Grafana dashboard ConfigMaps\n"
 	@printf "  make obs-status         Show obs pod status\n"
 	@printf "\n$(CYAN)KEDA$(RESET)\n"
 	@printf "  make keda-install       Install KEDA $(KEDA_VERSION) (required for route-calc autoscaling)\n"
@@ -79,6 +80,8 @@ help:
 	@printf "  make restart-<svc>      Rolling restart a single service\n"
 	@for svc in $(SERVICES); do printf "                          restart-$$svc\n"; done
 	@printf "\n$(CYAN)Port-forwards$(RESET)\n"
+	@printf "  make pf-dev             :8080-5005 → all services (Postman-ready)\n"
+	@printf "  make pf-stop            kill all kubectl port-forwards\n"
 	@printf "  make pf-gateway         :8080 → gateway\n"
 	@printf "  make pf-grafana         :3000 → Grafana\n"
 	@printf "  make pf-prometheus      :9090 → Prometheus\n"
@@ -134,6 +137,9 @@ cluster-start: _check-minikube
 	@minikube status >/dev/null 2>&1 \
 		&& printf "$(YELLOW)Minikube already running$(RESET)\n" \
 		|| minikube start
+	@printf "$(CYAN)Raising inotify limits for Promtail...$(RESET)\n"
+	@minikube ssh -- sudo sysctl fs.inotify.max_user_instances=512
+	@minikube ssh -- sudo sysctl fs.inotify.max_user_watches=524288
 	@kubectl get namespace $(NAMESPACE) >/dev/null 2>&1 \
 		|| kubectl create namespace $(NAMESPACE)
 
@@ -152,7 +158,7 @@ cluster-status: _check-kubectl
 
 # ── Observability ─────────────────────────────────────────────────────────────
 
-.PHONY: obs-install obs-upgrade obs-uninstall obs-status
+.PHONY: obs-install obs-upgrade obs-uninstall obs-status obs-dashboards obs-promtail
 
 obs-install: _check-helm _check-kubectl
 	@printf "$(CYAN)Adding Helm repos...$(RESET)\n"
@@ -177,6 +183,10 @@ obs-install: _check-helm _check-kubectl
 	helm upgrade --install otel-collector open-telemetry/opentelemetry-collector \
 		--namespace $(OBS_NS) --version 0.120.0 \
 		-f $(OBS_DIR)/otel-collector.yaml
+	@printf "$(CYAN)Installing Promtail...$(RESET)\n"
+	helm upgrade --install promtail grafana/promtail \
+		--namespace $(OBS_NS) --version 6.16.6 \
+		-f $(OBS_DIR)/promtail.yaml
 	@printf "$(GREEN)Observability stack installed.$(RESET)\n"
 	@printf "  Grafana: make pf-grafana  (admin / pullapp-grafana)\n"
 
@@ -193,12 +203,20 @@ obs-upgrade: _check-helm
 	helm upgrade otel-collector open-telemetry/opentelemetry-collector \
 		--namespace $(OBS_NS) --version 0.120.0 \
 		-f $(OBS_DIR)/otel-collector.yaml
+	helm upgrade promtail grafana/promtail \
+		--namespace $(OBS_NS) --version 6.16.6 \
+		-f $(OBS_DIR)/promtail.yaml
 
 obs-uninstall: _check-helm
 	helm uninstall kube-prometheus-stack --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall loki                  --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall tempo                 --namespace $(OBS_NS) 2>/dev/null || true
 	helm uninstall otel-collector        --namespace $(OBS_NS) 2>/dev/null || true
+	helm uninstall promtail              --namespace $(OBS_NS) 2>/dev/null || true
+
+obs-dashboards: _check-kubectl
+	@printf "$(CYAN)Applying Grafana dashboards...$(RESET)\n"
+	kubectl apply -f $(OBS_DIR)/grafana/dashboards/
 
 obs-status: _check-kubectl
 	@printf "$(BOLD)--- Observability pods ($(OBS_NS)) ---$(RESET)\n"
@@ -353,7 +371,26 @@ restart-%: _check-kubectl
 
 # ── Port-forwards ─────────────────────────────────────────────────────────────
 
-.PHONY: pf-gateway pf-grafana pf-prometheus pf-loki pf-tempo pf-rabbit
+.PHONY: pf-dev pf-stop pf-gateway pf-grafana pf-prometheus pf-loki pf-tempo pf-rabbit
+
+pf-dev:
+	@printf "$(CYAN)Forwarding all services (Ctrl-C stops all):$(RESET)\n"
+	@printf "  gateway        → http://localhost:8080\n"
+	@printf "  accounts       → http://localhost:5001\n"
+	@printf "  trip-planner   → http://localhost:5002\n"
+	@printf "  notifications  → http://localhost:5003\n"
+	@printf "  driver-tracker → http://localhost:5004\n"
+	@printf "  route-calc     → http://localhost:5005\n"
+	kubectl port-forward service/gateway        8080:80 -n $(NAMESPACE) &
+	kubectl port-forward service/accounts       5001:80 -n $(NAMESPACE) &
+	kubectl port-forward service/trip-planner   5002:80 -n $(NAMESPACE) &
+	kubectl port-forward service/notifications  5003:80 -n $(NAMESPACE) &
+	kubectl port-forward service/driver-tracker 5004:80 -n $(NAMESPACE) &
+	kubectl port-forward service/route-calc     5005:80 -n $(NAMESPACE) &
+	wait
+
+pf-stop:
+	@pkill -f "kubectl port-forward" 2>/dev/null && printf "$(CYAN)All port-forwards stopped$(RESET)\n" || printf "$(CYAN)No port-forwards running$(RESET)\n"
 
 pf-gateway:
 	@printf "$(CYAN)Forwarding gateway → http://localhost:8080$(RESET)\n"
@@ -421,7 +458,7 @@ ci-full-%: _check-act FORCE
 
 .PHONY: run
 
-run: _cluster-ensure obs-install infra ci cd
+run: _cluster-ensure obs-install infra cd ci
 	@printf "\n$(GREEN)$(BOLD)PullApp is running.$(RESET)\n"
 	@printf "  App:        make pf-gateway   → http://localhost:8080\n"
 	@printf "  Grafana:    make pf-grafana   → http://localhost:3000\n"

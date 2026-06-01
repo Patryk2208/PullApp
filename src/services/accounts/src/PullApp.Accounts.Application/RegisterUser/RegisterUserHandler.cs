@@ -10,9 +10,9 @@ public class RegisterUserHandler(
 	IPasswordHasher hasher,
 	AccountsMetrics metrics,
 	ILogger<RegisterUserHandler> logger)
-	: IRequestHandler<RegisterUserCommand, int>
+	: IRequestHandler<RegisterUserCommand, Guid>
 {
-	public async Task<int> Handle(RegisterUserCommand request, CancellationToken ct)
+	public async Task<Guid> Handle(RegisterUserCommand request, CancellationToken ct)
 	{
 		logger.LogDebug("RegisterUser: email={Email}", request.Email);
 

@@ -12,6 +12,7 @@ using TripPlanner.Api.Middleware;
 using TripPlanner.Application.Features.Background;
 using TripPlanner.Application.Features.Driver;
 using TripPlanner.Application.Features.Passenger;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Compute;
@@ -65,7 +66,10 @@ builder.Services.AddScoped<IGeoService, PostgisGeoService>();
 builder.Services.AddSingleton<IAccountsService, FakeAccountsService>();
 builder.Services.AddSingleton<IChatService,     FakeChatService>();
 builder.Services.AddSingleton<IPaymentsService, FakePaymentsService>();
-builder.Services.AddSingleton<IEventPublisher,  FakeEventPublisher>();
+
+// Kafka publisher is always real — infra is in place.
+// Accounts/Chat/Payments remain fakes until those services are implemented.
+builder.Services.AddSingleton<IEventPublisher, EventPublisher>();
 
 // ─── RabbitMQ (Route-Calc compute queue) ─────────────────────────────────────
 
@@ -88,17 +92,28 @@ builder.Services.AddSingleton<IQueueDtoMapper<ComputeJob>, ComputeJobProtoMapper
 builder.Services.AddSingleton<IQueueDomainMapper<ComputeJobResult>, ComputeResultProtoMapper>();
 builder.Services.AddScoped<IComputePublisher<ComputeJob>, RabbitComputePublisher<ComputeJob>>();
 
+// RouteComputedHandler is scoped (holds DbSession). RabbitSubscriber is singleton and creates
+// a fresh DI scope per message — do NOT change this to singleton or the DbSession leaks.
 builder.Services.AddScoped<IHandler<ComputeJobResult>, RouteComputedHandler>();
 builder.Services.AddSingleton<RabbitSubscriber<ComputeJobResult>>();
 builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
     new HostedServiceWrapper(sp.GetRequiredService<RabbitSubscriber<ComputeJobResult>>()));
 
-// ─── Kafka (domain events) ────────────────────────────────────────────────────
+// ─── Kafka (domain events outbound + driver events inbound) ──────────────────
 
 var kafkaSection = builder.Configuration.GetSection("EventBus");
 builder.Services.AddOptions<KafkaOptions>().Bind(kafkaSection);
+builder.Services.AddSingleton(kafkaSection.Get<KafkaTopics>() ?? new KafkaTopics());
 
-// builder.Services.AddSingleton<IEventPublisher, EventPublisher>();  // swap fake above when Kafka is ready
+// KafkaEventDispatcher handles inbound driver-events (disconnect/reconnect from DriverTracker).
+// It is singleton because it holds no per-request state.
+builder.Services.AddSingleton<KafkaEventDispatcher>();
+builder.Services.AddSingleton<KafkaConsumerService<string>>(sp => new KafkaConsumerService<string>(
+    sp.GetRequiredService<IOptions<KafkaOptions>>().Value,
+    sp.GetRequiredService<KafkaEventDispatcher>(),
+    sp.GetRequiredService<ILogger<KafkaConsumerService<string>>>()));
+builder.Services.AddHostedService<HostedServiceWrapper>(sp =>
+    new HostedServiceWrapper(sp.GetRequiredService<KafkaConsumerService<string>>()));
 
 // ─── Application handlers ─────────────────────────────────────────────────────
 
@@ -120,9 +135,12 @@ builder.Services.AddScoped<DeclarePassengerEndHandler>();
 
 // ─── Observability ────────────────────────────────────────────────────────────
 
+builder.Services.AddSingleton<TripPlannerMetrics>();
+
 builder.Services.AddHealthChecks()
     .AddCheck<PostgresHealthCheck>("postgres", tags: ["ready"])
-    .AddCheck<RabbitHealthCheck>("rabbitmq",   tags: ["ready"]);
+    .AddCheck<RabbitHealthCheck>("rabbitmq",   tags: ["ready"])
+    .AddCheck<KafkaHealthCheck>("kafka",        tags: ["ready"]);
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("trip-planner"))
@@ -134,6 +152,7 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddRuntimeInstrumentation()
+        .AddMeter(TripPlannerMetrics.MeterName)
         .AddOtlpExporter());
 
 builder.Logging.AddOpenTelemetry(o =>
@@ -152,8 +171,7 @@ var app = builder.Build();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
+app.MapOpenApi();
 
 app.MapEndpoints();
 

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -20,7 +21,9 @@ public class DeleteRouteHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
-    IUnitOfWork uow)
+    KafkaTopics topics,
+    IUnitOfWork uow,
+    ILogger<DeleteRouteHandler> logger)
 {
     public async Task HandleAsync(DeleteRouteCommand cmd, CancellationToken ct)
     {
@@ -67,7 +70,10 @@ public class DeleteRouteHandler(
 
         // 6. Publish RouteDeletedEvent only when there were accepted rides (case b).
         if (affectedPassengerIds.Count > 0)
-            await events.PublishAsync(Topics.NotificationTriggers,
+            await events.PublishAsync(topics.NotificationTriggers,
                 new RouteDeletedEvent(route.Id, route.DriverId, affectedPassengerIds), ct);
+
+        logger.LogInformation("Route deleted routeId={RouteId} driverId={DriverId} affectedRides={Rides} rejectedRequests={Requests}",
+            route.Id, cmd.DriverId, activeRides.Count, pendingRequests.Count);
     }
 }

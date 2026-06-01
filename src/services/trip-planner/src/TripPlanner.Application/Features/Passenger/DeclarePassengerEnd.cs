@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
@@ -14,7 +15,8 @@ public record DeclarePassengerEndCommand(Guid PassengerId, Guid RideId);
 /// </summary>
 public class DeclarePassengerEndHandler(
     IRideRepository rides,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<DeclarePassengerEndHandler> logger)
 {
     public async Task HandleAsync(DeclarePassengerEndCommand cmd, CancellationToken ct)
     {
@@ -37,5 +39,7 @@ public class DeclarePassengerEndHandler(
         // 3. Persist and commit.
         await rides.UpdateAsync(ride, ct);
         await uow.CommitAsync(ct);
+        logger.LogInformation("Passenger declared end rideId={RideId} passengerId={PassengerId} awaitingDriver=true",
+            cmd.RideId, cmd.PassengerId);
     }
 }

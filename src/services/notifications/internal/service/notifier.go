@@ -7,20 +7,11 @@ import (
 
 	"firebase.google.com/go/v4/messaging"
 	"github.com/jackc/pgx/v5"
+
+	"notifications/internal/model"
 )
 
-type Event struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	PassengerID string `json:"passengerId"`
-	DriverID    string `json:"driverId"`
-	DriverName  string `json:"driverName"`
-	Amount      string `json:"amount"`
-}
-
 type Repository interface {
-	IsProcessed(ctx context.Context, eventID string) (bool, error)
-	MarkProcessed(ctx context.Context, eventID string) error
 	GetDeviceToken(ctx context.Context, userID string) (string, error)
 	DeleteDeviceToken(ctx context.Context, userID string) error
 }
@@ -34,21 +25,15 @@ func NewNotifier(repo Repository, fcm *messaging.Client) *Notifier {
 	return &Notifier{repo: repo, fcm: fcm}
 }
 
-func (n *Notifier) Handle(ctx context.Context, event Event) error {
-	processed, err := n.repo.IsProcessed(ctx, event.ID)
-	if err != nil {
-		return fmt.Errorf("idempotency check: %w", err)
-	}
-	if processed {
-		return nil
-	}
-
-	recipientID, title, body, priority, ok := resolvePayload(event)
+// Notify renders push content for the event and delivers it to userID's device.
+// No-op if the event has no push representation or the user has no device token.
+func (n *Notifier) Notify(ctx context.Context, userID string, env model.Envelope) error {
+	title, body, priority, ok := pushContent(env)
 	if !ok {
 		return nil
 	}
 
-	token, err := n.repo.GetDeviceToken(ctx, recipientID)
+	token, err := n.repo.GetDeviceToken(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -79,35 +64,39 @@ func (n *Notifier) Handle(ctx context.Context, event Event) error {
 		},
 	})
 	if messaging.IsUnregistered(err) {
-		_ = n.repo.DeleteDeviceToken(ctx, recipientID)
-		_ = n.repo.MarkProcessed(ctx, event.ID)
+		// device token is dead — drop it so we stop trying
+		_ = n.repo.DeleteDeviceToken(ctx, userID)
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("fcm send: %w", err)
 	}
-
-	if err := n.repo.MarkProcessed(ctx, event.ID); err != nil {
-		return fmt.Errorf("mark processed: %w", err)
-	}
 	return nil
 }
 
-func resolvePayload(e Event) (recipientID, title, body, priority string, ok bool) {
-	switch e.Type {
-	case "ride.accepted":
-		return e.PassengerID, "Driver accepted", e.DriverName + " is on the way", "high", true
-	case "ride.cancelled.by_driver":
-		return e.PassengerID, "Ride cancelled", "Your driver cancelled the ride", "high", true
-	case "ride.cancelled.by_passenger":
-		return e.DriverID, "Ride cancelled", "Passenger cancelled the ride", "high", true
-	case "driver.arriving":
-		return e.PassengerID, "Driver arriving", e.DriverName + " is almost there", "high", true
-	case "ride.completed":
-		return e.PassengerID, "Ride complete", "Your ride has ended", "normal", true
-	case "payment.charged":
-		return e.PassengerID, "Payment confirmed", "Payment of " + e.Amount + " confirmed", "normal", true
+// pushContent maps an event to a user-facing push title/body/priority. Returns
+// ok=false for events that should not produce a push.
+func pushContent(env model.Envelope) (title, body, priority string, ok bool) {
+	switch env.EventType {
+	case model.EventRideRequested:
+		return "New ride request", "A passenger requested your route", "high", true
+	case model.EventRideAccepted:
+		return "Ride confirmed", "Your driver accepted the request", "high", true
+	case model.EventRideRejected:
+		return "Request declined", "The driver declined your request", "high", true
+	case model.EventRouteReady:
+		return "Route ready", "Your route has been calculated", "normal", true
+	case model.EventRouteSearchCompleted:
+		return "Matches found", "Available routes found for your trip", "normal", true
+	case model.EventRideEnded:
+		return "Seat available", "A ride you were waitlisted for may have a free seat", "normal", true
+	case model.EventRouteDeleted:
+		return "Route cancelled", "The driver cancelled the route", "high", true
+	case model.EventRideCompleted:
+		return "Ride complete", "Your ride has ended", "normal", true
+	case model.EventRideCancelled:
+		return "Ride cancelled", "The ride has been cancelled", "high", true
 	default:
-		return "", "", "", "", false
+		return "", "", "", false
 	}
 }

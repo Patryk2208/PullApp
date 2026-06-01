@@ -1,3 +1,4 @@
+using TripPlanner.Application.Metrics;
 using NSubstitute;
 using TripPlanner.Application.Features.Passenger;
 using TripPlanner.Application.Services;
@@ -40,13 +41,13 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
 
         var session = db.NewSession();
         var handler = new SubmitRouteSearchHandler(
-            new PostgresRouteJobRepository(session), compute, geo, session);
+            new PostgresRouteJobRepository(session), compute, geo, new TripPlannerMetrics(), session, NullLogger<SubmitRouteSearchHandler>.Instance);
 
-        var result = await handler.HandleAsync(new(Guid.NewGuid(), PointA, PointB), default);
+        var result = await handler.HandleAsync(new(Guid.NewGuid(), PointA, PointB, DepartureDate: 1_700_000_000, SeatsNeeded: 1), default);
 
         var job = await LoadJob(result.JobId);
         Assert.NotNull(job);
-        Assert.Equal(JobType.PassengerMatch, job!.JobType);
+        Assert.Equal(JobType.RideMatching, job!.JobType);
         Assert.Equal(JobStatus.Pending, job.Status);
     }
 
@@ -57,7 +58,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
     {
         var driverId = Guid.NewGuid();
         var route    = Route.Create(driverId, PointA, PointB, capacity: 3);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         var seedSess = db.NewSession();
         await new PostgresRouteRepository(seedSess).AddAsync(route, default);
         await new PostgresRouteRepository(seedSess).UpdateAsync(route, default);
@@ -75,7 +76,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         var handler = new CreateRideRequestHandler(
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, geo, events, session);
+            payments, geo, events, new KafkaTopics(), session, NullLogger<CreateRideRequestHandler>.Instance);
 
         var result = await handler.HandleAsync(
             new(Guid.NewGuid(), route.Id, PointA, PointB), default);
@@ -108,7 +109,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
             new PostgresRideRepository(session),
             new PostgresRouteRepository(session),
             new PostgresRideRequestRepository(session),
-            payments, events, session);
+            payments, events, new KafkaTopics(), new TripPlannerMetrics(), session, NullLogger<CancelRideHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 
@@ -131,7 +132,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         await new PostgresRideRepository(seedSess).UpdateAsync(ride, default);
 
         var session = db.NewSession();
-        var handler = new DeclarePassengerPickupHandler(new PostgresRideRepository(session), session);
+        var handler = new DeclarePassengerPickupHandler(new PostgresRideRepository(session), session, NullLogger<DeclarePassengerPickupHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 
@@ -157,7 +158,7 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         await new PostgresRideRepository(seedSess).UpdateAsync(ride, default);
 
         var session = db.NewSession();
-        var handler = new DeclarePassengerEndHandler(new PostgresRideRepository(session), session);
+        var handler = new DeclarePassengerEndHandler(new PostgresRideRepository(session), session, NullLogger<DeclarePassengerEndHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 

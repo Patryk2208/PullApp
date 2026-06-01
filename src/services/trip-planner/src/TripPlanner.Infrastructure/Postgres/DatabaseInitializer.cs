@@ -33,15 +33,16 @@ public class DatabaseInitializer(NpgsqlDataSource dataSource, ILogger<DatabaseIn
             current_location_lng FLOAT8,
             capacity             INTEGER       NOT NULL,
             active_ride_count    INTEGER       NOT NULL DEFAULT 0,
-            geometry_json        TEXT,
-            eta_seconds          INTEGER,
-            distance_meters      INTEGER,
+            route_geom           geometry(LineString, 4326),
+            duration_seconds     FLOAT8,
+            distance_meters      FLOAT8,
             created_at           TIMESTAMPTZ   NOT NULL,
             activated_at         TIMESTAMPTZ
         );
 
         CREATE INDEX IF NOT EXISTS idx_routes_driver_id ON routes(driver_id);
         CREATE INDEX IF NOT EXISTS idx_routes_status    ON routes(status);
+        CREATE INDEX IF NOT EXISTS idx_routes_geom      ON routes USING GIST(route_geom);
 
         CREATE TABLE IF NOT EXISTS ride_requests (
             id                 UUID          PRIMARY KEY,

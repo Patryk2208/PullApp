@@ -6,7 +6,16 @@ ENV POETRY_VERSION=2.1.4
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl build-essential cmake protobuf-compiler && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    cmake \
+    libcurl4 \
+    libcurl4-openssl-dev \
+    protobuf-compiler \
+    libpq5 \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./
@@ -21,6 +30,8 @@ RUN mkdir -p route_calc/generated && \
            --python_out=route_calc/generated/ \
            schemas/pullapp/core/v1/queue.proto && \
     touch route_calc/generated/__init__.py
+
+RUN mkdir -p /app/config && cp route_calc/config.json /app/config/config.json
 
 COPY CMakeLists.txt .
 COPY cpp/ ./cpp/

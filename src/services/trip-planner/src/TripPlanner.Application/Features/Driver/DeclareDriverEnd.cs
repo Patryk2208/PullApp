@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
+using TripPlanner.Application.Metrics;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
@@ -19,7 +21,10 @@ public class DeclareDriverEndHandler(
     IRideRequestRepository rideRequests,
     IPaymentsService payments,
     IEventPublisher events,
-    IUnitOfWork uow)
+    KafkaTopics topics,
+    TripPlannerMetrics metrics,
+    IUnitOfWork uow,
+    ILogger<DeclareDriverEndHandler> logger)
 {
     public async Task HandleAsync(DeclareDriverEndCommand cmd, CancellationToken ct)
     {
@@ -62,12 +67,17 @@ public class DeclareDriverEndHandler(
         var notifyPassengerIds = rejectedRequests.Select(r => r.PassengerId).ToList();
 
         // 3e. Publish RideEndedEvent (notifies rejected passengers that a seat may be free).
-        await events.PublishAsync(Topics.NotificationTriggers,
+        await events.PublishAsync(topics.NotificationTriggers,
             new RideEndedEvent(ride.Id, ride.RouteId, ride.DriverId, ride.PassengerId, notifyPassengerIds), ct);
 
         // 3f. Publish RideCompletedEvent (billing confirmation to payments service).
-        await events.PublishAsync(Topics.RideCompletions,
+        await events.PublishAsync(topics.RideCompletions,
             new RideCompletedEvent(ride.Id, ride.DriverId, ride.PassengerId,
                 ride.FrozenPriceId!.Value, ride.Price, ride.EndedAt!.Value), ct);
+
+        metrics.RideTransition("started", "completed", "normal");
+        metrics.RideActiveAdd(-1);
+        logger.LogInformation("Ride completed rideId={RideId} driverId={DriverId} passengerId={PassengerId}",
+            ride.Id, cmd.DriverId, ride.PassengerId);
     }
 }

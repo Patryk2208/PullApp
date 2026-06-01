@@ -24,7 +24,7 @@ spec:
       containers:
       - name: trip-planner
         image: trip-planner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         
         ports:
         - containerPort: 8080

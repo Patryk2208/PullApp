@@ -8,6 +8,7 @@ volumes:
   notifications-data:
   trip-cache-data:
   driver-tracker-cache-data:
+  notifications-cache-data:
   rabbitmq-data:
   event-bus-data:
   chat-db-data:

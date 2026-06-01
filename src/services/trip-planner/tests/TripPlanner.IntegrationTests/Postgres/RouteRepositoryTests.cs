@@ -47,8 +47,8 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
         Assert.Equal(route.Capacity,              loaded.Capacity);
         Assert.Equal(0,                           loaded.ActiveRideCount);
         Assert.Null(loaded.CurrentLocation);
-        Assert.Null(loaded.GeometryJson);
-        Assert.Null(loaded.EtaSeconds);
+        Assert.Null(loaded.RoutePoints);
+        Assert.Null(loaded.DurationSeconds);
         Assert.Null(loaded.DistanceMeters);
         Assert.Null(loaded.ActivatedAt);
     }
@@ -80,19 +80,25 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
     [Fact]
     public async Task UpdateAsync_PersistsGeometryAndStatus()
     {
+        var pts   = new[] { new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1) };
         var route = NewRoute();
         var repo  = Repo();
 
         await repo.AddAsync(route, default);
-        route.SetGeometry("{}", etaSeconds: 300, distanceMeters: 5000);
+        route.SetGeometry(pts, durationSeconds: 300.0, distanceMeters: 5000.0);
         await repo.UpdateAsync(route, default);
 
         var loaded = await repo.GetByIdAsync(route.Id, default);
         Assert.NotNull(loaded);
         Assert.Equal(RouteStatus.Created, loaded.Status);
-        Assert.Equal("{}",  loaded.GeometryJson);
-        Assert.Equal(300,   loaded.EtaSeconds);
-        Assert.Equal(5000,  loaded.DistanceMeters);
+        Assert.NotNull(loaded.RoutePoints);
+        Assert.Equal(2,      loaded.RoutePoints!.Count);
+        Assert.Equal(52.2,   loaded.RoutePoints[0].Latitude,  6);
+        Assert.Equal(21.0,   loaded.RoutePoints[0].Longitude, 6);
+        Assert.Equal(52.3,   loaded.RoutePoints[1].Latitude,  6);
+        Assert.Equal(21.1,   loaded.RoutePoints[1].Longitude, 6);
+        Assert.Equal(300.0,  loaded.DurationSeconds);
+        Assert.Equal(5000.0, loaded.DistanceMeters);
     }
 
     [Fact]
@@ -103,7 +109,7 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
         var repo     = Repo();
 
         await repo.AddAsync(route, default);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(location);
         await repo.UpdateAsync(route, default);
 
@@ -123,7 +129,7 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
         var repo  = Repo();
 
         await repo.AddAsync(route, default);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
         route.TryAddRide();
         await repo.UpdateAsync(route, default);
@@ -141,7 +147,7 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
         var repo  = Repo();
 
         await repo.AddAsync(route, default);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
         route.TryAddRide();
         await repo.UpdateAsync(route, default);
@@ -208,7 +214,7 @@ public class RouteRepositoryTests(PostgresFixture db) : IAsyncLifetime
         // only after session 1 commits, and that it sees session 1's changes.
         var route = NewRoute(capacity: 2);
         await Repo().AddAsync(route, default);
-        route.SetGeometry("{}", 300, 5000);
+        route.SetGeometry([new GeoPoint(52.2, 21.0), new GeoPoint(52.3, 21.1)], 300.0, 5000.0);
         route.Activate(new GeoPoint(52.2, 21.0));
         await Repo().UpdateAsync(route, default);
 

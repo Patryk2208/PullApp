@@ -8,4 +8,4 @@ public record class RegisterUserCommand(
 	string Email,
 	string Password,
 	DateOnly BirthDate)
-	: IRequest<int>;
+	: IRequest<Guid>;

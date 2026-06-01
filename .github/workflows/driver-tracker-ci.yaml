@@ -34,8 +34,30 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test
-        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit tests (race)
+        run: go test -race ./...
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    defaults:
+      run:
+        working-directory: src/services/driver-tracker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/services/driver-tracker/go.mod
+          cache-dependency-path: src/services/driver-tracker/go.sum
+
+      - name: Integration tests
+        run: go test -tags=integration -timeout 10m ./...
 
   dockerize:
     runs-on: ubuntu-latest
