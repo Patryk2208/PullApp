@@ -3,7 +3,6 @@ import type {
 	LoginUserCommand, LoginUserResponse,
 	RegisterUserCommand, RegisterUserResponse } from '@pullapp/domain';
 import { ok, err, Result } from '@pullapp/domain';
-import { apiClient } from '../apiClient';
 
 export class AuthRepository implements IAuthRepository {
 	

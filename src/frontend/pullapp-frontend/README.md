@@ -15,5 +15,5 @@
 Run:
 ```bash
 pnpm install
-pnpm run dev # --filter web
+pnpm run dev # --filter @pullapp/web
 ```

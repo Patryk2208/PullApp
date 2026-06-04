@@ -24,7 +24,7 @@ public class AuthEndpoints : IEndpoint
 	}
 
 	private static async Task<IResult> Login(
-		LoginUserCommand command, 
+		LoginUserCommand command,
 		ISender sender, 
 		CancellationToken ct)
 	{
