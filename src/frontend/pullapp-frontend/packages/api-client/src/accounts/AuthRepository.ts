@@ -13,6 +13,7 @@ export class AuthRepository implements IAuthRepository {
 	
 	private async _post<T>(path: string, body: unknown): Promise<Result<T>> {
 		try {
+			// TODO przestaw się na publicApiClient z apiClient.ts?
 			const res = await fetch(`${this._baseUrl}${path}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
