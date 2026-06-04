@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -13,11 +14,16 @@ using OpenTelemetry.Trace;
 using Yarp.ReverseProxy.Model;
 
 var builder = WebApplication.CreateBuilder(args);
+IdentityModelEventSource.ShowPII = true; // apparently violates RODO, development only
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {
+	    var securityKey = new SymmetricSecurityKey(
+		    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!));
+	    securityKey.KeyId = "pullapp-key";
+	    
         o.MapInboundClaims = false;
         o.TokenValidationParameters = new TokenValidationParameters
         {
@@ -26,9 +32,9 @@ builder.Services
             ValidateAudience         = true,
             ValidAudience            = builder.Configuration["Jwt:Audience"],
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey         = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            IssuerSigningKey         = securityKey,
             ValidateLifetime         = true,
+            ValidateSignatureLast = false
         };
     });
 

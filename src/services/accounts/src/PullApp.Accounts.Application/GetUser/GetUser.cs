@@ -8,7 +8,7 @@ public static class GetUser
 	public record Query(string Email) : IRequest<Response>;
 	
 	public record Response(
-		int      Id,            
+		Guid     Id,            
 		string   Name,          
 		string   Surname,       
 		string   Email,
