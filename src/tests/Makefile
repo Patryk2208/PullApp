@@ -26,37 +26,37 @@ help:
 	@echo "  BASE_URL  Gateway address (default: http://localhost:8080)"
 
 setup:
-	python3 -m venv $(VENV) && $(PYTHON) -m pip install -q -r e2e/requirements.txt
+	python3 -m venv $(VENV) && "$(PYTHON)" -m pip install -q -r e2e/requirements.txt
 
 test-gateway: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/gateway/ -v -m "not dirty"
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/gateway/ -v -m "not dirty"
 
 test-gateway-health: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/gateway/test_health.py -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/gateway/test_health.py -v
 
 test-gateway-routing: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/gateway/test_routing.py -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/gateway/test_routing.py -v
 
 test-accounts: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/accounts/ -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/accounts/ -v
 
 test-accounts-api: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/accounts/test_auth_api.py -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/accounts/test_auth_api.py -v
 
 test-accounts-comms: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/accounts/test_service_comms.py -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/accounts/test_service_comms.py -v
 
 test-trip-planner: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/trip_planner/ -v -m "not requires_route_calc"
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/trip_planner/ -v -m "not requires_route_calc"
 
 test-driver-route: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/trip_planner/test_driver_route.py -v -m "not requires_route_calc"
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/trip_planner/test_driver_route.py -v -m "not requires_route_calc"
 
 test-driver-rides: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/trip_planner/test_driver_rides.py -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/trip_planner/test_driver_rides.py -v
 
 test-passenger-requests: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/trip_planner/test_passenger_requests.py -v -m "not requires_route_calc"
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/trip_planner/test_passenger_requests.py -v -m "not requires_route_calc"
 
 test-passenger-rides: setup
-	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) $(PYTEST) services/trip_planner/test_passenger_rides.py -v
+	cd e2e && PULLAPP_GATEWAY_URL=$(BASE_URL) "$(PYTEST)" services/trip_planner/test_passenger_rides.py -v
