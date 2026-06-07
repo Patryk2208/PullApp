@@ -1,6 +1,14 @@
 module.exports = {
-  reactStrictMode: true, 
+  reactStrictMode: true,
   output: 'standalone',
+
+  async rewrites() {
+    return [
+      { source: '/api/:path*', destination: 'http://127.0.0.1:8080/api/:path*' },
+      { source: '/sse/:path*', destination: 'http://127.0.0.1:8080/sse/:path*' },
+    ];
+  },
+
   turbopack: {
     resolveAlias: {
       "react-native": "react-native-web",
