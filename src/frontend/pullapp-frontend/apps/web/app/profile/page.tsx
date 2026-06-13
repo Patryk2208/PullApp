@@ -5,7 +5,8 @@ import styles from './profile.module.css';
 import React from "react";
 import { UserRole } from '@pullapp/domain';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+// const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
 const userRepository = new UserRepository(baseUrl);
 
 export default function ProfilePage() {
