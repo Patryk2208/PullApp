@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import React from "react";
-import { useSearchTrips } from '@pullapp/features';
+import { useSearchTrips, useAuthStore } from '@pullapp/features';
 import { TripMatch } from '@pullapp/domain';
 
 const MapWithNoSSR = dynamic(
@@ -17,6 +17,7 @@ const ModalMapWithNoSSR = dynamic(
 
 export default function SearchTripPage() {
     const { searchTrips, isLoading, matches, error } = useSearchTrips();
+    const token = useAuthStore(state => state.token);
 
     const [coordinates, setCoordinates] = React.useState<{
         start: { lat: number; lng: number } | null;
@@ -31,6 +32,8 @@ export default function SearchTripPage() {
     });
 
     const [selectedMatch, setSelectedMatch] = React.useState<TripMatch | null>(null);
+    const [requestStatus, setRequestStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [requestError, setRequestError] = React.useState<string | null>(null);
 
     const handleRouteSelected = (start: any, end: any) => {
         setCoordinates({ start, end });
@@ -41,6 +44,7 @@ export default function SearchTripPage() {
         setFormParams(prev => ({ ...prev, [name]: value }));
     };
 
+    // Flow 2: passenger submits a route search.
     const handleSearchSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!coordinates.start || !coordinates.end) return;
@@ -52,6 +56,44 @@ export default function SearchTripPage() {
             maxDetourKm: Number(formParams.maxDetourKm),
             timeWindowMinutes: Number(formParams.timeWindowMinutes)
         });
+    };
+
+    const closeModal = () => {
+        setSelectedMatch(null);
+        setRequestStatus('idle');
+        setRequestError(null);
+    };
+
+    const handleCreateRideRequest = async () => {
+        if (!selectedMatch || !coordinates.start || !coordinates.end) return;
+        setRequestStatus('loading');
+        setRequestError(null);
+        try {
+            const response = await fetch(`/api/route/passenger/routes/${selectedMatch.routeId}/requests`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    Start: { Latitude: coordinates.start.lat, Longitude: coordinates.start.lng },
+                    End: { Latitude: coordinates.end.lat, Longitude: coordinates.end.lng }
+                })
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                try {
+                    const err = JSON.parse(text);
+                    throw new Error(err.Message || err.detail || `Błąd: ${response.status}`);
+                } catch {
+                    throw new Error(`Błąd: ${response.status}`);
+                }
+            }
+            setRequestStatus('success');
+        } catch (err: any) {
+            setRequestStatus('error');
+            setRequestError(err.message);
+        }
     };
 
     const scoreColor = (score: number) => {
@@ -232,7 +274,7 @@ export default function SearchTripPage() {
 
             {selectedMatch && coordinates.start && coordinates.end && (
                 <div
-                    onClick={(e) => { if (e.target === e.currentTarget) setSelectedMatch(null); }}
+                    onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
                     style={{
                         position: 'fixed', inset: 0,
                         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -251,7 +293,7 @@ export default function SearchTripPage() {
                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, fontWeight: 600, fontSize: '1rem' }}>Szczegóły przejazdu</h3>
                             <button
-                                onClick={() => setSelectedMatch(null)}
+                                onClick={() => closeModal()}
                                 style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}>
                                 ×
                             </button>
@@ -277,11 +319,43 @@ export default function SearchTripPage() {
                             />
                         </div>
 
-                        <div style={{ padding: '1rem 1.5rem' }}>
+                        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e5e7eb' }}>
                             <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '4px' }}>ID trasy</div>
                             <div style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all' }}>
                                 {selectedMatch.routeId}
                             </div>
+                        </div>
+
+                        <div style={{ padding: '1rem 1.5rem' }}>
+                            {requestStatus === 'success' ? (
+                                <div style={{ padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#15803d', fontSize: '0.9rem', textAlign: 'center' }}>
+                                    Prośba wysłana! Kierowca zostanie powiadomiony.
+                                </div>
+                            ) : (
+                                <>
+                                    {requestStatus === 'error' && (
+                                        <div style={{ marginBottom: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#b91c1c', fontSize: '0.85rem' }}>
+                                            {requestError}
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={handleCreateRideRequest}
+                                        disabled={requestStatus === 'loading'}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.85rem',
+                                            backgroundColor: requestStatus === 'loading' ? '#93c5fd' : '#2563eb',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '1rem',
+                                            fontWeight: 500,
+                                            cursor: requestStatus === 'loading' ? 'not-allowed' : 'pointer',
+                                        }}>
+                                        {requestStatus === 'loading' ? 'Wysyłanie...' : 'Wyślij prośbę o dołączenie'}
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
