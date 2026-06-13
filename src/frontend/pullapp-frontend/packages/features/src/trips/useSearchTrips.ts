@@ -7,16 +7,35 @@ export const useSearchTrips = () => {
     const [jobId, setJobId] = useState<string | null>(null);
     const [matches, setMatches] = useState<TripMatch[]>([]);
     const [error, setError] = useState<string | null>(null);
-
     const token = useAuthStore(state => state.token);
 
     const searchTrips = async (query: RideMatchingQuery) => {
         setIsLoading(true);
         setError(null);
         setMatches([]);
-        setJobId(null);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            setError("Nie znaleziono pasujących przejazdów w wyznaczonym czasie.");
+            setIsLoading(false);
+            controller.abort();
+        }, 60000);
 
         try {
+            // 1. Otwórz SSE
+            const sseResponse = await fetch('/api/sse', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'text/event-stream',
+                },
+                signal: controller.signal,
+            });
+
+            if (!sseResponse.ok || !sseResponse.body) {
+                throw new Error('Nie można połączyć się z serwerem powiadomień');
+            }
+
+            // 2. SSE gotowe (nagłówki odebrane) — wyślij POST
             const payload = {
                 Start: { Latitude: query.start.lat, Longitude: query.start.lng },
                 End: { Latitude: query.end.lat, Longitude: query.end.lng },
@@ -26,10 +45,7 @@ export const useSearchTrips = () => {
                 TimeWindowMinutes: query.timeWindowMinutes
             };
 
-            console.log("Token wysyłany:", token);
-            console.log("Auth header:", token ? `Bearer ${token}` : "BRAK");
-            console.log("Payload wysyłany:", JSON.stringify(payload));
-            const response = await fetch('/api/route/passenger/routes/search', {
+            const searchResponse = await fetch('/api/route/passenger/routes/search', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -38,95 +54,63 @@ export const useSearchTrips = () => {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                throw new Error(`API odrzuciło żądanie: ${response.status}`);
+            if (!searchResponse.ok) {
+                throw new Error(`API odrzuciło żądanie: ${searchResponse.status}`);
             }
 
-            const data = await response.json();
-            console.log("Otrzymano odpowiedź z Trip-Plannera:", data);
+            // 3. Czytaj SSE aż do wyniku
+            const reader = sseResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-            if (data.jobId) {
-                setJobId(data.jobId);
-            }
-        } catch (err: any) {
-            console.error("Błąd POST:", err);
-            setError(err.message);
-            setIsLoading(false);
-        }
-    };
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-    // Efekt nasłuchujący SSE z serwisu Notifications
-    useEffect(() => {
-        if (!jobId || !token) return;
+                const chunk = decoder.decode(value, { stream: true });
+                buffer += chunk;
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
 
-        console.log(`Otwieram strumień SSE dla zadania: ${jobId}`);
-
-        const controller = new AbortController();
-
-        const connectSSE = async () => {
-            try {
-                const response = await fetch('/sse/notifications', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'text/event-stream',
-                    },
-                    signal: controller.signal,
-                });
-
-                if (!response.ok || !response.body) {
-                    console.error("Błąd SSE:", response.status);
-                    setIsLoading(false);
-                    return;
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() ?? '';
-
-                    let eventType = '';
-                    for (const line of lines) {
-                        if (line.startsWith('event:')) {
-                            eventType = line.replace('event:', '').trim();
-                        } else if (line.startsWith('data:')) {
+                let eventType = '';
+                for (const line of lines) {
+                    if (line.startsWith('event:')) {
+                        eventType = line.replace('event:', '').trim();
+                    } else if (line.startsWith('data:')) {
+                        try {
                             const data = JSON.parse(line.replace('data:', '').trim());
-                            if (eventType === 'routes_ready') {
-                                console.log("Znaleziono trasy!", data);
-                                setMatches(data.matches || []);
+                            if (eventType === 'route_search_completed') {
+                                clearTimeout(timeoutId);
+                                if (data.Matches && data.Matches.length > 0) {
+                                    setMatches(data.Matches.map((m: any) => ({
+                                        routeId: m.RouteId,
+                                        driverId: m.DriverId,
+                                        matchScore: m.MatchScore,
+                                        detourKm: m.DetourKm,
+                                        pickupPointIndex: m.PickupPointIndex,
+                                        dropoffPointIndex: m.DropoffPointIndex,
+                                    })));
+                                } else {
+                                    setError("Niestety, nikt aktualnie nie jedzie w tym kierunku.");
+                                }
                                 setIsLoading(false);
                                 controller.abort();
-                            } else if (eventType === 'no_match') {
-                                console.log("Brak wyników");
-                                setError("Niestety, nikt aktualnie nie jedzie w tym kierunku.");
-                                setIsLoading(false);
-                                controller.abort();
+                                return;
                             }
-                            eventType = '';
-                        }
+                        } catch {}
+                        eventType = '';
                     }
                 }
-            } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    console.error("Błąd połączenia SSE:", err);
-                    setIsLoading(false);
-                }
             }
-        };
 
-        connectSSE();
-
-        return () => {
-            console.log("Zamknięto nasłuch SSE");
-            controller.abort();
-        };
-    }, [jobId, token]);
+        } catch (err: any) {
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                setError(err.message);
+                setIsLoading(false);
+            }
+        }
+    };
 
     return { searchTrips, isLoading, matches, error };
 };

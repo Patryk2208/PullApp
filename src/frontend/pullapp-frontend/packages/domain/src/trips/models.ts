@@ -22,3 +22,18 @@ export interface RideMatchingQuery {
     maxDetourKm: number;
     timeWindowMinutes: number;
 }
+
+export interface TripMatch {
+    routeId: string;
+    driverId: string;
+    matchScore: number;
+    detourKm: number;
+    pickupPointIndex: number;
+    dropoffPointIndex: number;
+}
+
+export interface RouteSearchCompletedPayload {
+    jobId: string;
+    passengerId: string;
+    matches: TripMatch[];
+}
