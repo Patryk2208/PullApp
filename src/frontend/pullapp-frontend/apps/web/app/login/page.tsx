@@ -5,7 +5,8 @@ import { useLogin } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
 import styles from './login.module.css';
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+// const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
 const repository = new AuthRepository(baseUrl);
 
 export default function LoginPage() {
