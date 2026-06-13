@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import React from "react";
-import { usePublishTrip } from '@pullapp/features';
+import { usePublishTrip, useAuthStore } from '@pullapp/features';
 
 const MapWithNoSSR = dynamic(
     () => import('./components/Map'),
@@ -18,6 +18,39 @@ export default function PublishTripPage() {
     }>({ start: null, end: null });
 
     const [capacity, setCapacity] = React.useState(3);
+	const [activateStatus, setActivateStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+	const [activateError, setActivateError] = React.useState<string | null>(null);
+	const token = useAuthStore(state => state.token);
+
+	const handleActivate = async () => {
+		if (!result || !coordinates.start) return;
+		setActivateStatus('loading');
+		setActivateError(null);
+		try {
+			const response = await fetch(`/api/route/driver/routes/${result.routeId}/activate`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					...(token ? { 'Authorization': `Bearer ${token}` } : {})
+				},
+				body: JSON.stringify({
+					CurrentLocation: {
+						Latitude: coordinates.start.lat,
+						Longitude: coordinates.start.lng
+					}
+				})
+			});
+			if (!response.ok) {
+				const text = await response.text();
+				try { throw new Error(JSON.parse(text).Message || `Błąd: ${response.status}`); }
+				catch { throw new Error(`Błąd: ${response.status}`); }
+			}
+			setActivateStatus('success');
+		} catch (err: any) {
+			setActivateStatus('error');
+			setActivateError(err.message);
+		}
+	};
 
     const handleRouteSelected = (start: any, end: any) => {
         setCoordinates({ start, end });
@@ -111,19 +144,48 @@ export default function PublishTripPage() {
             )}
 
             {result && (
-                <div style={{ marginTop: '1.5rem', padding: '1.25rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px' }}>
-                    <div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem', fontSize: '1rem' }}>
-                        Trasa opublikowana!
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>ID trasy</div>
-                    <div style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all', marginBottom: '1rem' }}>
-                        {result.routeId}
-                    </div>
-                    <div style={{ fontSize: '0.85rem', color: '#6b7280', backgroundColor: '#ecfdf5', padding: '0.75rem', borderRadius: '8px' }}>
-                        Trasa jest w trakcie obliczania geometrii. Gdy będzie gotowa, możesz ją aktywować aby rozpocząć przyjmowanie pasażerów.
-                    </div>
-                </div>
-            )}
+				<div style={{ marginTop: '1.5rem', padding: '1.25rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px' }}>
+					<div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem', fontSize: '1rem' }}>
+						Trasa opublikowana!
+					</div>
+					<div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>ID trasy</div>
+					<div style={{ fontSize: '0.85rem', fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all', marginBottom: '1rem' }}>
+						{result.routeId}
+					</div>
+					{activateStatus !== 'success' ? (
+						<>
+							<div style={{ fontSize: '0.85rem', color: '#6b7280', backgroundColor: '#ecfdf5', padding: '0.75rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
+								Trasa jest w trakcie obliczania geometrii. Gdy będzie gotowa, możesz ją aktywować aby rozpocząć przyjmowanie pasażerów.
+							</div>
+							{activateError && (
+								<div style={{ marginBottom: '0.75rem', padding: '0.75rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#b91c1c', fontSize: '0.85rem' }}>
+									{activateError}
+								</div>
+							)}
+							<button
+								onClick={handleActivate}
+								disabled={activateStatus === 'loading'}
+								style={{
+									width: '100%',
+									padding: '0.85rem',
+									backgroundColor: activateStatus === 'loading' ? '#93c5fd' : '#16a34a',
+									color: 'white',
+									border: 'none',
+									borderRadius: '8px',
+									fontSize: '1rem',
+									fontWeight: 500,
+									cursor: activateStatus === 'loading' ? 'not-allowed' : 'pointer',
+								}}>
+								{activateStatus === 'loading' ? 'Aktywowanie...' : '🟢 Aktywuj trasę — zaczynam jazdę'}
+							</button>
+						</>
+					) : (
+						<div style={{ padding: '0.75rem', backgroundColor: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#15803d', fontSize: '0.9rem', textAlign: 'center', fontWeight: 500 }}>
+							Trasa aktywna! Pasażerowie mogą Cię teraz znaleźć.
+						</div>
+					)}
+				</div>
+			)}
         </div>
     );
 }

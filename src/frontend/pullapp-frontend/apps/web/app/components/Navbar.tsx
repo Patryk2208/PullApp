@@ -24,10 +24,10 @@ export function Navbar() {
 			</div>
 			
 			<div className={styles.navLinks}>
-				<Link href="/driver/publish" className={styles.link}>
+				<Link href="/trips/publish" className={styles.link}>
 					Prowadzisz?
 				</Link>
-				<Link href="/passenger/search" className={styles.link}>
+				<Link href="/trips/search" className={styles.link}>
 					Dołączasz?
 				</Link>
 			</div>
@@ -36,6 +36,9 @@ export function Navbar() {
 				{isLoggedIn ? (
 					// INTERFEJS DLA ZALOGOWANEGO UŻYTKOWNIKA
 					<div key="logged-in" className={styles.userMenu}>
+						<Link href="/trips/driver" className={styles.link}>
+							🚗 Panel kierowcy
+						</Link>
 						<Link href="/profile" className={styles.link}>
 							👤 Mój Profil
 						</Link>
