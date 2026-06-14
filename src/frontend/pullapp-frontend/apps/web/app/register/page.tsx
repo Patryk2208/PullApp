@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useRegister } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
 import { isUserOldEnough, isValidEmail } from '@pullapp/domain';
+import Link from 'next/link';
 import styles from './register.module.css';
 
 // const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -104,6 +105,13 @@ export default function RegisterPage() {
 					{isLoading ? 'Rejestrowanie…' : 'Zarejestruj się'}
 				</button>
 			</form>
+
+			<p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem', color: '#6b7280' }}>
+				Masz już konto?{' '}
+				<Link href="/login" data-testid="to-login" style={{ color: '#2563eb', fontWeight: 500 }}>
+					Zaloguj się
+				</Link>
+			</p>
 		</main>
 	);
 }
