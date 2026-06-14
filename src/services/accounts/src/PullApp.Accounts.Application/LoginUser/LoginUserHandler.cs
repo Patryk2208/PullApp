@@ -36,7 +36,7 @@ public class LoginUserHandler(
 		logger.LogInformation("Login succeeded userId={UserId} email={Email}", user.Id, request.Email);
 		
 		return new LoginUserResponse(
-			Token: jwtProvider.Generate(user)
+			AccessToken: jwtProvider.Generate(user)
 		);
 	}
 }
