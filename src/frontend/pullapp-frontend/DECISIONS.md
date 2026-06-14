@@ -185,3 +185,11 @@ Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,R
 - **Request Flow** — fix: `gateway_auth_failures_total` (nie istnieje) → `accounts_login_failed_attempts_total`.
 
 **Zostaje:** Faza 2 — exportery redis/postgres/rabbitmq (DB/cache/queue panele w System Health). Infra: DB/cache/queue to ExternalName→`host.minikube.internal` (compose), więc exportery w k8s celują w host + ServiceMonitor (label `release: kube-prometheus-stack`).
+
+## Grafana — naprawa istniejących dashboardów (tylko kod + logi, bez DB)
+
+Decyzja użytkownika: olać exportery DB/cache/queue — tylko metryki z kodu (OTel) + logi.
+- **System Health**: usunięty row „Databases" (redis/postgres — brak exporterów), „ComputeQueue Depth" (rabbitmq) → `notification_kafka_lag_messages` (Kafka lag, z kodu), dodany row „Aplikacja (kod)": wyjątki .NET (`aspnetcore_diagnostics_exceptions_total`), powiadomienia (`notifications_sent_total`), logowania (`accounts_login_{success,failed}_attempts_total`).
+- **Request Flow**: auth panel `gateway_auth_failures_total` → `accounts_login_failed_attempts_total`.
+- **Ride Funnel**: nowy (Faza 1).
+Wszystkie queries zwalidowane w Prometheusie (`status=success`); zero zależności od exporterów infra. 3/3 dashboardy wczytane przez sidecar.
