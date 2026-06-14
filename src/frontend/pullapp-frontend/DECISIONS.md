@@ -50,3 +50,14 @@ Frontend zachowuje się poprawnie (pokazuje błąd), więc nic do naprawy po str
 - Wycięte wszystkie debug `console.log` (zostaje tylko `console.warn` realnych błędów strumienia SSE).
 
 **Weryfikacja.** Playwright: token w storage, `/api/users/me` mock 401, wejście na `/profile` → redirect `/login` + token wyczyszczony.
+
+## Iteracja 4 — reguła wieku 18+ przy rejestracji
+
+**Problem.** Domena ma `isUserOldEnough` z `// TODO USE THIS`, ale formularz rejestracji nie waliduje wieku (ani nie był eksportowany z `@pullapp/domain`). Scaffold = spec → implementuję.
+
+**Decyzja.**
+- Eksport `rules` z `packages/domain/src/index.ts`.
+- Walidacja client-side w `register/page.tsx`: brak daty → błąd; `!isUserOldEnough(new Date(birthDate))` → błąd „18 lat", BEZ wywołania `register` (nie bijemy w backend dla nieletnich).
+- Komunikat w `data-testid="register-error"`.
+
+**Weryfikacja.** Playwright: underage (8 lat) → błąd + 0 POST `/api/auth/register` + zostaje na /register; dorosły (31 lat) → POST wywołany + redirect /login (register mockowany).

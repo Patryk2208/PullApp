@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRegister } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
+import { isUserOldEnough } from '@pullapp/domain';
 import styles from './register.module.css';
 
 // const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -18,9 +19,21 @@ export default function RegisterPage() {
 	const [email,     setEmail]     = useState('');
 	const [password,  setPassword]  = useState('');
 	const [birthDate, setBirthDate] = useState('');
-	
+	const [validationError, setValidationError] = useState<string | null>(null);
+
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setValidationError(null);
+
+		if (!birthDate) {
+			setValidationError('Podaj datę urodzenia.');
+			return;
+		}
+		if (!isUserOldEnough(new Date(birthDate))) {
+			setValidationError('Musisz mieć ukończone 18 lat, aby się zarejestrować.');
+			return;
+		}
+
 		await register({
 			name,
 			surname,
@@ -71,7 +84,9 @@ export default function RegisterPage() {
 					       value={birthDate} onChange={(e) => setBirthDate(e.target.value)}  />
 				</label>
 				
-				{error && <p className={styles.error}>{error}</p>}
+				{(validationError || error) && (
+					<p className={styles.error} data-testid="register-error">{validationError || error}</p>
+				)}
 				
 				<button className={styles.button} type="submit" disabled={isLoading}>
 					{isLoading ? 'Rejestrowanie…' : 'Zarejestruj się'}
