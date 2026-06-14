@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuthStore, useNotificationStream, type SseEvent } from '@pullapp/features';
 import dynamic from 'next/dynamic';
 
@@ -37,7 +37,7 @@ export default function DriverDashboardPage() {
     const handleEvent = useCallback((e: SseEvent) => {
         if (e.type !== 'ride_requested') return;
         const data = e.data;
-        setCards(prev => [...prev, {
+        setCards(prev => prev.some(c => c.request.requestId === data.RequestId) ? prev : [...prev, {
             request: {
                 requestId: data.RequestId,
                 routeId: data.RouteId,
@@ -48,6 +48,47 @@ export default function DriverDashboardPage() {
             status: 'pending'
         }]);
     }, []);
+
+    // Źródło prawdy na wejściu/refreshu: pending prośby + aktywne rides z GET.
+    // (SSE dodaje nowe na żywo; bez tego dashboard gubił stan po odświeżeniu.)
+    useEffect(() => {
+        if (!token) return;
+        let cancelled = false;
+        const auth = { Authorization: `Bearer ${token}` };
+        const geo = (p: any) => ({ Lat: p.lat, Lng: p.lng });
+        (async () => {
+            try {
+                const [reqRes, rideRes] = await Promise.all([
+                    fetch('/api/route/driver/requests', { headers: auth }),
+                    fetch('/api/route/driver/rides',    { headers: auth }),
+                ]);
+                const pending = reqRes.ok  ? await reqRes.json()  : [];
+                const rides   = rideRes.ok ? await rideRes.json() : [];
+                if (cancelled) return;
+
+                const fromPending: RequestCard[] = pending.map((r: any) => ({
+                    request: { requestId: r.requestId, routeId: r.routeId, passengerId: r.passengerId,
+                        startPoint: geo(r.start), endPoint: geo(r.end) },
+                    status: 'pending' as RequestStatus,
+                }));
+                const fromRides: RequestCard[] = rides
+                    .filter((r: any) => !r.endedAt)
+                    .map((r: any) => ({
+                        request: { requestId: r.rideId, routeId: r.routeId, passengerId: r.passengerId,
+                            startPoint: geo(r.start), endPoint: geo(r.end) },
+                        rideId: r.rideId,
+                        status: (r.status === 'Started' || r.driverDeclaredPickup ? 'pickedup' : 'accepted') as RequestStatus,
+                    }));
+
+                setCards(prev => {
+                    const seen = new Set(prev.map(c => c.rideId ?? c.request.requestId));
+                    const adds = [...fromPending, ...fromRides].filter(c => !seen.has(c.rideId ?? c.request.requestId));
+                    return [...prev, ...adds];
+                });
+            } catch { /* offline / brak gatewaya — zostaje live SSE */ }
+        })();
+        return () => { cancelled = true; };
+    }, [token]);
     useNotificationStream(handleEvent);
 
     const handleAccept = async (requestId: string) => {
