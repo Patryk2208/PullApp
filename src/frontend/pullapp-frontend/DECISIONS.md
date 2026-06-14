@@ -175,3 +175,13 @@ Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,R
 **🟡 Flagi infra (znalezione przy deployu):**
 - `make ci-trip-planner` zepsute — generyczny `build-%` daje kontekst `src/services/<svc>`, a Dockerfile trip-plannera wymaga `src/` (cross-service `schemas/`). Build pada.
 - `minikube image load` nie nadpisuje istniejącego `:latest` (+ `imagePullPolicy: Never`) → pody trzymają stary obraz. Workaround: `docker save | (eval $(minikube docker-env); docker load)` + `rollout restart`.
+
+## Grafana — Faza 1 (dashboardy na realnych metrykach)
+
+**Reality-check Prometheusa:** metryki biznesowe ISTNIEJĄ (push przez OTel→remote-write), ale pod innymi nazwami niż docs/06-observability (np. `ride_active_rides` nie `ride_active`, `matching_result_results_total` nie `matching_result_total`, `ride_driver_decline_declines_total`). Faza 3 (instrumentacja) okazała się prawie zbędna.
+
+**Zrobione:**
+- **Ride Funnel** (nowy, 3. dashboard) — wygenerowany skryptem, 10 paneli na realnych metrykach (matching, `ride_transitions_total{from_state,to_state}`, `ride_active_rides`, route_calc, decline/cancel) + logi Loki. Wszystkie 12 queries zwalidowane w Prometheusie (`status=success`). Załadowany przez sidecar.
+- **Request Flow** — fix: `gateway_auth_failures_total` (nie istnieje) → `accounts_login_failed_attempts_total`.
+
+**Zostaje:** Faza 2 — exportery redis/postgres/rabbitmq (DB/cache/queue panele w System Health). Infra: DB/cache/queue to ExternalName→`host.minikube.internal` (compose), więc exportery w k8s celują w host + ServiceMonitor (label `release: kube-prometheus-stack`).
