@@ -27,8 +27,8 @@ class TestOSRMBestRoute:
         assert isinstance(result.distance_meters, (int, float))
         assert isinstance(result.duration_seconds, (int, float))
 
-        # Should have waypoints
-        assert len(result.waypoints) > 0
+        # Should have a full LineString, not just start/end fallback points
+        assert len(result.waypoints) > 2
 
     def test_best_route_distance_reasonable(self):
         """Test that computed distance is reasonable for Warsaw-Krakow."""
@@ -103,7 +103,7 @@ class TestOSRMAlternativeRoutes:
 
         for route in result:
             assert hasattr(route, 'waypoints')
-            assert len(route.waypoints) > 0
+            assert len(route.waypoints) > 2
             assert all(hasattr(p, 'lat') and hasattr(p, 'lon') for p in route.waypoints)
 
     def test_alternative_routes_have_metrics(self):
@@ -151,7 +151,7 @@ class TestOSRMClosestRoutes:
 
         for route in result:
             assert hasattr(route, 'waypoints')
-            assert len(route.waypoints) > 0
+            assert len(route.waypoints) > 2
 
     def test_closest_routes_have_distance_info(self):
         """Test that routes have distance to point information."""
@@ -212,4 +212,4 @@ class TestOSRMOrchestrator:
         # Should eventually succeed
         assert result.status == JobStatus.SUCCESS, f"Expected success, got status {result.status}"
         assert result.result is not None, "Expected non-None result"
-        assert len(result.result.points) > 0, "Expected route points"
+        assert len(result.result.points) > 2, "Expected full route LineString, not start/end fallback"
