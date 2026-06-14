@@ -47,6 +47,35 @@ public class PostgresRideRepository(DbSession db) : IRideRepository
             WHERE route_id = @route_id AND ended_at IS NULL
             """;
         cmd.Parameters.AddWithValue("route_id", routeId);
+        return await ReadListAsync(cmd, ct);
+    }
+
+    public async Task<IReadOnlyList<Ride>> GetByPassengerIdAsync(Guid passengerId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = """
+            SELECT * FROM rides
+            WHERE passenger_id = @passenger_id
+            ORDER BY created_at DESC
+            """;
+        cmd.Parameters.AddWithValue("passenger_id", passengerId);
+        return await ReadListAsync(cmd, ct);
+    }
+
+    public async Task<IReadOnlyList<Ride>> GetByDriverIdAsync(Guid driverId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = """
+            SELECT * FROM rides
+            WHERE driver_id = @driver_id
+            ORDER BY created_at DESC
+            """;
+        cmd.Parameters.AddWithValue("driver_id", driverId);
+        return await ReadListAsync(cmd, ct);
+    }
+
+    private static async Task<IReadOnlyList<Ride>> ReadListAsync(NpgsqlCommand cmd, CancellationToken ct)
+    {
         var list = new List<Ride>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))

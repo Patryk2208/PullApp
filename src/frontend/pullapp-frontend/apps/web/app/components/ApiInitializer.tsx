@@ -6,17 +6,13 @@ import { useAuthStore } from '@pullapp/features';
 
 export function ApiInitializer() {
 	useLayoutEffect(() => {
-		// Wstrzykujemy token z Zustand do Axiosa
-		registerTokenProvider(() => {
-			console.log('useAuthStore retrieves', useAuthStore.getState());
-			return useAuthStore.getState().token;
-		});
-		
-		// Wstrzykujemy akcję wylogowania dla błędu 401
+		// token z Zustand → interceptor Axiosa
+		registerTokenProvider(() => useAuthStore.getState().token);
+
+		// 401 z API → wyloguj i odeślij na /login (jeśli już tam nie jesteśmy)
 		registerUnauthorizedHandler(() => {
-			console.log("unauthorized handler")
 			useAuthStore.getState().logout();
-			if (typeof window !== 'undefined') {
+			if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
 				window.location.href = '/login';
 			}
 		});

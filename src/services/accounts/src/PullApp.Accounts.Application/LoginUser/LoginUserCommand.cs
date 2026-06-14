@@ -3,7 +3,7 @@ using MediatR;
 namespace PullApp.Accounts.Application.LoginUser;
 
 public record class LoginUserResponse(
-	string Token);
+	string AccessToken);
 
 public record class LoginUserCommand(
 	string Email,

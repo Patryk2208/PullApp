@@ -9,6 +9,7 @@ module.exports = {
     ];
   },
 
+  transpilePackages: ['@pullapp/ui', '@pullapp/features', '@pullapp/api-client', '@pullapp/domain'],
   turbopack: {
     resolveAlias: {
       "react-native": "react-native-web",

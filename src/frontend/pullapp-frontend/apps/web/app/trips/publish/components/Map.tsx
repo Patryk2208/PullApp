@@ -78,7 +78,7 @@ export default function Map({ onRouteSelected }: MapProps) {
 			
 			<MapContainer
 				center={[52.2297, 21.0122]}
-				zoom={6}
+				zoom={12}
 				style={{ height: '450px', width: '100%', borderRadius: '8px' }}
 			>
 				<TileLayer

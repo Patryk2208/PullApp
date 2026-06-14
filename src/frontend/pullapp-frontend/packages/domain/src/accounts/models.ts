@@ -4,7 +4,9 @@ export interface LoginUserCommand {
 }
 
 export interface LoginUserResponse {
-    token: string;
+    // backend (accounts) zwraca `accessToken`, nie `token` — kontrakt musi się zgadzać,
+    // inaczej setToken dostaje undefined i logowanie nigdy nie ustawia sesji
+    accessToken: string;
 }
 
 export interface RegisterUserCommand {

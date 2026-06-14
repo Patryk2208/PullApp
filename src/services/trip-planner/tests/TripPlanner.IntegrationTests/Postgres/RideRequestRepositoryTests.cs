@@ -1,5 +1,6 @@
 using TripPlanner.Domain.Compute;
 using TripPlanner.Domain.RideRequest;
+using TripPlanner.Domain.Route;
 using TripPlanner.Infrastructure.Postgres;
 using TripPlanner.IntegrationTests.Fixtures;
 
@@ -148,5 +149,65 @@ public class RideRequestRepositoryTests(PostgresFixture db) : IAsyncLifetime
 
         var loaded = await repo.GetByIdAsync(req.Id, default);
         Assert.Equal(RideRequestStatus.Accepted, loaded!.Status);
+    }
+
+    // ─── GetByPassengerId (read-model) ────────────────────────────────────────
+
+    [Fact]
+    public async Task GetByPassengerId_ReturnsEmpty_WhenNone()
+    {
+        Assert.Empty(await Repo().GetByPassengerIdAsync(Guid.NewGuid(), default));
+    }
+
+    [Fact]
+    public async Task GetByPassengerId_ReturnsOnlyThatPassengersRequests_NewestFirst()
+    {
+        var passenger = Guid.NewGuid();
+        var repo      = Repo();
+        var first  = RideRequest.Create(Guid.NewGuid(), passenger, Start, End);
+        var second = RideRequest.Create(Guid.NewGuid(), passenger, Start, End);
+        await repo.AddAsync(first,  default);
+        await Task.Delay(5);
+        await repo.AddAsync(second, default);
+        await repo.AddAsync(RideRequest.Create(Guid.NewGuid(), Guid.NewGuid(), Start, End), default); // inny pasażer
+
+        var result = await repo.GetByPassengerIdAsync(passenger, default);
+
+        Assert.Equal(2, result.Count);
+        Assert.All(result, r => Assert.Equal(passenger, r.PassengerId));
+        Assert.Equal(second.Id, result[0].Id); // newest first
+    }
+
+    // ─── GetPendingByDriverId (read-model, joins routes) ──────────────────────
+
+    private async Task<Guid> SeedRouteAsync(Guid driverId)
+    {
+        var route = Route.Create(driverId, Start, End, capacity: 3);
+        await new PostgresRouteRepository(db.NewSession()).AddAsync(route, default);
+        return route.Id;
+    }
+
+    [Fact]
+    public async Task GetPendingByDriverId_ReturnsPendingOnDriverRoutes_ExcludesRejectedAndOtherDrivers()
+    {
+        var driver   = Guid.NewGuid();
+        var routeId  = await SeedRouteAsync(driver);
+        var repo     = Repo();
+
+        var pending  = RideRequest.Create(routeId, Guid.NewGuid(), Start, End);
+        var rejected = RideRequest.Create(routeId, Guid.NewGuid(), Start, End);
+        await repo.AddAsync(pending,  default);
+        await repo.AddAsync(rejected, default);
+        rejected.Reject();
+        await repo.UpdateAsync(rejected, default);
+
+        // pending request on a DIFFERENT driver's route → must be excluded
+        var otherRouteId = await SeedRouteAsync(Guid.NewGuid());
+        await repo.AddAsync(RideRequest.Create(otherRouteId, Guid.NewGuid(), Start, End), default);
+
+        var result = await repo.GetPendingByDriverIdAsync(driver, default);
+
+        Assert.Single(result);
+        Assert.Equal(pending.Id, result[0].Id);
     }
 }

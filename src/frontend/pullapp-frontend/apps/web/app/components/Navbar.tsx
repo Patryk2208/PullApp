@@ -10,7 +10,6 @@ export function Navbar() {
 	const token = useAuthStore((state) => state.token);
 	const logout = useAuthStore((state) => state.logout);
 	const isLoggedIn = !!token;
-	console.log("Navbar sees token:", token, "isLoggedIn:", isLoggedIn); // TODO
 	
 	const pathname = usePathname();
 	if (pathname === '/login' || pathname === '/register') return null;
@@ -39,8 +38,8 @@ export function Navbar() {
 						<Link href="/trips/driver" className={styles.link}>
 							🚗 Panel kierowcy
 						</Link>
-						<Link href="/trips/passenger" className={styles.link}>
-							🎒 Panel pasażera
+						<Link href="/trips/my-rides" className={styles.link}>
+							🧳 Moje przejazdy
 						</Link>
 						<Link href="/profile" className={styles.link}>
 							👤 Mój Profil

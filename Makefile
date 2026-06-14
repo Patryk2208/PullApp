@@ -24,6 +24,12 @@ COMPOSE_ALL  := $(COMPOSE_BASE) \
 	-f $(COMPOSE_DIR)/docker-compose.databases.yml \
 	-f $(COMPOSE_DIR)/docker-compose.cache.yml \
 	-f $(COMPOSE_DIR)/docker-compose.messaging.yml
+COMPOSE_FRONTEND := docker compose -f $(COMPOSE_DIR)/docker-compose.frontend.yml
+
+# trip-planner's Dockerfile COPYs cross-service paths (services/trip-planner/... and
+# schemas/...), so it must be built from the src/ root; every other service builds
+# from its own dir. $(call svc_ctx,<svc>) yields the right context.
+svc_ctx = $(if $(filter trip-planner,$(1)),src,src/services/$(1))
 
 RED    := \033[0;31m
 GREEN  := \033[0;32m
@@ -75,6 +81,11 @@ help:
 	@printf "  make infra-db           Start databases only\n"
 	@printf "  make infra-cache        Start caches only\n"
 	@printf "  make infra-messaging    Start messaging only\n"
+	@printf "\n$(CYAN)Frontend (Next.js web app)$(RESET)\n"
+	@printf "  make frontend           Build + run the web app in compose (→ :5000, needs pf-gateway)\n"
+	@printf "  make frontend-dev       Run the web app dev server via pnpm\n"
+	@printf "  make frontend-down      Stop the frontend container\n"
+	@printf "  make frontend-logs      Follow frontend logs\n"
 	@printf "\n$(CYAN)Rollout management$(RESET)\n"
 	@printf "  make restart            Rolling restart all deployments\n"
 	@printf "  make restart-<svc>      Rolling restart a single service\n"
@@ -93,7 +104,7 @@ help:
 	@printf "  make ci-full-<svc>      Run a single service workflow via act\n"
 	@for svc in $(SERVICES); do printf "                          ci-full-$$svc\n"; done
 	@printf "\n$(CYAN)Combined workflows$(RESET)\n"
-	@printf "  make run                Full from scratch: start → obs → ci → cd\n"
+	@printf "  make run                Full from scratch: cluster + obs + keda + infra + build + deploy\n"
 	@printf "\n$(CYAN)Visibility$(RESET)\n"
 	@printf "  make status             Cluster + pod + compose summary\n"
 	@printf "  make logs               Follow logs for all pullapp pods\n"
@@ -140,6 +151,8 @@ cluster-start: _check-minikube
 	@printf "$(CYAN)Raising inotify limits for Promtail...$(RESET)\n"
 	@minikube ssh -- sudo sysctl fs.inotify.max_user_instances=512
 	@minikube ssh -- sudo sysctl fs.inotify.max_user_watches=524288
+	@printf "$(CYAN)Enabling metrics-server (required by the route-calc KEDA CPU trigger)...$(RESET)\n"
+	@minikube addons enable metrics-server >/dev/null
 	@kubectl get namespace $(NAMESPACE) >/dev/null 2>&1 \
 		|| kubectl create namespace $(NAMESPACE)
 
@@ -244,19 +257,31 @@ keda-uninstall: _check-helm
 .PHONY: build
 
 build: _check-docker
-	@for svc in $(SERVICES); do \
-		docker build -f src/services/$$svc/Dockerfile -t pullapp/$$svc:latest src/services/$$svc; \
+	@set -e; for svc in $(SERVICES); do \
+		ctx=src/services/$$svc; [ "$$svc" = trip-planner ] && ctx=src; \
+		docker build -f src/services/$$svc/Dockerfile -t pullapp/$$svc:latest $$ctx; \
 	done
 
 build-%: _check-docker
-	docker build -f src/services/$*/Dockerfile -t pullapp/$*:latest src/services/$*
+	docker build -f src/services/$*/Dockerfile -t pullapp/$*:latest $(call svc_ctx,$*)
 
-# ── Load into minikube ────────────────────────────────────────────────────────
+# ── Build into minikube's docker daemon ───────────────────────────────────────
+#
+# We build straight into minikube's daemon (eval minikube docker-env) instead of
+# `minikube image load`. `image load` does NOT overwrite an existing :latest tag,
+# so with imagePullPolicy: Never the pods kept running stale images. Building in
+# the daemon means the new image is there the moment the build finishes.
 
-.PHONY: _tag-images
+.PHONY: _images _tag-images
 
-_load-%: _check-minikube
-	minikube image load pullapp/$*:latest
+_images: _check-docker _check-minikube
+	@printf "$(CYAN)Building images into minikube's docker daemon...$(RESET)\n"
+	@eval $$(minikube -p minikube docker-env) && set -e && for svc in $(SERVICES); do \
+		ctx=src/services/$$svc; [ "$$svc" = trip-planner ] && ctx=src; \
+		printf "$(CYAN)  building $$svc ($$ctx)...$(RESET)\n"; \
+		docker build -f src/services/$$svc/Dockerfile -t pullapp/$$svc:latest $$ctx; \
+	done
+	@printf "$(GREEN)Images built into minikube.$(RESET)\n"
 
 _tag-images: _check-kustomize
 	@cd $(K8S_OVERLAY) && for svc in $(SERVICES); do \
@@ -267,11 +292,7 @@ _tag-images: _check-kustomize
 
 .PHONY: ci
 
-ci: build _tag-images
-	@for svc in $(SERVICES); do \
-		printf "$(CYAN)Loading $$svc into minikube...$(RESET)\n"; \
-		minikube image load pullapp/$$svc:latest; \
-	done
+ci: _images _tag-images
 	@printf "$(CYAN)Restarting deployments...$(RESET)\n"
 	kubectl rollout restart $(foreach svc,$(SERVICES),deployment/$(svc)) -n $(NAMESPACE)
 	@for svc in $(SERVICES); do \
@@ -280,9 +301,10 @@ ci: build _tag-images
 	done
 	@printf "$(GREEN)CI complete.$(RESET)\n"
 
-ci-%: build-% _tag-images
-	@printf "$(CYAN)Loading $* into minikube...$(RESET)\n"
-	minikube image load pullapp/$*:latest
+ci-%: _check-docker _check-minikube _tag-images
+	@printf "$(CYAN)Building $* into minikube ($(call svc_ctx,$*))...$(RESET)\n"
+	@eval $$(minikube -p minikube docker-env) && \
+		docker build -f src/services/$*/Dockerfile -t pullapp/$*:latest $(call svc_ctx,$*)
 	@printf "$(CYAN)Restarting $*...$(RESET)\n"
 	kubectl rollout restart deployment/$* -n $(NAMESPACE)
 	kubectl rollout status  deployment/$* -n $(NAMESPACE) --timeout=120s
@@ -352,6 +374,30 @@ infra-cache: _check-docker _infra-env
 
 infra-messaging: _check-docker _infra-env
 	$(COMPOSE_BASE) -f $(COMPOSE_DIR)/docker-compose.messaging.yml up -d
+
+# ── Frontend (Next.js web app, docker-compose) ────────────────────────────────
+#
+# The web app runs in compose on host networking and proxies /api + /sse to the
+# gateway at 127.0.0.1:8080, so the gateway must be port-forwarded first
+# (make pf-gateway). Serves on http://localhost:5000.
+
+.PHONY: frontend frontend-down frontend-logs frontend-dev
+
+frontend: _check-docker
+	@printf "$(YELLOW)Frontend proxies to the gateway on :8080 — run 'make pf-gateway' in another shell first.$(RESET)\n"
+	@printf "$(CYAN)Building + starting frontend...$(RESET)\n"
+	$(COMPOSE_FRONTEND) up -d --build
+	@printf "$(GREEN)Frontend running → http://localhost:5000$(RESET)\n"
+
+frontend-down: _check-docker
+	$(COMPOSE_FRONTEND) down
+
+frontend-logs: _check-docker
+	$(COMPOSE_FRONTEND) logs -f
+
+frontend-dev:
+	@printf "$(CYAN)Starting frontend dev server (pnpm)...$(RESET)\n"
+	cd $(REPO_ROOT)/src/frontend/pullapp-frontend && pnpm install && pnpm dev
 
 # ── Rollout management ────────────────────────────────────────────────────────
 
@@ -458,8 +504,13 @@ ci-full-%: _check-act FORCE
 
 .PHONY: run
 
-run: _cluster-ensure obs-install infra cd ci
+# Order matters: build images into minikube and set the kustomize tags BEFORE the
+# first `cd`. Otherwise `cd` applies manifests whose images don't exist yet, every
+# pod sits in ErrImageNeverPull, and the rollout wait burns ~120s per service
+# before anything is built. Build first → `cd` then rolls out fast.
+run: _cluster-ensure obs-install keda-install infra _images _tag-images cd
 	@printf "\n$(GREEN)$(BOLD)PullApp is running.$(RESET)\n"
-	@printf "  App:        make pf-gateway   → http://localhost:8080\n"
+	@printf "  App API:    make pf-gateway   → http://localhost:8080\n"
+	@printf "  Frontend:   make pf-gateway + make frontend → http://localhost:5000\n"
 	@printf "  Grafana:    make pf-grafana   → http://localhost:3000\n"
 	@printf "  Prometheus: make pf-prometheus → http://localhost:9090\n"

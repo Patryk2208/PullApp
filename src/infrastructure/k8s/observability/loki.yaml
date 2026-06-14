@@ -20,11 +20,11 @@ singleBinary:
   replicas: 1
   resources:
     requests:
-      memory: 128Mi
-      cpu: 50m
+      memory: 512Mi
+      cpu: 250m
     limits:
-      memory: 256Mi
-      cpu: 200m
+      memory: 1Gi
+      cpu: "1"
 
 # disable gateway — service is simply loki:3100
 gateway:
@@ -44,4 +44,12 @@ minio:
 chunksCache:
   enabled: false
 resultsCache:
+  enabled: false
+
+# self-test canary: noisy (synthetic pushes + "negative structured metadata" /
+# "unexpected entry" spam), not needed for our logging
+lokiCanary:
+  enabled: false
+# the chart's helm-test depends on the canary, so disable it too
+test:
   enabled: false

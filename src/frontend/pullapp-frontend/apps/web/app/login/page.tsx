@@ -1,9 +1,10 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useLogin } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
+import { isValidEmail } from '@pullapp/domain';
+import Link from 'next/link';
 import styles from './login.module.css';
 
 // const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -16,9 +17,21 @@ export default function LoginPage() {
 	
 	const [email,    setEmail]    = useState('');
 	const [password, setPassword] = useState('');
-	
+	const [validationError, setValidationError] = useState<string | null>(null);
+
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setValidationError(null);
+
+		if (!email.trim() || !password) {
+			setValidationError('Podaj e-mail i hasło.');
+			return;
+		}
+		if (!isValidEmail(email)) {
+			setValidationError('Nieprawidłowy adres e-mail.');
+			return;
+		}
+
 		const isSuccess = await login({ email, password });
 		if (isSuccess) {
 			router.push('/');
@@ -52,7 +65,9 @@ export default function LoginPage() {
 					/>
 				</label>
 				
-				{error && <p className={styles.error}>{error}</p>}
+				{(validationError || error) && (
+					<p className={styles.error} data-testid="login-error">{validationError || error}</p>
+				)}
 				
 				<button
 					className={styles.button}
@@ -63,12 +78,12 @@ export default function LoginPage() {
 				</button>
 			</form>
 
-			<footer className={styles.footer}>
-				Nie masz jeszcze konta?{' '}
-				<Link href="/register" className={styles.link}>
+			<p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem', color: '#6b7280' }}>
+				Nie masz konta?{' '}
+				<Link href="/register" data-testid="to-register" style={{ color: '#2563eb', fontWeight: 500 }}>
 					Zarejestruj się
 				</Link>
-			</footer>
+			</p>
 		</main>
 	);
 }

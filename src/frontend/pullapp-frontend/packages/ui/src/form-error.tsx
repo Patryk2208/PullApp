@@ -1,3 +1,4 @@
+'use client';
 import { Text, StyleSheet } from 'react-native';
 
 export function FormError({ message }: { message: string | null }) {

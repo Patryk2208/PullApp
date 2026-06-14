@@ -10,7 +10,6 @@ export function useProfile(repository: IUserRepository) {
 		async function fetchProfile() {
 			setIsLoading(true);
 			const result = await repository.me();
-			console.log("fetchProfile received", result);
 			
 			if (result.ok) {
 				setProfile(result.value);

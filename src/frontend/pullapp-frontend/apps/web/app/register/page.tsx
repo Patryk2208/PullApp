@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useRegister } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
+import { isUserOldEnough, isValidEmail } from '@pullapp/domain';
+import Link from 'next/link';
 import styles from './register.module.css';
 
 // const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -19,9 +20,33 @@ export default function RegisterPage() {
 	const [email,     setEmail]     = useState('');
 	const [password,  setPassword]  = useState('');
 	const [birthDate, setBirthDate] = useState('');
-	
+	const [validationError, setValidationError] = useState<string | null>(null);
+
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setValidationError(null);
+
+		if (!name.trim() || !surname.trim() || !email.trim() || !password) {
+			setValidationError('Uzupełnij wszystkie pola.');
+			return;
+		}
+		if (!isValidEmail(email)) {
+			setValidationError('Nieprawidłowy adres e-mail.');
+			return;
+		}
+		if (password.length < 6) {
+			setValidationError('Hasło musi mieć co najmniej 6 znaków.');
+			return;
+		}
+		if (!birthDate) {
+			setValidationError('Podaj datę urodzenia.');
+			return;
+		}
+		if (!isUserOldEnough(new Date(birthDate))) {
+			setValidationError('Musisz mieć ukończone 18 lat, aby się zarejestrować.');
+			return;
+		}
+
 		await register({
 			name,
 			surname,
@@ -72,19 +97,21 @@ export default function RegisterPage() {
 					       value={birthDate} onChange={(e) => setBirthDate(e.target.value)}  />
 				</label>
 				
-				{error && <p className={styles.error}>{error}</p>}
+				{(validationError || error) && (
+					<p className={styles.error} data-testid="register-error">{validationError || error}</p>
+				)}
 				
 				<button className={styles.button} type="submit" disabled={isLoading}>
 					{isLoading ? 'Rejestrowanie…' : 'Zarejestruj się'}
 				</button>
 			</form>
 
-			<footer className={styles.footer}>
+			<p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem', color: '#6b7280' }}>
 				Masz już konto?{' '}
-				<Link href="/login" className={styles.link}>
-					Przejdź do logowania
+				<Link href="/login" data-testid="to-login" style={{ color: '#2563eb', fontWeight: 500 }}>
+					Zaloguj się
 				</Link>
-			</footer>
+			</p>
 		</main>
 	);
 }

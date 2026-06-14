@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useAuthStore } from '@pullapp/features';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useAuthStore, useNotificationStream, type SseEvent } from '@pullapp/features';
 import dynamic from 'next/dynamic';
 
 const RequestMapWithNoSSR = dynamic(
@@ -12,117 +12,84 @@ const RequestMapWithNoSSR = dynamic(
 interface RideRequest {
     requestId: string;
     routeId: string;
-    rideId?: string;
     passengerId: string;
     startPoint: { Lat: number; Lng: number };
     endPoint: { Lat: number; Lng: number };
-    driverDeclared?: boolean;
-    passengerDeclared?: boolean;
 }
 
-type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'picking_up' | 'picked_up' | 'started' | 'error';
+type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'error'
+    | 'pickuping' | 'pickedup' | 'ending' | 'ended';
 
 interface RequestCard {
     request: RideRequest;
     status: RequestStatus;
+    rideId?: string;
     error?: string;
 }
 
 export default function DriverDashboardPage() {
     const token = useAuthStore(state => state.token);
     const [cards, setCards] = useState<RequestCard[]>([]);
-    const [sseConnected, setSseConnected] = useState(false);
     const [mapCard, setMapCard] = useState<RequestCard | null>(null);
+    const sseConnected = !!token;
 
+    // współdzielony strumień SSE — nowe prośby ride_requested → karty
+    const handleEvent = useCallback((e: SseEvent) => {
+        if (e.type !== 'ride_requested') return;
+        const data = e.data;
+        setCards(prev => prev.some(c => c.request.requestId === data.RequestId) ? prev : [...prev, {
+            request: {
+                requestId: data.RequestId,
+                routeId: data.RouteId,
+                passengerId: data.PassengerId,
+                startPoint: { Lat: data.StartPoint.Latitude, Lng: data.StartPoint.Longitude },
+                endPoint: { Lat: data.EndPoint.Latitude, Lng: data.EndPoint.Longitude },
+            },
+            status: 'pending'
+        }]);
+    }, []);
+
+    // Źródło prawdy na wejściu/refreshu: pending prośby + aktywne rides z GET.
+    // (SSE dodaje nowe na żywo; bez tego dashboard gubił stan po odświeżeniu.)
     useEffect(() => {
         if (!token) return;
-
-        const controller = new AbortController();
-
-        const connectSSE = async () => {
+        let cancelled = false;
+        const auth = { Authorization: `Bearer ${token}` };
+        const geo = (p: any) => ({ Lat: p.lat, Lng: p.lng });
+        (async () => {
             try {
-                const response = await fetch('/api/sse', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'text/event-stream',
-                    },
-                    signal: controller.signal,
+                const [reqRes, rideRes] = await Promise.all([
+                    fetch('/api/route/driver/requests', { headers: auth }),
+                    fetch('/api/route/driver/rides',    { headers: auth }),
+                ]);
+                const pending = reqRes.ok  ? await reqRes.json()  : [];
+                const rides   = rideRes.ok ? await rideRes.json() : [];
+                if (cancelled) return;
+
+                const fromPending: RequestCard[] = pending.map((r: any) => ({
+                    request: { requestId: r.requestId, routeId: r.routeId, passengerId: r.passengerId,
+                        startPoint: geo(r.start), endPoint: geo(r.end) },
+                    status: 'pending' as RequestStatus,
+                }));
+                const fromRides: RequestCard[] = rides
+                    .filter((r: any) => !r.endedAt)
+                    .map((r: any) => ({
+                        request: { requestId: r.rideId, routeId: r.routeId, passengerId: r.passengerId,
+                            startPoint: geo(r.start), endPoint: geo(r.end) },
+                        rideId: r.rideId,
+                        status: (r.status === 'Started' || r.driverDeclaredPickup ? 'pickedup' : 'accepted') as RequestStatus,
+                    }));
+
+                setCards(prev => {
+                    const seen = new Set(prev.map(c => c.rideId ?? c.request.requestId));
+                    const adds = [...fromPending, ...fromRides].filter(c => !seen.has(c.rideId ?? c.request.requestId));
+                    return [...prev, ...adds];
                 });
-
-                if (!response.ok || !response.body) {
-                    console.error("SSE connection failed:", response.status);
-                    return;
-                }
-
-                setSseConnected(true);
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    console.log("Driver SSE chunk:", chunk);
-                    buffer += chunk;
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() ?? '';
-
-                    let eventType = '';
-                    for (const line of lines) {
-                        if (line.startsWith('event:')) {
-                            eventType = line.replace('event:', '').trim();
-                        } else if (line.startsWith('data:')) {
-                            try {
-                                const data = JSON.parse(line.replace('data:', '').trim());
-                                if (eventType === 'ride_requested') {
-                                    console.log("Driver otrzymał ride_requested:", data);
-                                    setCards(prev => [...prev, {
-                                        request: {
-                                            requestId: data.RequestId,
-                                            routeId: data.RouteId,
-                                            passengerId: data.PassengerId,
-                                            startPoint: { Lat: data.StartPoint.Latitude, Lng: data.StartPoint.Longitude },
-                                            endPoint: { Lat: data.EndPoint.Latitude, Lng: data.EndPoint.Longitude },
-                                        },
-                                        status: 'pending'
-                                    }]);
-                                } else if (eventType === 'passenger_declared_pickup') {
-                                    console.log("Driver otrzymał passenger_declared_pickup:", data);
-                                    setCards(prev => prev.map(c =>
-                                        c.request.rideId && c.request.rideId.toLowerCase() === data.RideId.toLowerCase()
-                                            ? { ...c, request: { ...c.request, passengerDeclared: true } }
-                                            : c
-                                    ));
-                                } else if (eventType === 'ride_started') {
-                                    console.log("Driver otrzymał ride_started:", data);
-                                    setCards(prev => prev.map(c =>
-                                        c.request.rideId && c.request.rideId.toLowerCase() === data.RideId.toLowerCase()
-                                            ? { ...c, status: 'started' as RequestStatus }
-                                            : c
-                                    ));
-                                }
-                            } catch (e) {
-                                console.error("Error parsing SSE data:", e);
-                            }
-                            eventType = '';
-                        }
-                    }
-                }
-            } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    setSseConnected(false);
-                }
-            }
-        };
-
-        connectSSE();
-        return () => {
-            controller.abort();
-            setSseConnected(false);
-        };
+            } catch { /* offline / brak gatewaya — zostaje live SSE */ }
+        })();
+        return () => { cancelled = true; };
     }, [token]);
+    useNotificationStream(handleEvent);
 
     const handleAccept = async (requestId: string) => {
         setCards(prev => prev.map(c =>
@@ -137,12 +104,9 @@ export default function DriverDashboardPage() {
                 }
             });
             if (!response.ok) throw new Error(`Błąd: ${response.status}`);
-            
-            const result = await response.json();
+            const data = await response.json().catch(() => ({}));
             setCards(prev => prev.map(c =>
-                c.request.requestId === requestId 
-                    ? { ...c, status: 'accepted', request: { ...c.request, rideId: result.rideId } } 
-                    : c
+                c.request.requestId === requestId ? { ...c, status: 'accepted', rideId: data.rideId } : c
             ));
         } catch (err: any) {
             setCards(prev => prev.map(c =>
@@ -151,31 +115,32 @@ export default function DriverDashboardPage() {
         }
     };
 
-    const handlePickup = async (rideId: string) => {
-        setCards(prev => prev.map(c =>
-            c.request.rideId === rideId ? { ...c, status: 'picking_up' } : c
-        ));
+    // flow 7/8 (strona kierowcy): driver pickup → end. Pickup MUSI być pierwszy
+    // (pasażer dostanie 403 dopóki kierowca nie zadeklaruje). End wymaga Started.
+    const driverRideAction = async (requestId: string, rideId: string, action: 'pickup' | 'end', busy: RequestStatus, done: RequestStatus) => {
+        setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: busy, error: undefined } : c));
         try {
-            const response = await fetch(`/api/route/driver/rides/${rideId}/pickup`, {
+            const res = await fetch(`/api/route/driver/rides/${rideId}/${action}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                }
+                headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
             });
-            if (!response.ok) throw new Error(`Błąd: ${response.status}`);
-            
-            setCards(prev => prev.map(c =>
-                c.request.rideId === rideId 
-                    ? { ...c, status: 'picked_up', request: { ...c.request, driverDeclared: true } } 
-                    : c
-            ));
+            if (!res.ok) {
+                let msg = `Błąd: ${res.status}`;
+                try {
+                    const j = await res.json();
+                    if (j?.Code === 'invalid_status') msg = 'Pasażer jeszcze nie potwierdził odbioru — nie można zakończyć.';
+                    else msg = j?.Message || msg;
+                } catch {}
+                throw new Error(msg);
+            }
+            setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: done } : c));
         } catch (err: any) {
-            setCards(prev => prev.map(c =>
-                c.request.rideId === rideId ? { ...c, status: 'error', error: err.message } : c
-            ));
+            const revert: RequestStatus = action === 'pickup' ? 'accepted' : 'pickedup';
+            setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: revert, error: err.message } : c));
         }
     };
+    const handleDriverPickup = (card: RequestCard) => { if (card.rideId) driverRideAction(card.request.requestId, card.rideId, 'pickup', 'pickuping', 'pickedup'); };
+    const handleDriverEnd = (card: RequestCard) => { if (card.rideId) driverRideAction(card.request.requestId, card.rideId, 'end', 'ending', 'ended'); };
 
     const handleReject = async (requestId: string) => {
         setCards(prev => prev.map(c =>
@@ -261,10 +226,10 @@ export default function DriverDashboardPage() {
                                     borderRadius: '20px',
                                     fontSize: '0.78rem',
                                     fontWeight: 500,
-                                    backgroundColor: (card.status === 'accepted' || card.status === 'picked_up' || card.status === 'started') ? '#dcfce7' :
+                                    backgroundColor: card.status === 'accepted' ? '#dcfce7' :
                                         card.status === 'rejected' ? '#f3f4f6' :
                                         card.status === 'error' ? '#fef2f2' : '#fef9c3',
-                                    color: (card.status === 'accepted' || card.status === 'picked_up' || card.status === 'started') ? '#15803d' :
+                                    color: card.status === 'accepted' ? '#15803d' :
                                         card.status === 'rejected' ? '#6b7280' :
                                         card.status === 'error' ? '#b91c1c' : '#854d0e',
                                 }}>
@@ -272,24 +237,12 @@ export default function DriverDashboardPage() {
                                      card.status === 'accepting' ? 'Akceptowanie...' :
                                      card.status === 'rejecting' ? 'Odrzucanie...' :
                                      card.status === 'accepted' ? 'Zaakceptowano' :
-                                     card.status === 'picking_up' ? 'Wysyłanie...' :
-                                     card.status === 'picked_up' ? 'Odebrano' :
-                                     card.status === 'started' ? 'W drodze' :
+                                     card.status === 'pickuping' ? 'Potwierdzanie...' :
+                                     card.status === 'pickedup' ? 'Odbiór potwierdzony' :
+                                     card.status === 'ending' ? 'Kończenie...' :
+                                     card.status === 'ended' ? 'Zakończony' :
                                      card.status === 'rejected' ? 'Odrzucono' : 'Błąd'}
                                 </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
-                                {card.request.driverDeclared && (
-                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 500 }}>
-                                        Kierowca potwierdził ✓
-                                    </span>
-                                )}
-                                {card.request.passengerDeclared && (
-                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 500 }}>
-                                        Pasażer potwierdził ✓
-                                    </span>
-                                )}
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem', fontSize: '0.82rem' }}>
@@ -307,8 +260,8 @@ export default function DriverDashboardPage() {
                                 </div>
                             </div>
 
-                            {card.status === 'error' && (
-                                <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#fef2f2', borderRadius: '6px', color: '#b91c1c', fontSize: '0.82rem' }}>
+                            {card.error && (
+                                <div data-testid="driver-error" style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#fef2f2', borderRadius: '6px', color: '#b91c1c', fontSize: '0.82rem' }}>
                                     {card.error}
                                 </div>
                             )}
@@ -363,22 +316,21 @@ export default function DriverDashboardPage() {
                                 </div>
                             )}
 
-                            {(card.status === 'accepted' || card.status === 'picking_up') && card.request.rideId && (
+                            {card.status === 'accepted' && (
                                 <button
-                                    onClick={() => handlePickup(card.request.rideId!)}
-                                    disabled={card.status === 'picking_up'}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.65rem',
-                                        backgroundColor: '#16a34a',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '0.9rem',
-                                        fontWeight: 600,
-                                        cursor: card.status === 'picking_up' ? 'not-allowed' : 'pointer',
-                                    }}>
-                                    {card.status === 'picking_up' ? 'Wysyłanie...' : 'Odbierz pasażera'}
+                                    data-testid="driver-pickup"
+                                    onClick={() => handleDriverPickup(card)}
+                                    style={{ width: '100%', padding: '0.65rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}>
+                                    Potwierdź odbiór pasażera
+                                </button>
+                            )}
+                            {(card.status === 'pickedup' || card.status === 'ending') && (
+                                <button
+                                    data-testid="driver-end"
+                                    onClick={() => handleDriverEnd(card)}
+                                    disabled={card.status === 'ending'}
+                                    style={{ width: '100%', padding: '0.65rem', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500, cursor: card.status === 'ending' ? 'not-allowed' : 'pointer' }}>
+                                    {card.status === 'ending' ? 'Kończenie…' : 'Zakończ przejazd'}
                                 </button>
                             )}
                         </div>

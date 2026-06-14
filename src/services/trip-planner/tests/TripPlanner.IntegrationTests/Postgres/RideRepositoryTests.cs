@@ -214,4 +214,53 @@ public class RideRepositoryTests(PostgresFixture db) : IAsyncLifetime
         // Should not throw when no rides match the route.
         await Repo().DeleteByRouteIdAsync(Guid.NewGuid(), default);
     }
+
+    // ─── Read-model queries (GetByPassengerId / GetByDriverId) ────────────────
+
+    private static Ride RideFor(Guid driverId, Guid passengerId) =>
+        Ride.Create(
+            routeId:           Guid.NewGuid(),
+            driverId:          driverId,
+            passengerId:       passengerId,
+            startPoint:        new GeoPoint(52.2, 21.0),
+            endPoint:          new GeoPoint(52.3, 21.1),
+            price:             10m,
+            cancellationPrice: 2m,
+            frozenPriceId:     Guid.NewGuid(),
+            routeIsActive:     true);
+
+    [Fact]
+    public async Task GetByPassengerId_ReturnsOnlyThatPassengersRides()
+    {
+        var passenger = Guid.NewGuid();
+        var repo      = Repo();
+        await repo.AddAsync(RideFor(Guid.NewGuid(), passenger), default);
+        await repo.AddAsync(RideFor(Guid.NewGuid(), passenger), default);
+        await repo.AddAsync(RideFor(Guid.NewGuid(), Guid.NewGuid()), default); // inny pasażer
+
+        var result = await repo.GetByPassengerIdAsync(passenger, default);
+
+        Assert.Equal(2, result.Count);
+        Assert.All(result, r => Assert.Equal(passenger, r.PassengerId));
+    }
+
+    [Fact]
+    public async Task GetByDriverId_ReturnsOnlyThatDriversRides()
+    {
+        var driver = Guid.NewGuid();
+        var repo   = Repo();
+        await repo.AddAsync(RideFor(driver, Guid.NewGuid()), default);
+        await repo.AddAsync(RideFor(Guid.NewGuid(), Guid.NewGuid()), default); // inny kierowca
+
+        var result = await repo.GetByDriverIdAsync(driver, default);
+
+        Assert.Single(result);
+        Assert.Equal(driver, result[0].DriverId);
+    }
+
+    [Fact]
+    public async Task GetByPassengerId_ReturnsEmpty_WhenNone()
+    {
+        Assert.Empty(await Repo().GetByPassengerIdAsync(Guid.NewGuid(), default));
+    }
 }
