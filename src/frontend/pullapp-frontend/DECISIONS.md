@@ -232,3 +232,12 @@ Dwa „infra bugi" z wcześniejszych iteracji to były błędy w samym Makefile:
 **make run** — przyczyna długiego czekania na rollout: kolejność była `... cd ci`, czyli `cd` (apply + czekanie rollout 120s/serwis) szło PRZED zbudowaniem obrazów (`ci`). Na świeżym klastrze pody = ErrImageNeverPull, a `cd` przepalał ~12 min czekania zanim cokolwiek się zbudowało. Fix: `run: _cluster-ensure obs-install keda-install infra _images _tag-images cd` — build najpierw, deploy raz. Dodany brakujący `keda-install` (route-calc ScaledObject). Nie usuwam `run` — był tylko źle ułożony.
 
 **make frontend** (NOWE) — `frontend` (compose up --build → :5000, wymaga `make pf-gateway`), `frontend-dev` (pnpm dev), `frontend-down`, `frontend-logs`. Help zaktualizowany. Wszystko zweryfikowane `make -n`.
+
+## Load test — KEDA scaling route-calc (zweryfikowane)
+
+`src/infrastructure/loadtest/`: `stress-routecalc.sh` (flood `compute-queue` przez gateway → search/create publikują compute joby) + `watch-keda.sh` + README.
+Payloady (ground truth z frontu): create `POST /api/route/driver/routes {Start/End {Latitude,Longitude}, Capacity}`, search `POST /api/route/passenger/routes/search {Start,End,DepartureDate(ms),SeatsNeeded,MaxDetourKm,TimeWindowMinutes}` — oba zwracają 202 (async enqueue). Token: register (Name/Surname/Email/Password≥8/BirthDate≥18) + login → accessToken. Coords w service area: Warszawa ~52.23,21.01.
+
+Trigger KEDA: rabbitmq `compute-queue`, 10 msg/replikę, min1/max20, polling 10s, cooldown 60s + scaleDown stabilization 120s.
+
+**Wynik (DURATION=100 CONCURRENCY=60):** route-calc 1→5→10→20 (desired) w ~50 s, kolejka spuchła (HPA avg ~352/replikę w szczycie). ALE node = 16 CPU, 99% zaalokowane; route-calc żąda 1 CPU+2Gi/replikę → mieści się ~12, reszta `Pending: Insufficient cpu`. Wniosek/teaching point: decyzja KEDA o skali jest niezależna od pojemności klastra. Dla czystej demonstracji do 20: więcej CPU w minikube / niższy request CPU route-calc / niższy maxReplicaCount.
