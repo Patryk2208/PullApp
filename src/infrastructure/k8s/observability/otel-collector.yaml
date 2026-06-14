@@ -8,11 +8,11 @@ replicaCount: 1
 
 resources:
   requests:
-    memory: 64Mi
-    cpu: 50m
+    memory: 256Mi
+    cpu: 100m
   limits:
-    memory: 128Mi
-    cpu: 200m
+    memory: 512Mi
+    cpu: 500m
 
 ports:
   otlp:
@@ -66,8 +66,6 @@ config:
       endpoint: tempo.monitoring.svc.cluster.local:4317
       tls:
         insecure: true
-    loki:
-      endpoint: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
     prometheusremotewrite:
       endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
       tls:
@@ -76,7 +74,7 @@ config:
   service:
     telemetry:
       logs:
-        level: debug
+        level: info
     extensions: [health_check]
     pipelines:
       traces:
@@ -87,7 +85,6 @@ config:
         receivers: [otlp]
         processors: [batch]
         exporters: [prometheusremotewrite]
-      logs:
-        receivers: [otlp]
-        processors: [batch]
-        exporters: [loki]
+      # remove the chart's default logs pipeline (app logs go via promtail);
+      # null deletes it during Helm merge, same idiom as jaeger/zipkin/debug above
+      logs: null
