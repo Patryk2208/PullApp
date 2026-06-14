@@ -70,6 +70,11 @@ config:
       endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
       tls:
         insecure: true
+    # natywny endpoint OTLP Loki — poprawnie obsługuje structured metadata
+    # (w przeciwieństwie do przestarzałego eksportera `loki`), więc bez spamu
+    # "negative structured metadata bytes" i z korelacją trace↔log
+    otlphttp/loki:
+      logs_endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp/v1/logs
 
   service:
     telemetry:
@@ -85,6 +90,9 @@ config:
         receivers: [otlp]
         processors: [batch]
         exporters: [prometheusremotewrite]
-      # remove the chart's default logs pipeline (app logs go via promtail);
-      # null deletes it during Helm merge, same idiom as jaeger/zipkin/debug above
-      logs: null
+      # serwisy mostkują logi Python/.NET → OTLP → collector; kierujemy je do Loki
+      # natywnym OTLP (memory_limiter wyłączony powyżej, więc go nie referujemy)
+      logs:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [otlphttp/loki]
