@@ -25,7 +25,7 @@ export default function SearchTripPage() {
     }>({ start: null, end: null });
 
     const [formParams, setFormParams] = React.useState({
-        departureDate: '',
+        departureDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
         seatsNeeded: 1,
         maxDetourKm: 5,
         timeWindowMinutes: 30
