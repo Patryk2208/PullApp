@@ -1,3 +1,7 @@
+# Trip Planner — Components (C4 Level 3)
+
+Source: `src/services/trip-planner/`
+
 ## Opis
 
 Trip Planner is the ride-orchestration service. It owns the canonical state of every route, ride, and ride request, and coordinates all external services (Accounts, Payments, Chat, route-calc) without performing their domain logic itself.
@@ -41,6 +45,40 @@ Clean Architecture: `Domain` → `Application` → `Infrastructure` → `Api`.
 |---------|---------|--------------|
 | `RouteComputedHandler` | RabbitMQ result message | DriverRoute → sets geometry on Route; PassengerMatch → marks job complete, emits `RouteSearchCompletedEvent` |
 
+## HTTP endpoints
+
+Paths are the bare service paths; the gateway exposes them under `/api/route/**`.
+`X-User-Id` (injected by the gateway) identifies the caller.
+
+### Driver
+| Method | Path | Handler / purpose |
+|--------|------|-------------------|
+| POST | `/driver/routes` | `CreateRouteHandler` — publish a route (async compute) |
+| POST | `/driver/routes/{routeId}/activate` | `ActivateRouteHandler` |
+| DELETE | `/driver/routes/{routeId}` | `DeleteRouteHandler` |
+| GET | `/driver/requests` | **read-model** — incoming requests for my routes |
+| POST | `/driver/requests/{requestId}/accept` | `AcceptRideRequestHandler` (row lock) |
+| POST | `/driver/requests/{requestId}/reject` | `RejectRideRequestHandler` |
+| GET | `/driver/rides` | **read-model** — my active rides as driver |
+| POST | `/driver/rides/{rideId}/pickup` | `DeclareDriverPickupHandler` |
+| POST | `/driver/rides/{rideId}/end` | `DeclareDriverEndHandler` |
+
+### Passenger
+| Method | Path | Handler / purpose |
+|--------|------|-------------------|
+| POST | `/passenger/routes/search` | `SubmitRouteSearchHandler` (async match) |
+| POST | `/passenger/routes/{routeId}/requests` | `CreateRideRequestHandler` (quote+freeze) |
+| GET | `/passenger/requests` | **read-model** — my ride requests + status |
+| GET | `/passenger/rides` | **read-model** — my rides |
+| POST | `/passenger/rides/{rideId}/pickup` | `DeclarePassengerPickupHandler` |
+| POST | `/passenger/rides/{rideId}/end` | `DeclarePassengerEndHandler` |
+| DELETE | `/passenger/rides/{rideId}` | `CancelRideHandler` (phase-dependent payment) |
+
+> The four `GET` **read-model** endpoints (`{driver,passenger}/{requests,rides}`)
+> back the frontend's my-rides and driver views. They return DTOs
+> (`ReadModelDtos.cs`) read straight from the repositories — no command handler,
+> no domain mutation.
+
 ## DB
 
 PostGIS (tables: `routes`, `rides`, `ride_requests`, `route_jobs`, `service_area`).
@@ -59,7 +97,9 @@ Pessimistic locking: `AcceptRideRequest` begins a transaction before reading the
 
 **Kafka (publish):** `EventPublisher` wraps `IProducer<string, string>` and serializes `IDomainEvent` payloads to JSON (default `JsonSerializer` — PascalCase property names) into an envelope `{ EventType, EventId, OccurredAt, Payload }`.
 
-**gRPC (inbound):** gateway calls trip-planner via gRPC; endpoints map to handlers.
+**HTTP (inbound):** the gateway forwards REST over HTTP (YARP, `/api/route/**`
+prefix stripped). Minimal-API endpoints map 1:1 to handlers — see below. (The
+original design called for gRPC here; the implementation is REST.)
 
 **External service interfaces** (all injected, all have `Fake*` implementations):
 - `IAccountsService` — driver verification

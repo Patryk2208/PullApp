@@ -5,10 +5,21 @@ PullApp uses the OpenTelemetry (OTLP) approach: every service exports **traces, 
 ```
 services ──OTLP gRPC──► otel-collector ──► Tempo      (traces)
                                        ──► Prometheus  (metrics, via remote-write)
-                                       ──► Loki        (logs)
+                                       ──► Loki        (logs, via otlphttp exporter)
                                                │
                                            Grafana
 ```
+
+> Instrumented services: **gateway, accounts, trip-planner** (.NET OTel SDK) and
+> **route-calc** (Python OTel SDK). The frontend is **not** instrumented — browser
+> telemetry is out of scope.
+>
+> The collector's **logs pipeline uses the `otlphttp/loki` exporter**
+> (`…/otlp/v1/logs`). This is load-bearing: removing it makes route-calc's OTLP log
+> export fail with `StatusCode.UNIMPLEMENTED` (it has nowhere to send logs).
+>
+> See [metrics.md](metrics.md) for the exact metrics each service emits and
+> [dashboards.md](dashboards.md) for the three provisioned Grafana dashboards.
 
 ## Stack components
 

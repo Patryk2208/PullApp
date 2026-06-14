@@ -1,7 +1,7 @@
 # Trip Planner — Implementation Specification
 
 > **DEPRECATED — superseded by the `feature/trip-planner/done-right` rebuild.**
-> The current implementation diverges significantly from this document (different state machines, no Redis key schema, no SSE, no polling workers). Refer to `docs/04-components/trip-planner.md` for accurate component documentation and `docs/08-trip-planner-done-right/trip-planner-redo.md` for the design notes that drove the rebuild. This file is kept for historical reference only.
+> The current implementation diverges significantly from this document (different state machines, no Redis key schema, no polling workers). Refer to [`03-components/trip-planner.md`](../03-components/trip-planner.md) for accurate component documentation and [`04-flows/ride-lifecycle.md`](../04-flows/ride-lifecycle.md) for the as-built flows. This file is kept for historical reference only.
 
 ---
 

@@ -206,3 +206,19 @@ Diagnoza wykazała 4 ukryte bugi (latentne — serwisy nie były restartowane po
 5. **pole login `token` vs `accessToken`** — worktree accounts zwracał `Token`, front oczekuje `accessToken`. Fix: `LoginUserResponse.AccessToken`.
 
 Wynik (zweryfikowane przez gateway): login → `{accessToken}`, `GET /api/users/me` z tokenem → 200 (pełny profil), bez tokena → 401. accounts 0 restartów. Zmiana kodu **tylko w accounts**; gateway = redeploy stale image.
+
+## docs/ — przebudowa pod C4 + aktualizacja
+
+Cel: cały `docs/` ładnie pod model C4 i AKTUALNY (odzwierciedla stan zbudowany w tej sesji). Plan zaakceptowany.
+
+Nowa struktura (poziomy C4 zamiast poprzednich numerowanych folderów):
+- `01-context/system-context.md` — L1: aktorzy (Passenger/Driver, dual-role), systemy zewnętrzne (OSM/OSRM, FCM, payment gw).
+- `02-containers/` — `containers.md` (przepisany: +frontend, +gateway=YARP, protokół HTTP/REST a nie gRPC, statusy ✅/🟡/⬜), `diagram.md` (mermaid odświeżony), `deployment.md` (NOWY: minikube + compose ExternalName→host.minikube.internal, imagePullPolicy Never, KEDA, workaround `docker save|docker load`, trip-planner build context).
+- `03-components/` — NOWE: `frontend.md`, `gateway.md`, `accounts.md`, `payments.md` (stub); `trip-planner.md` zaktualizowany (gRPC→REST, tabela endpointów + 4 read-model GET-y); przeniesione `route-calc/notifications/driver-tracker/chat/tile-server`.
+- `04-flows/` — `ride-lifecycle.md` (konsolidacja flows 0–8 z trip-planner-redo + statusy implementacji/fakes/deferred), `auth-and-profile.md`, `notifications-sse.md`.
+- `05-observability/` — konsolidacja 4→3: `observability.md` (+nota o logs pipeline otlphttp/loki), `metrics.md` (przepisany na REALNE nazwy z kodu + transformacja OTel→Prometheus, zweryfikowane), `dashboards.md` (3 wdrożone dashboardy).
+- `reference/` — `trip-planner-spec.md`, `gitflow.md`, `sprint-4.md`.
+
+Usunięte (stale/redundant): `01-containers/`, `02-bounded-contexts/` (puste .gitkeep stuby + redundant), `03-flows/` (kryptyczne 02-1..4), `04-components/` (stuby), `06-observability/` (metrics/monitoring/grafana-dashboards = stare design/plan docs), `08-trip-planner-done-right/` (wchłonięte do ride-lifecycle).
+
+Realne nazwy metryk potwierdzone z kodu + deployed dashboardów: gateway MA custom metryki (`services/gateway/GatewayMetrics.cs`, nie w `/src`), unit-suffix w Prometheusie (`ride_active`→`ride_active_rides`, `ride_cancelled_total`→`ride_cancelled_rides_total`, `matching_result_total`→`matching_result_results_total`, `accounts.login.*`→`accounts_login_*_attempts_total`).
