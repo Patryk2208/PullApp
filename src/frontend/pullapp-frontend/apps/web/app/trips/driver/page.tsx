@@ -1,0 +1,395 @@
+'use client';
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { useAuthStore, useNotificationStream, type SseEvent } from '@pullapp/features';
+import dynamic from 'next/dynamic';
+
+const RequestMapWithNoSSR = dynamic(
+    () => import('./components/RequestMap'),
+    { ssr: false, loading: () => <p>Ładowanie mapy...</p> }
+);
+
+interface RideRequest {
+    requestId: string;
+    routeId: string;
+    passengerId: string;
+    startPoint: { Lat: number; Lng: number };
+    endPoint: { Lat: number; Lng: number };
+}
+
+type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'error'
+    | 'pickuping' | 'pickedup' | 'ending' | 'ended';
+
+interface RequestCard {
+    request: RideRequest;
+    status: RequestStatus;
+    rideId?: string;
+    error?: string;
+}
+
+export default function DriverDashboardPage() {
+    const token = useAuthStore(state => state.token);
+    const [cards, setCards] = useState<RequestCard[]>([]);
+    const [mapCard, setMapCard] = useState<RequestCard | null>(null);
+    const sseConnected = !!token;
+
+    // współdzielony strumień SSE — nowe prośby ride_requested → karty
+    const handleEvent = useCallback((e: SseEvent) => {
+        if (e.type !== 'ride_requested') return;
+        const data = e.data;
+        setCards(prev => prev.some(c => c.request.requestId === data.RequestId) ? prev : [...prev, {
+            request: {
+                requestId: data.RequestId,
+                routeId: data.RouteId,
+                passengerId: data.PassengerId,
+                startPoint: { Lat: data.StartPoint.Latitude, Lng: data.StartPoint.Longitude },
+                endPoint: { Lat: data.EndPoint.Latitude, Lng: data.EndPoint.Longitude },
+            },
+            status: 'pending'
+        }]);
+    }, []);
+
+    // Źródło prawdy na wejściu/refreshu: pending prośby + aktywne rides z GET.
+    // (SSE dodaje nowe na żywo; bez tego dashboard gubił stan po odświeżeniu.)
+    useEffect(() => {
+        if (!token) return;
+        let cancelled = false;
+        const auth = { Authorization: `Bearer ${token}` };
+        const geo = (p: any) => ({ Lat: p.lat, Lng: p.lng });
+        (async () => {
+            try {
+                const [reqRes, rideRes] = await Promise.all([
+                    fetch('/api/route/driver/requests', { headers: auth }),
+                    fetch('/api/route/driver/rides',    { headers: auth }),
+                ]);
+                const pending = reqRes.ok  ? await reqRes.json()  : [];
+                const rides   = rideRes.ok ? await rideRes.json() : [];
+                if (cancelled) return;
+
+                const fromPending: RequestCard[] = pending.map((r: any) => ({
+                    request: { requestId: r.requestId, routeId: r.routeId, passengerId: r.passengerId,
+                        startPoint: geo(r.start), endPoint: geo(r.end) },
+                    status: 'pending' as RequestStatus,
+                }));
+                const fromRides: RequestCard[] = rides
+                    .filter((r: any) => !r.endedAt)
+                    .map((r: any) => ({
+                        request: { requestId: r.rideId, routeId: r.routeId, passengerId: r.passengerId,
+                            startPoint: geo(r.start), endPoint: geo(r.end) },
+                        rideId: r.rideId,
+                        status: (r.status === 'Started' || r.driverDeclaredPickup ? 'pickedup' : 'accepted') as RequestStatus,
+                    }));
+
+                setCards(prev => {
+                    const seen = new Set(prev.map(c => c.rideId ?? c.request.requestId));
+                    const adds = [...fromPending, ...fromRides].filter(c => !seen.has(c.rideId ?? c.request.requestId));
+                    return [...prev, ...adds];
+                });
+            } catch { /* offline / brak gatewaya — zostaje live SSE */ }
+        })();
+        return () => { cancelled = true; };
+    }, [token]);
+    useNotificationStream(handleEvent);
+
+    const handleAccept = async (requestId: string) => {
+        setCards(prev => prev.map(c =>
+            c.request.requestId === requestId ? { ...c, status: 'accepting' } : c
+        ));
+        try {
+            const response = await fetch(`/api/route/driver/requests/${requestId}/accept`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            if (!response.ok) throw new Error(`Błąd: ${response.status}`);
+            const data = await response.json().catch(() => ({}));
+            setCards(prev => prev.map(c =>
+                c.request.requestId === requestId ? { ...c, status: 'accepted', rideId: data.rideId } : c
+            ));
+        } catch (err: any) {
+            setCards(prev => prev.map(c =>
+                c.request.requestId === requestId ? { ...c, status: 'error', error: err.message } : c
+            ));
+        }
+    };
+
+    // flow 7/8 (strona kierowcy): driver pickup → end. Pickup MUSI być pierwszy
+    // (pasażer dostanie 403 dopóki kierowca nie zadeklaruje). End wymaga Started.
+    const driverRideAction = async (requestId: string, rideId: string, action: 'pickup' | 'end', busy: RequestStatus, done: RequestStatus) => {
+        setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: busy, error: undefined } : c));
+        try {
+            const res = await fetch(`/api/route/driver/rides/${rideId}/${action}`, {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+            });
+            if (!res.ok) {
+                let msg = `Błąd: ${res.status}`;
+                try {
+                    const j = await res.json();
+                    if (j?.Code === 'invalid_status') msg = 'Pasażer jeszcze nie potwierdził odbioru — nie można zakończyć.';
+                    else msg = j?.Message || msg;
+                } catch {}
+                throw new Error(msg);
+            }
+            setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: done } : c));
+        } catch (err: any) {
+            const revert: RequestStatus = action === 'pickup' ? 'accepted' : 'pickedup';
+            setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: revert, error: err.message } : c));
+        }
+    };
+    const handleDriverPickup = (card: RequestCard) => { if (card.rideId) driverRideAction(card.request.requestId, card.rideId, 'pickup', 'pickuping', 'pickedup'); };
+    const handleDriverEnd = (card: RequestCard) => { if (card.rideId) driverRideAction(card.request.requestId, card.rideId, 'end', 'ending', 'ended'); };
+
+    const handleReject = async (requestId: string) => {
+        setCards(prev => prev.map(c =>
+            c.request.requestId === requestId ? { ...c, status: 'rejecting' } : c
+        ));
+        try {
+            const response = await fetch(`/api/route/driver/requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            if (!response.ok) throw new Error(`Błąd: ${response.status}`);
+            setCards(prev => prev.map(c =>
+                c.request.requestId === requestId ? { ...c, status: 'rejected' } : c
+            ));
+        } catch (err: any) {
+            setCards(prev => prev.map(c =>
+                c.request.requestId === requestId ? { ...c, status: 'error', error: err.message } : c
+            ));
+        }
+    };
+
+    if (!token) {
+        return (
+            <div style={{ maxWidth: '700px', margin: '4rem auto', padding: '2rem', textAlign: 'center' }}>
+                <p style={{ color: '#6b7280' }}>Zaloguj się aby zobaczyć panel kierowcy.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ maxWidth: '700px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                Panel kierowcy
+            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2rem' }}>
+                <div style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    backgroundColor: sseConnected ? '#16a34a' : '#d1d5db'
+                }} />
+                <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                    {sseConnected ? 'Nasłuchuję na nowe prośby...' : 'Łączenie...'}
+                </span>
+            </div>
+
+            {cards.length === 0 ? (
+                <div style={{
+                    padding: '3rem',
+                    textAlign: 'center',
+                    border: '1px dashed #e5e7eb',
+                    borderRadius: '12px',
+                    color: '#9ca3af'
+                }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🚗</div>
+                    <div>Brak nowych próśb o dołączenie.</div>
+                    <div style={{ fontSize: '0.82rem', marginTop: '0.5rem' }}>
+                        Gdy pasażer wyśle prośbę, pojawi się tutaj automatycznie.
+                    </div>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {cards.map(card => (
+                        <div key={card.request.requestId} style={{
+                            padding: '1.25rem',
+                            border: `1px solid ${card.status === 'accepted' ? '#bbf7d0' : card.status === 'rejected' ? '#e5e7eb' : '#e5e7eb'}`,
+                            borderRadius: '12px',
+                            backgroundColor: card.status === 'accepted' ? '#f0fdf4' : card.status === 'rejected' ? '#f9fafb' : '#ffffff',
+                            opacity: card.status === 'rejected' ? 0.6 : 1,
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                <div>
+                                    <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#111827', marginBottom: '4px' }}>
+                                        Prośba o dołączenie
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#6b7280', fontFamily: 'monospace' }}>
+                                        Pasażer: {card.request.passengerId.slice(0, 8)}...
+                                    </div>
+                                </div>
+                                <div style={{
+                                    padding: '3px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 500,
+                                    backgroundColor: card.status === 'accepted' ? '#dcfce7' :
+                                        card.status === 'rejected' ? '#f3f4f6' :
+                                        card.status === 'error' ? '#fef2f2' : '#fef9c3',
+                                    color: card.status === 'accepted' ? '#15803d' :
+                                        card.status === 'rejected' ? '#6b7280' :
+                                        card.status === 'error' ? '#b91c1c' : '#854d0e',
+                                }}>
+                                    {card.status === 'pending' ? 'Oczekuje' :
+                                     card.status === 'accepting' ? 'Akceptowanie...' :
+                                     card.status === 'rejecting' ? 'Odrzucanie...' :
+                                     card.status === 'accepted' ? 'Zaakceptowano' :
+                                     card.status === 'pickuping' ? 'Potwierdzanie...' :
+                                     card.status === 'pickedup' ? 'Odbiór potwierdzony' :
+                                     card.status === 'ending' ? 'Kończenie...' :
+                                     card.status === 'ended' ? 'Zakończony' :
+                                     card.status === 'rejected' ? 'Odrzucono' : 'Błąd'}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem', fontSize: '0.82rem' }}>
+                                <div style={{ padding: '8px 10px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+                                    <div style={{ color: '#9ca3af', marginBottom: '2px' }}>Odbiór</div>
+                                    <div style={{ color: '#374151', fontFamily: 'monospace' }}>
+                                        {card.request.startPoint.Lat.toFixed(4)}, {card.request.startPoint.Lng.toFixed(4)}
+                                    </div>
+                                </div>
+                                <div style={{ padding: '8px 10px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+                                    <div style={{ color: '#9ca3af', marginBottom: '2px' }}>Wysiadanie</div>
+                                    <div style={{ color: '#374151', fontFamily: 'monospace' }}>
+                                        {card.request.endPoint.Lat.toFixed(4)}, {card.request.endPoint.Lng.toFixed(4)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {card.error && (
+                                <div data-testid="driver-error" style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#fef2f2', borderRadius: '6px', color: '#b91c1c', fontSize: '0.82rem' }}>
+                                    {card.error}
+                                </div>
+                            )}
+
+                            <button
+                                onClick={() => setMapCard(card)}
+                                style={{
+                                    marginBottom: '8px',
+                                    width: '100%',
+                                    padding: '0.6rem',
+                                    backgroundColor: 'white',
+                                    color: '#2563eb',
+                                    border: '1px solid #bfdbfe',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                }}>
+                                Zobacz trasę pasażera na mapie →
+                            </button>
+
+                            {(card.status === 'pending' || card.status === 'error') && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                    <button
+                                        onClick={() => handleReject(card.request.requestId)}
+                                        style={{
+                                            padding: '0.65rem',
+                                            backgroundColor: 'white',
+                                            color: '#374151',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '8px',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 500,
+                                            cursor: 'pointer',
+                                        }}>
+                                        Odrzuć
+                                    </button>
+                                    <button
+                                        onClick={() => handleAccept(card.request.requestId)}
+                                        style={{
+                                            padding: '0.65rem',
+                                            backgroundColor: '#2563eb',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 500,
+                                            cursor: 'pointer',
+                                        }}>
+                                        Akceptuj
+                                    </button>
+                                </div>
+                            )}
+
+                            {card.status === 'accepted' && (
+                                <button
+                                    data-testid="driver-pickup"
+                                    onClick={() => handleDriverPickup(card)}
+                                    style={{ width: '100%', padding: '0.65rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}>
+                                    Potwierdź odbiór pasażera
+                                </button>
+                            )}
+                            {(card.status === 'pickedup' || card.status === 'ending') && (
+                                <button
+                                    data-testid="driver-end"
+                                    onClick={() => handleDriverEnd(card)}
+                                    disabled={card.status === 'ending'}
+                                    style={{ width: '100%', padding: '0.65rem', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500, cursor: card.status === 'ending' ? 'not-allowed' : 'pointer' }}>
+                                    {card.status === 'ending' ? 'Kończenie…' : 'Zakończ przejazd'}
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        {mapCard && (
+            <div
+                onClick={(e) => { if (e.target === e.currentTarget) setMapCard(null); }}
+                style={{
+                    position: 'fixed', inset: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000, padding: '1rem'
+                }}>
+                <div style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '16px',
+                    width: '100%',
+                    maxWidth: '600px',
+                    overflow: 'hidden',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                }}>
+                    <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontWeight: 600, fontSize: '1rem' }}>Trasa pasażera</h3>
+                            <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '2px', fontFamily: 'monospace' }}>
+                                {mapCard.request.passengerId.slice(0, 8)}...
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setMapCard(null)}
+                            style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#6b7280' }}>
+                            ×
+                        </button>
+                    </div>
+                    <div style={{ height: '350px' }}>
+                        <RequestMapWithNoSSR
+                            start={mapCard.request.startPoint}
+                            end={mapCard.request.endPoint}
+                        />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', backgroundColor: '#e5e7eb' }}>
+                        <div style={{ backgroundColor: '#f9fafb', padding: '0.75rem 1rem' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '2px' }}>Odbiór</div>
+                            <div style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: '#374151' }}>
+                                {mapCard.request.startPoint.Lat.toFixed(4)}, {mapCard.request.startPoint.Lng.toFixed(4)}
+                            </div>
+                        </div>
+                        <div style={{ backgroundColor: '#f9fafb', padding: '0.75rem 1rem' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '2px' }}>Wysiadanie</div>
+                            <div style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: '#374151' }}>
+                                {mapCard.request.endPoint.Lat.toFixed(4)}, {mapCard.request.endPoint.Lng.toFixed(4)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </div>
+    );
+}

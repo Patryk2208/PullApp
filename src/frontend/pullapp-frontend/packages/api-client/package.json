@@ -1,0 +1,11 @@
+{
+  "name": "@pullapp/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@pullapp/domain": "workspace:*",
+    "axios": "^1.16.1"
+  }
+}

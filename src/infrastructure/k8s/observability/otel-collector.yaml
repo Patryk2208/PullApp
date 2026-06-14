@@ -8,11 +8,11 @@ replicaCount: 1
 
 resources:
   requests:
-    memory: 64Mi
-    cpu: 50m
+    memory: 256Mi
+    cpu: 100m
   limits:
-    memory: 128Mi
-    cpu: 200m
+    memory: 512Mi
+    cpu: 500m
 
 ports:
   otlp:
@@ -66,17 +66,20 @@ config:
       endpoint: tempo.monitoring.svc.cluster.local:4317
       tls:
         insecure: true
-    loki:
-      endpoint: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
     prometheusremotewrite:
       endpoint: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
       tls:
         insecure: true
+    # natywny endpoint OTLP Loki — poprawnie obsługuje structured metadata
+    # (w przeciwieństwie do przestarzałego eksportera `loki`), więc bez spamu
+    # "negative structured metadata bytes" i z korelacją trace↔log
+    otlphttp/loki:
+      logs_endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp/v1/logs
 
   service:
     telemetry:
       logs:
-        level: debug
+        level: info
     extensions: [health_check]
     pipelines:
       traces:
@@ -87,7 +90,9 @@ config:
         receivers: [otlp]
         processors: [batch]
         exporters: [prometheusremotewrite]
+      # serwisy mostkują logi Python/.NET → OTLP → collector; kierujemy je do Loki
+      # natywnym OTLP (memory_limiter wyłączony powyżej, więc go nie referujemy)
       logs:
         receivers: [otlp]
         processors: [batch]
-        exporters: [loki]
+        exporters: [otlphttp/loki]

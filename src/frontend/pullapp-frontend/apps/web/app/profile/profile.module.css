@@ -1,0 +1,97 @@
+/* apps/web/app/profile/Profile.module.css */
+
+.container {
+    padding: 2rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.title {
+    margin-bottom: 1.5rem;
+    color: #1a1a1a;
+}
+
+.card {
+    background: #ffffff;
+    border: 1px solid #e1e1e1;
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 550px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.headerSection {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #0d8abc;
+}
+
+.identity h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+    color: #2c3e50;
+}
+
+.roleBadge {
+    background-color: #e8f4fd;
+    color: #0d8abc;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.divider {
+    border: 0;
+    border-top: 1px solid #eaeaea;
+    margin: 1.5rem 0;
+}
+
+.infoSection p {
+    margin: 0.75rem 0;
+    color: #555555;
+    font-size: 1rem;
+}
+
+.codeId {
+    background: #f4f4f4;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.bioSection {
+    margin-top: 1.5rem;
+    background: #fafafa;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #0d8abc;
+}
+
+.bioSection h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #2c3e50;
+}
+
+.bioText {
+    margin: 0;
+    color: #666666;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.error {
+    color: #d32f2f;
+    font-weight: bold;
+}

@@ -428,13 +428,13 @@ data:
           "targets": [
             {
               "editorMode": "code",
-              "expr": "sum by(reason) (rate(gateway_auth_failures_total[1m]))",
-              "legendFormat": "{{service}}",
+              "expr": "sum(rate(accounts_login_failed_attempts_total[5m]))",
+              "legendFormat": "nieudane logowania",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Auth Failures",
+          "title": "Nieudane logowania (accounts)",
           "type": "timeseries"
         },
         {

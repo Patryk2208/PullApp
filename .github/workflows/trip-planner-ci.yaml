@@ -85,4 +85,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Docker build
-        run: docker build -f Dockerfile -t pullapp/trip-planner:${{ env.COMMIT_SHA }} .
+        # trip-planner's Dockerfile COPYs cross-service paths (services/trip-planner/...
+        # and schemas/...), so it must build from the src/ root, not the service dir.
+        working-directory: src
+        run: docker build -f services/trip-planner/Dockerfile -t pullapp/trip-planner:${{ env.COMMIT_SHA }} .

@@ -46,12 +46,24 @@ app.Services.GetRequiredService<AccountsMetrics>();
 
 app.UseExceptionHandler();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapOpenApi();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AccountsDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        db.Database.Migrate();
+    }
+    catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P07")
+    {
+        // Schemat już istnieje (baza dev z poprzedniego runu bez historii migracji).
+        // Pomijamy, żeby serwis dał się zrestartować bez padania na ponownej migracji.
+        app.Logger.LogWarning("Pominięto migrację — schemat już istnieje ({SqlState})", ex.SqlState);
+    }
 }
 
 app.MapEndpoints();

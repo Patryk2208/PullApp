@@ -32,6 +32,7 @@ internal sealed class JwtProvider : IJwtProvider
 		};
 
 		var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:SecretKey"]!));
+		key.KeyId = "pullapp-key";
 		var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 		
 		var token = new JwtSecurityToken(

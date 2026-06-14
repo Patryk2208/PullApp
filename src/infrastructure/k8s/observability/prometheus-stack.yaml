@@ -11,6 +11,20 @@ grafana:
       type: tempo
       url: http://tempo.monitoring.svc.cluster.local:3100
       access: proxy
+      # single-binary Tempo serves queries over HTTP on :3100; Grafana's default
+      # gRPC streaming would dial that HTTP port and fail ("looked like an
+      # HTTP/1.1 header"), so disable streaming and use plain HTTP queries.
+      jsonData:
+        streamingEnabled:
+          search: false
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
 
 alertmanager:
   enabled: false
@@ -21,11 +35,11 @@ prometheus:
     retention: 3d
     resources:
       requests:
-        memory: 256Mi
-        cpu: 100m
-      limits:
         memory: 512Mi
-        cpu: 500m
+        cpu: 250m
+      limits:
+        memory: 1Gi
+        cpu: "1"
 
 kubeStateMetrics:
   enabled: true

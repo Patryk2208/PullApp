@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
+using TripPlanner.Domain.Events;
 using TripPlanner.Domain.Ride;
 
 namespace TripPlanner.Application.Features.Passenger;
@@ -15,6 +16,8 @@ public record DeclarePassengerPickupCommand(Guid PassengerId, Guid RideId);
 /// </summary>
 public class DeclarePassengerPickupHandler(
     IRideRepository rides,
+    IEventPublisher events,
+    KafkaTopics topics,
     IUnitOfWork uow,
     ILogger<DeclarePassengerPickupHandler> logger)
 {
@@ -35,13 +38,26 @@ public class DeclarePassengerPickupHandler(
         // 2. Call ride.DeclarePassengerPickup().
         //    - Returns false if driver hasn't declared yet → throw DeclarationOrderException (403).
         //    - Returns true and Status becomes Started when both parties have declared.
+        var wasStartedBefore = ride.Status == RideStatus.Started;
         if (!ride.DeclarePassengerPickup())
             throw new DeclarationOrderException("Driver has not declared pickup yet.");
+        var isStartedNow = ride.Status == RideStatus.Started;
 
         // 3. Persist and commit.
         await rides.UpdateAsync(ride, ct);
         await uow.CommitAsync(ct);
+
+        // 4. Publish events.
+        await events.PublishAsync(topics.NotificationTriggers,
+            new PassengerDeclaredPickupEvent(ride.Id, ride.RouteId, ride.DriverId, ride.PassengerId), ct);
+
+        if (!wasStartedBefore && isStartedNow)
+        {
+            await events.PublishAsync(topics.NotificationTriggers,
+                new RideStartedEvent(ride.Id, ride.RouteId, ride.DriverId, ride.PassengerId), ct);
+        }
+
         logger.LogInformation("Passenger declared pickup rideId={RideId} passengerId={PassengerId} rideStarted={Started}",
-            cmd.RideId, cmd.PassengerId, ride.Status == RideStatus.Started);
+            cmd.RideId, cmd.PassengerId, isStartedNow);
     }
 }

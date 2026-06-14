@@ -4,10 +4,11 @@ namespace TripPlanner.UnitTests.Features.Passenger;
 
 public class DeclarePassengerPickupHandlerTests
 {
-    private readonly IRideRepository _rides = Substitute.For<IRideRepository>();
-    private readonly IUnitOfWork     _uow   = Substitute.For<IUnitOfWork>();
+    private readonly IRideRepository _rides  = Substitute.For<IRideRepository>();
+    private readonly IEventPublisher _events = Substitute.For<IEventPublisher>();
+    private readonly IUnitOfWork     _uow    = Substitute.For<IUnitOfWork>();
 
-    private DeclarePassengerPickupHandler Handler() => new(_rides, _uow, NullLogger<DeclarePassengerPickupHandler>.Instance);
+    private DeclarePassengerPickupHandler Handler() => new(_rides, _events, new KafkaTopics(), _uow, NullLogger<DeclarePassengerPickupHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_TransitionsRideToStarted()

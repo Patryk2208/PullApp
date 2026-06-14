@@ -4,10 +4,11 @@ namespace TripPlanner.UnitTests.Features.Driver;
 
 public class DeclareDriverPickupHandlerTests
 {
-    private readonly IRideRepository _rides = Substitute.For<IRideRepository>();
-    private readonly IUnitOfWork     _uow   = Substitute.For<IUnitOfWork>();
+    private readonly IRideRepository _rides  = Substitute.For<IRideRepository>();
+    private readonly IEventPublisher _events = Substitute.For<IEventPublisher>();
+    private readonly IUnitOfWork     _uow    = Substitute.For<IUnitOfWork>();
 
-    private DeclareDriverPickupHandler Handler() => new(_rides, _uow, NullLogger<DeclareDriverPickupHandler>.Instance);
+    private DeclareDriverPickupHandler Handler() => new(_rides, _events, new KafkaTopics(), _uow, NullLogger<DeclareDriverPickupHandler>.Instance);
 
     [Fact]
     public async Task HandleAsync_HappyPath_SetsDriverDeclaredPickup()
