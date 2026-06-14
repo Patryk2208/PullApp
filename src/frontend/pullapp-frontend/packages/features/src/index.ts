@@ -8,6 +8,7 @@ export * from './trips/useSearchTrips';
 export * from './trips/usePublishTrip';
 export { useRidesStore } from './trips/ridesStore';
 export type { PassengerRide, RideStatus } from './trips/ridesStore';
+export { useRideActions } from './trips/useRideActions';
 
 // powiadomienia
 export { useNotificationStream } from './notifications/useNotificationStream';

@@ -111,3 +111,16 @@ Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,R
 **🟡 Flaga backendu:** brak read-modelu rides/routes (GET) — widoki budowane z eventów, świeża sesja na innym urządzeniu nie zobaczy historii. Wymaga endpointów GET po stronie trip-planner.
 
 **Weryfikacja.** Playwright: mock `ride_accepted` → karta ze statusem + przeżywa reload.
+
+## Iteracja #3 — cykl życia Ride (pickup/end/cancel, flow 7/8)
+
+**Kontrakty zweryfikowane przeciw backendowi:**
+- `POST /passenger/rides/{id}/pickup` → 204 (tylko PO deklaracji kierowcy; inaczej 403 `declaration_order`). Sukces ⇒ Started.
+- `POST /passenger/rides/{id}/end` → 204 (tylko w Started; inaczej 409 `invalid_status`).
+- `DELETE /passenger/rides/{id}` → 204 (cancel).
+
+**Decyzja.** Hook `useRideActions` (pickup/end/cancel + optymistyczna zmiana statusu w store). Na „Moich przejazdach" przyciski wg statusu: accepted → [Potwierdź odbiór][Anuluj], started → [Zakończ przejazd]. 403 `declaration_order` mapowane na przyjazny komunikat „Kierowca jeszcze nie potwierdził odbioru…".
+
+**🟡 Flaga backendu (poważna dla UX flow 7).** Brak eventu gdy kierowca zadeklaruje odbiór ani gdy ride → Started. Pasażer nie wie, kiedy może deklarować swój pickup — może tylko próbować i dostawać 403. Również brak `ride_started` → druga strona nie widzi reaktywnie startu. Wymaga eventów `driver_pickup_declared` / `ride_started` po stronie backendu.
+
+**Weryfikacja.** Playwright (mock endpointów): pickup→Started+przycisk Zakończ; 403→przyjazny komunikat+status bez zmian; cancel→Anulowany.
