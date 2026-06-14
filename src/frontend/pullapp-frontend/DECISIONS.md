@@ -241,3 +241,12 @@ Payloady (ground truth z frontu): create `POST /api/route/driver/routes {Start/E
 Trigger KEDA: rabbitmq `compute-queue`, 10 msg/replikę, min1/max20, polling 10s, cooldown 60s + scaleDown stabilization 120s.
 
 **Wynik (DURATION=100 CONCURRENCY=60):** route-calc 1→5→10→20 (desired) w ~50 s, kolejka spuchła (HPA avg ~352/replikę w szczycie). ALE node = 16 CPU, 99% zaalokowane; route-calc żąda 1 CPU+2Gi/replikę → mieści się ~12, reszta `Pending: Insufficient cpu`. Wniosek/teaching point: decyzja KEDA o skali jest niezależna od pojemności klastra. Dla czystej demonstracji do 20: więcej CPU w minikube / niższy request CPU route-calc / niższy maxReplicaCount.
+
+## Search „dziwnie działa" — diagnoza i fix (CORS + mapa)
+
+Zgłoszenie: przycisk search nie działa + SSE wali CORS. Diagnoza Playwrightem na :4000 (prod build) + curl:
+- **CORS** — w kodzie frontu NIE ma żadnego cross-origin (zero EventSource, brak `NEXT_PUBLIC_API_URL`; SSE i API idą same-origin przez Next route handler `/api/sse` i rewrites → gateway). Ale **gateway nie miał ŻADNEJ polityki CORS**, więc każde bezpośrednie wywołanie z innego orig(np. EventSource/axios na :8080, albo gdy ktoś ustawi `NEXT_PUBLIC_API_URL`) przeglądarka blokuje. Fix: `AddCors`/`UseCors` w gateway `Program.cs` — polityka „frontend", originy z configu `Cors:AllowedOrigins` (+ defaulty localhost/127.0.0.1 :3000/:4000/:5000), `AllowAnyHeader/Method` + `AllowCredentials`. `UseCors` PRZED `UseAuthentication` (preflight OPTIONS bez tokena nie może wpaść w `RequireAuthenticatedUser`). Zweryfikowane: preflight 204 + `Allow-Origin`, realny POST 202 + `Allow-Origin`, obcy origin bez `Allow-Origin`.
+- **Przycisk/422** — `Map.tsx` miał `zoom={6}` (widok całego kraju); kliknięcia lądowały dziesiątki km od Warszawy → poza `service_area` → search 422 → UI „API odrzuciło żądanie: 422", brak wyników. Fix: `zoom={12}` (centrum mapy = Warszawa, punkty w obszarze).
+- Nowy e2e `apps/web/e2e/search-flow.mjs`: klik mapy → przycisk aktywny → POST przyjęty → SSE round-trip się domyka (matches/empty) → brak CORS. 5/5 PASS.
+
+Uwaga: CORS na gatewayu jest już LIVE (przebudowany+wdrożony, build potwierdził fix kontekstu trip-planner/Makefile). Front na :4000 ma stary build — zoom wejdzie po przebudowie (`make frontend` / `next build`).
