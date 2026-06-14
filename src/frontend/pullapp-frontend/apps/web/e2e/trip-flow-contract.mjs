@@ -86,5 +86,17 @@ ok(accRes.status === 200 && typeof acc.rideId === 'string', `accept → 200 {rid
 const accEvt = await accEventP;
 ok(accEvt && typeof accEvt.RideId === 'string', 'SSE ride_accepted → dociera do pasażera (nazwa eventu zgodna z toastem)');
 
+// reject path → ride_rejected(SSE→passenger)
+const passenger2 = await newUser();
+const req2Res = await post(`/api/route/passenger/routes/${routeId}/requests`, passenger2, { Start: { Latitude: 52.27, Longitude: 21.02 }, End: { Latitude: 52.36, Longitude: 21.04 } });
+const req2 = await req2Res.json();
+ok(req2Res.status === 201 && typeof req2.requestId === 'string', `request#2 → 201 {requestId} (${req2Res.status})`);
+const rejEventP = waitEvent(passenger2, 'ride_rejected');
+await sleep(1200);
+const rejRes = await post(`/api/route/driver/requests/${req2.requestId}/reject`, driver);
+ok(rejRes.status === 204, `reject → 204 (${rejRes.status})`);
+const rejEvt = await rejEventP;
+ok(rejEvt && rejEvt.RequestId === req2.requestId, 'SSE ride_rejected → dociera do pasażera (nazwa eventu zgodna z toastem)');
+
 await new Promise(r => setTimeout(r, 200));
 process.exit(failed ? 1 : 0);

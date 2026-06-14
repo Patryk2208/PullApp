@@ -97,3 +97,7 @@ Czyli jedynym realnym bugiem kontraktu był `accessToken` (login) — już napra
 **Decyzja.** `publish/page.tsx` subskrybuje współdzielony strumień (`useNotificationStream`), zapisuje `readyRouteId` z `route_ready` (obsługa obu kolejności event↔result), i `routeReady = !!result && readyRouteId === result.routeId`. Przycisk activate jest **disabled** + „⏳ Czekam na gotowość trasy…" dopóki nie przyjdzie event; potem odblokowany + „🟢 Aktywuj…". Eliminuje race 409.
 
 **Weryfikacja.** Playwright (kliknięcia w Leaflet + mock publish/SSE): z `route_ready` → przycisk enabled + „Aktywuj"; bez → disabled + „Czekam…". Pełna suite bez regresji.
+
+## Iteracja 8 — domknięcie kontraktu powiadomień (reject)
+
+Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,RouteId,DriverId,PassengerId,EventType:"ride_rejected"}`) — nazwa zgodna z toastem z it.1. Rozszerzony `trip-flow-contract.mjs` o ścieżkę reject (11 asercji). Cały kontrakt accept/reject/ride_requested/ride_accepted/ride_rejected potwierdzony przeciw realnemu backendowi.
