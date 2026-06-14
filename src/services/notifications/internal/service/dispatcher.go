@@ -132,6 +132,27 @@ func recipients(env model.Envelope) ([]string, error) {
 		}
 		return p.AffectedPassengerIds, nil
 
+	case model.EventDriverDeclaredPickup:
+		p, err := model.DecodePayload[model.PickupPayload](env)
+		if err != nil {
+			return nil, err
+		}
+		return []string{p.PassengerId}, nil
+
+	case model.EventPassengerDeclaredPickup:
+		p, err := model.DecodePayload[model.PickupPayload](env)
+		if err != nil {
+			return nil, err
+		}
+		return []string{p.DriverId}, nil
+
+	case model.EventRideStarted:
+		p, err := model.DecodePayload[model.RideStartedPayload](env)
+		if err != nil {
+			return nil, err
+		}
+		return []string{p.DriverId, p.PassengerId}, nil
+
 	// ── ride-completions ─────────────────────────────────────────────────────
 
 	case model.EventRideCompleted:

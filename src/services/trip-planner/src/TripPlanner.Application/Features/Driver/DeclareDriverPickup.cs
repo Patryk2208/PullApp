@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using TripPlanner.Application.Exceptions;
 using TripPlanner.Application.Repositories;
 using TripPlanner.Application.Services;
+using TripPlanner.Domain.Events;
 using TripPlanner.Domain.Ride;
 
 namespace TripPlanner.Application.Features.Driver;
@@ -14,6 +15,8 @@ public record DeclareDriverPickupCommand(Guid DriverId, Guid RideId);
 /// </summary>
 public class DeclareDriverPickupHandler(
     IRideRepository rides,
+    IEventPublisher events,
+    KafkaTopics topics,
     IUnitOfWork uow,
     ILogger<DeclareDriverPickupHandler> logger)
 {
@@ -33,12 +36,25 @@ public class DeclareDriverPickupHandler(
 
         // 2. Call ride.DeclareDriverPickup().
         //    - If both parties have now declared → Status becomes Started (handled inside domain).
+        var wasStartedBefore = ride.Status == RideStatus.Started;
         ride.DeclareDriverPickup();
+        var isStartedNow = ride.Status == RideStatus.Started;
 
         // 3. Persist and commit.
         await rides.UpdateAsync(ride, ct);
         await uow.CommitAsync(ct);
-        logger.LogInformation("Driver declared pickup rideId={RideId} driverId={DriverId}",
-            cmd.RideId, cmd.DriverId);
+
+        // 4. Publish events.
+        await events.PublishAsync(topics.NotificationTriggers,
+            new DriverDeclaredPickupEvent(ride.Id, ride.RouteId, ride.DriverId, ride.PassengerId), ct);
+
+        if (!wasStartedBefore && isStartedNow)
+        {
+            await events.PublishAsync(topics.NotificationTriggers,
+                new RideStartedEvent(ride.Id, ride.RouteId, ride.DriverId, ride.PassengerId), ct);
+        }
+
+        logger.LogInformation("Driver declared pickup rideId={RideId} driverId={DriverId} rideStarted={RideStarted}",
+            cmd.RideId, cmd.DriverId, isStartedNow);
     }
 }

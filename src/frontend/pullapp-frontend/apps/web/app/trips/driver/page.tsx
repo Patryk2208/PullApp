@@ -12,12 +12,15 @@ const RequestMapWithNoSSR = dynamic(
 interface RideRequest {
     requestId: string;
     routeId: string;
+    rideId?: string;
     passengerId: string;
     startPoint: { Lat: number; Lng: number };
     endPoint: { Lat: number; Lng: number };
+    driverDeclared?: boolean;
+    passengerDeclared?: boolean;
 }
 
-type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'error';
+type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'picking_up' | 'picked_up' | 'started' | 'error';
 
 interface RequestCard {
     request: RideRequest;
@@ -46,7 +49,10 @@ export default function DriverDashboardPage() {
                     signal: controller.signal,
                 });
 
-                if (!response.ok || !response.body) return;
+                if (!response.ok || !response.body) {
+                    console.error("SSE connection failed:", response.status);
+                    return;
+                }
 
                 setSseConnected(true);
                 const reader = response.body.getReader();
@@ -82,8 +88,24 @@ export default function DriverDashboardPage() {
                                         },
                                         status: 'pending'
                                     }]);
+                                } else if (eventType === 'passenger_declared_pickup') {
+                                    console.log("Driver otrzymał passenger_declared_pickup:", data);
+                                    setCards(prev => prev.map(c =>
+                                        c.request.rideId && c.request.rideId.toLowerCase() === data.RideId.toLowerCase()
+                                            ? { ...c, request: { ...c.request, passengerDeclared: true } }
+                                            : c
+                                    ));
+                                } else if (eventType === 'ride_started') {
+                                    console.log("Driver otrzymał ride_started:", data);
+                                    setCards(prev => prev.map(c =>
+                                        c.request.rideId && c.request.rideId.toLowerCase() === data.RideId.toLowerCase()
+                                            ? { ...c, status: 'started' as RequestStatus }
+                                            : c
+                                    ));
                                 }
-                            } catch {}
+                            } catch (e) {
+                                console.error("Error parsing SSE data:", e);
+                            }
                             eventType = '';
                         }
                     }
@@ -115,12 +137,42 @@ export default function DriverDashboardPage() {
                 }
             });
             if (!response.ok) throw new Error(`Błąd: ${response.status}`);
+            
+            const result = await response.json();
             setCards(prev => prev.map(c =>
-                c.request.requestId === requestId ? { ...c, status: 'accepted' } : c
+                c.request.requestId === requestId 
+                    ? { ...c, status: 'accepted', request: { ...c.request, rideId: result.rideId } } 
+                    : c
             ));
         } catch (err: any) {
             setCards(prev => prev.map(c =>
                 c.request.requestId === requestId ? { ...c, status: 'error', error: err.message } : c
+            ));
+        }
+    };
+
+    const handlePickup = async (rideId: string) => {
+        setCards(prev => prev.map(c =>
+            c.request.rideId === rideId ? { ...c, status: 'picking_up' } : c
+        ));
+        try {
+            const response = await fetch(`/api/route/driver/rides/${rideId}/pickup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+            });
+            if (!response.ok) throw new Error(`Błąd: ${response.status}`);
+            
+            setCards(prev => prev.map(c =>
+                c.request.rideId === rideId 
+                    ? { ...c, status: 'picked_up', request: { ...c.request, driverDeclared: true } } 
+                    : c
+            ));
+        } catch (err: any) {
+            setCards(prev => prev.map(c =>
+                c.request.rideId === rideId ? { ...c, status: 'error', error: err.message } : c
             ));
         }
     };
@@ -209,10 +261,10 @@ export default function DriverDashboardPage() {
                                     borderRadius: '20px',
                                     fontSize: '0.78rem',
                                     fontWeight: 500,
-                                    backgroundColor: card.status === 'accepted' ? '#dcfce7' :
+                                    backgroundColor: (card.status === 'accepted' || card.status === 'picked_up' || card.status === 'started') ? '#dcfce7' :
                                         card.status === 'rejected' ? '#f3f4f6' :
                                         card.status === 'error' ? '#fef2f2' : '#fef9c3',
-                                    color: card.status === 'accepted' ? '#15803d' :
+                                    color: (card.status === 'accepted' || card.status === 'picked_up' || card.status === 'started') ? '#15803d' :
                                         card.status === 'rejected' ? '#6b7280' :
                                         card.status === 'error' ? '#b91c1c' : '#854d0e',
                                 }}>
@@ -220,8 +272,24 @@ export default function DriverDashboardPage() {
                                      card.status === 'accepting' ? 'Akceptowanie...' :
                                      card.status === 'rejecting' ? 'Odrzucanie...' :
                                      card.status === 'accepted' ? 'Zaakceptowano' :
+                                     card.status === 'picking_up' ? 'Wysyłanie...' :
+                                     card.status === 'picked_up' ? 'Odebrano' :
+                                     card.status === 'started' ? 'W drodze' :
                                      card.status === 'rejected' ? 'Odrzucono' : 'Błąd'}
                                 </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+                                {card.request.driverDeclared && (
+                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 500 }}>
+                                        Kierowca potwierdził ✓
+                                    </span>
+                                )}
+                                {card.request.passengerDeclared && (
+                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 500 }}>
+                                        Pasażer potwierdził ✓
+                                    </span>
+                                )}
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem', fontSize: '0.82rem' }}>
@@ -293,6 +361,25 @@ export default function DriverDashboardPage() {
                                         Akceptuj
                                     </button>
                                 </div>
+                            )}
+
+                            {(card.status === 'accepted' || card.status === 'picking_up') && card.request.rideId && (
+                                <button
+                                    onClick={() => handlePickup(card.request.rideId!)}
+                                    disabled={card.status === 'picking_up'}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.65rem',
+                                        backgroundColor: '#16a34a',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        cursor: card.status === 'picking_up' ? 'not-allowed' : 'pointer',
+                                    }}>
+                                    {card.status === 'picking_up' ? 'Wysyłanie...' : 'Odbierz pasażera'}
+                                </button>
                             )}
                         </div>
                     ))}

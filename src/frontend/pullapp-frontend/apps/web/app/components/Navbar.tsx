@@ -39,6 +39,9 @@ export function Navbar() {
 						<Link href="/trips/driver" className={styles.link}>
 							🚗 Panel kierowcy
 						</Link>
+						<Link href="/trips/passenger" className={styles.link}>
+							🎒 Panel pasażera
+						</Link>
 						<Link href="/profile" className={styles.link}>
 							👤 Mój Profil
 						</Link>
