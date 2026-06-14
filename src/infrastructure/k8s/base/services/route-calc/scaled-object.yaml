@@ -42,7 +42,11 @@ spec:
       mode: QueueLength
       value: "10"
   
-  # Secondary: CPU protection
+  # Secondary: CPU protection.
+  # REQUIRES metrics-server in the cluster (minikube: `minikube addons enable
+  # metrics-server`). Without it this trigger errors, the HPA goes
+  # ScalingActive=False and then refuses ALL scaling decisions — including
+  # scale-down — so route-calc gets stuck at whatever replica count it last hit.
   - type: cpu
     metricType: Utilization
     metadata:

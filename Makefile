@@ -151,6 +151,8 @@ cluster-start: _check-minikube
 	@printf "$(CYAN)Raising inotify limits for Promtail...$(RESET)\n"
 	@minikube ssh -- sudo sysctl fs.inotify.max_user_instances=512
 	@minikube ssh -- sudo sysctl fs.inotify.max_user_watches=524288
+	@printf "$(CYAN)Enabling metrics-server (required by the route-calc KEDA CPU trigger)...$(RESET)\n"
+	@minikube addons enable metrics-server >/dev/null
 	@kubectl get namespace $(NAMESPACE) >/dev/null 2>&1 \
 		|| kubectl create namespace $(NAMESPACE)
 
