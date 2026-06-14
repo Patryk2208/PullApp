@@ -69,3 +69,20 @@ Frontend zachowuje się poprawnie (pokazuje błąd), więc nic do naprawy po str
 **Decyzja.** `useNotificationStream` przepisany na singleton: moduł trzyma jedno połączenie + zbiór subskrybentów. Połączenie wstaje przy 1. subskrybencie, znika przy ostatnim, reconnect przy zmianie tokena. Panel kierowcy używa teraz `useNotificationStream(handleEvent)` (filtr `ride_requested` → karty); wskaźnik połączenia uproszczony do `!!token`. Usunięte ~65 linii zduplikowanego SSE.
 
 **Weryfikacja.** Playwright: mock `ride_requested` na `/trips/driver` → karta prośby + akcje + id pasażera. Regresja: toasty pasażera nadal działają (ten sam strumień).
+
+## Iteracja 6 — weryfikacja rdzenia trip-flow (publish→search→request→accept)
+
+**Wynik: rdzeń NIE ma mismatchy kontraktu.** Przeszedłem cały flow przeciw realnemu backendowi i wszystkie payloady/odpowiedzi/eventy zgadzają się z frontem:
+- `POST /driver/routes` → 202 `{routeId}` ✅ (front czyta `data.routeId`)
+- `POST /driver/routes/{id}/activate` → 204 ✅
+- `POST /passenger/routes/search` → 202 `{jobId}` ✅ (front i tak czeka na SSE)
+- `POST /passenger/routes/{id}/requests` → 201 `{requestId}` ✅
+- SSE `ride_requested` → kształt `{RequestId,RouteId,PassengerId,StartPoint:{Latitude,Longitude},…}` **dokładnie** jak parser panelu kierowcy ✅
+- `POST /driver/requests/{id}/accept` → 200 `{rideId,chatRoomId}` ✅
+- SSE `ride_accepted` → dociera do pasażera, nazwa eventu zgodna z toastem z it.1 ✅
+
+Czyli jedynym realnym bugiem kontraktu był `accessToken` (login) — już naprawiony. Po jego naprawie rdzeń działa.
+
+**🟡 Znalezisko (race przy aktywacji).** Geometria trasy liczy się **async** po publish (202). `activate` zwraca **409** dopóki status != `Created`. Front NIE ma dziś sygnału gotowości — user może kliknąć „Aktywuj" za wcześnie i dostać błąd. **Rekomendacja (przyszła iteracja):** polling statusu trasy lub event `route_created`, i gejtowanie przycisku activate do czasu gotowości.
+
+**Artefakt:** `apps/web/e2e/trip-flow-contract.mjs` — integracyjny regression guard całego flow (czysty fetch, bez przeglądarki, przeciw :8080).
