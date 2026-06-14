@@ -23,6 +23,8 @@ interface RidesState {
 	applyEvent: (type: string, data: any) => void;
 	/** lokalna zmiana statusu (optymistyczna, po akcji pickup/end/cancel) */
 	setStatus: (rideId: string, status: RideStatus) => void;
+	/** zasil/zmerguj ze źródła prawdy (GET /passenger/rides) */
+	hydrate: (items: PassengerRide[]) => void;
 	clear: () => void;
 }
 
@@ -58,6 +60,11 @@ export const useRidesStore = Zustand.create<RidesState>()(
 					? { rides: { ...s.rides, [rideId]: { ...s.rides[rideId], status, updatedAt: Date.now() } } }
 					: s
 			)),
+			hydrate: (items) => set((s) => {
+				const rides = { ...s.rides };
+				for (const it of items) rides[it.rideId] = { ...rides[it.rideId], ...it };
+				return { rides };
+			}),
 			clear: () => set({ rides: {} }),
 		}),
 		{ name: 'pullapp-rides-storage', storage: ZustandMiddleware.createJSONStorage(() => storage) }

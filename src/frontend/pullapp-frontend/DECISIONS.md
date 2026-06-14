@@ -161,3 +161,17 @@ Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,R
 **A. Linki login↔register.** Brakowało nawigacji do `/register` (trzeba było wpisywać URL). Dodane krzyżowe linki: login → „Zarejestruj się", register → „Zaloguj się".
 
 **B. Fix OTel logs (regresja z obs-hardeningu).** Serwisy (route-calc/.NET) mostkują logi przez OTLP → collector :4317 → Loki. W obs-hardeningu wyciąłem pipeline `logs` z collectora (`logs: null`) → collector odpowiadał `UNIMPLEMENTED`, route-calc spamował błędami przy szukaniu tras. To było over-correction (spam „negative structured metadata" pochodził od przestarzałego eksportera `loki`, nie od pipeline'u). Fix: przywrócony pipeline `logs` z eksporterem `otlphttp/loki` → natywny endpoint OTLP Loki (`/otlp/v1/logs`), poprawnie obsługuje structured metadata, z korelacją trace↔log. Zweryfikowane: 0 błędów UNIMPLEMENTED po fixie. (Trade-off: app-logi lecą i przez OTLP, i przez promtail — drobna duplikacja; do ewentualnego zawężenia promtaila później.)
+
+## Iteracja — read-model GET (Ride/RideRequest) + wpięcie frontu
+
+**Problem.** RideRequest znikał po refreshu — brak GET, stan tylko w SSE.
+
+**Backend (trip-planner).** Dodane 4 endpointy GET (200, projekcja na DTO):
+`/passenger/requests`, `/passenger/rides`, `/driver/requests` (JOIN routes po driver_id), `/driver/rides`.
++ metody query w `IRide(Request)Repository` i implementacje Postgres. Testy integracyjne (Testcontainers) — 26/26 PASS. Zweryfikowane przez gateway end-to-end (wszystkie 4 → 200).
+
+**Frontend.** `useMyTrips`: na wejściu fetch `/passenger/rides` + `/passenger/requests`, hydruje `ridesStore` (status backendu → store), zwraca prośby; odświeża na SSE accept/reject/end. Strona `/trips/my-rides`: sekcja „Moje prośby" (Pending/Accepted/Rejected) + przejazdy ze źródła prawdy → **widać po refreshu**.
+
+**🟡 Flagi infra (znalezione przy deployu):**
+- `make ci-trip-planner` zepsute — generyczny `build-%` daje kontekst `src/services/<svc>`, a Dockerfile trip-plannera wymaga `src/` (cross-service `schemas/`). Build pada.
+- `minikube image load` nie nadpisuje istniejącego `:latest` (+ `imagePullPolicy: Never`) → pody trzymają stary obraz. Workaround: `docker save | (eval $(minikube docker-env); docker load)` + `rollout restart`.
