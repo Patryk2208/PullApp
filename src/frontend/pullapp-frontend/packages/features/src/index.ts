@@ -6,3 +6,7 @@ export { useAuthStore } from './auth/authStore';
 // tripplanner endpoints
 export * from './trips/useSearchTrips';
 export * from './trips/usePublishTrip';
+
+// powiadomienia
+export { useNotificationStream } from './notifications/useNotificationStream';
+export type { SseEvent } from './notifications/useNotificationStream';
