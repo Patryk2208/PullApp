@@ -6,6 +6,8 @@ export { useAuthStore } from './auth/authStore';
 // tripplanner endpoints
 export * from './trips/useSearchTrips';
 export * from './trips/usePublishTrip';
+export { useRidesStore } from './trips/ridesStore';
+export type { PassengerRide, RideStatus } from './trips/ridesStore';
 
 // powiadomienia
 export { useNotificationStream } from './notifications/useNotificationStream';

@@ -101,3 +101,13 @@ Czyli jedynym realnym bugiem kontraktu był `accessToken` (login) — już napra
 ## Iteracja 8 — domknięcie kontraktu powiadomień (reject)
 
 Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,RouteId,DriverId,PassengerId,EventType:"ride_rejected"}`) — nazwa zgodna z toastem z it.1. Rozszerzony `trip-flow-contract.mjs` o ścieżkę reject (11 asercji). Cały kontrakt accept/reject/ride_requested/ride_accepted/ride_rejected potwierdzony przeciw realnemu backendowi.
+
+## Iteracja #2 (plan) — widok „Moje przejazdy" pasażera
+
+**Odkrycie API.** Trip-planner ma komendy ale **ZERO endpointów GET** (brak `GET /passenger/rides`, `GET /driver/routes`). Stan rides istnieje wyłącznie w eventach SSE. Eventy lifecycle potwierdzone: `ride_accepted/ride_rejected/ride_ended/route_deleted/route_ready/ride_requested`. **Brak `ride_started`** — gdy oba pickupy → Started, żaden event nie leci (UI nie dowie się reaktywnie o starcie).
+
+**Decyzja.** `useRidesStore` (zustand+persist `pullapp-rides-storage`) zasilany z globalnego `NotificationListener` (jedyne źródło prawdy). Strona `/trips/my-rides` listuje przejazdy ze statusem, aktualizacja na żywo, link w Navbarze. Persist → przeżywa reload (mitygacja braku GET).
+
+**🟡 Flaga backendu:** brak read-modelu rides/routes (GET) — widoki budowane z eventów, świeża sesja na innym urządzeniu nie zobaczy historii. Wymaga endpointów GET po stronie trip-planner.
+
+**Weryfikacja.** Playwright: mock `ride_accepted` → karta ze statusem + przeżywa reload.

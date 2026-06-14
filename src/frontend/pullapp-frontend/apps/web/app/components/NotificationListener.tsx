@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useNotificationStream, type SseEvent } from '@pullapp/features';
+import { useNotificationStream, useRidesStore, type SseEvent } from '@pullapp/features';
 
 type ToastKind = 'success' | 'error' | 'info';
 interface Toast { id: number; kind: ToastKind; text: string; }
@@ -28,7 +28,11 @@ export function NotificationListener() {
 		setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 6000);
 	}, []);
 
+	const applyRideEvent = useRidesStore((s) => s.applyEvent);
+
 	const handleEvent = useCallback((e: SseEvent) => {
+		// zasil store „Moich przejazdów" (jedyne źródło — backend nie ma GET)
+		applyRideEvent(e.type, e.data);
 		switch (e.type) {
 			case 'ride_accepted':
 				push('success', 'Kierowca zaakceptował Twoją prośbę! 🎉');
@@ -43,7 +47,7 @@ export function NotificationListener() {
 				push('info', 'Trasa, na którą czekałeś, została usunięta.');
 				break;
 		}
-	}, [push]);
+	}, [push, applyRideEvent]);
 
 	useNotificationStream(handleEvent);
 
