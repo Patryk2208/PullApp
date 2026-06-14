@@ -14,3 +14,16 @@
     font-weight: 500; cursor: pointer;
 }
 .button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.link {
+    color: #111;
+    text-decoration: underline;
+    font-weight: 500;
+}

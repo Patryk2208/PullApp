@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLogin } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
 import styles from './login.module.css';
@@ -61,6 +62,13 @@ export default function LoginPage() {
 					{isLoading ? 'Logowanie…' : 'Zaloguj'}
 				</button>
 			</form>
+
+			<footer className={styles.footer}>
+				Nie masz jeszcze konta?{' '}
+				<Link href="/register" className={styles.link}>
+					Zarejestruj się
+				</Link>
+			</footer>
 		</main>
 	);
 }

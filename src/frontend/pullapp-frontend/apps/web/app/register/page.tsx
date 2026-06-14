@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useRegister } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
 import styles from './register.module.css';
@@ -77,6 +78,13 @@ export default function RegisterPage() {
 					{isLoading ? 'Rejestrowanie…' : 'Zarejestruj się'}
 				</button>
 			</form>
+
+			<footer className={styles.footer}>
+				Masz już konto?{' '}
+				<Link href="/login" className={styles.link}>
+					Przejdź do logowania
+				</Link>
+			</footer>
 		</main>
 	);
 }
