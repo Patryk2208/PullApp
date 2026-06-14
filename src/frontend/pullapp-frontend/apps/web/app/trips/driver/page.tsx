@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useAuthStore } from '@pullapp/features';
+import React, { useCallback, useState } from 'react';
+import { useAuthStore, useNotificationStream, type SseEvent } from '@pullapp/features';
 import dynamic from 'next/dynamic';
 
 const RequestMapWithNoSSR = dynamic(
@@ -28,77 +28,25 @@ interface RequestCard {
 export default function DriverDashboardPage() {
     const token = useAuthStore(state => state.token);
     const [cards, setCards] = useState<RequestCard[]>([]);
-    const [sseConnected, setSseConnected] = useState(false);
     const [mapCard, setMapCard] = useState<RequestCard | null>(null);
+    const sseConnected = !!token;
 
-    useEffect(() => {
-        if (!token) return;
-
-        const controller = new AbortController();
-
-        const connectSSE = async () => {
-            try {
-                const response = await fetch('/api/sse', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'text/event-stream',
-                    },
-                    signal: controller.signal,
-                });
-
-                if (!response.ok || !response.body) return;
-
-                setSseConnected(true);
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    buffer += chunk;
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() ?? '';
-
-                    let eventType = '';
-                    for (const line of lines) {
-                        if (line.startsWith('event:')) {
-                            eventType = line.replace('event:', '').trim();
-                        } else if (line.startsWith('data:')) {
-                            try {
-                                const data = JSON.parse(line.replace('data:', '').trim());
-                                if (eventType === 'ride_requested') {
-                                    setCards(prev => [...prev, {
-                                        request: {
-                                            requestId: data.RequestId,
-                                            routeId: data.RouteId,
-                                            passengerId: data.PassengerId,
-                                            startPoint: { Lat: data.StartPoint.Latitude, Lng: data.StartPoint.Longitude },
-                                            endPoint: { Lat: data.EndPoint.Latitude, Lng: data.EndPoint.Longitude },
-                                        },
-                                        status: 'pending'
-                                    }]);
-                                }
-                            } catch {}
-                            eventType = '';
-                        }
-                    }
-                }
-            } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    setSseConnected(false);
-                }
-            }
-        };
-
-        connectSSE();
-        return () => {
-            controller.abort();
-            setSseConnected(false);
-        };
-    }, [token]);
+    // współdzielony strumień SSE — nowe prośby ride_requested → karty
+    const handleEvent = useCallback((e: SseEvent) => {
+        if (e.type !== 'ride_requested') return;
+        const data = e.data;
+        setCards(prev => [...prev, {
+            request: {
+                requestId: data.RequestId,
+                routeId: data.RouteId,
+                passengerId: data.PassengerId,
+                startPoint: { Lat: data.StartPoint.Latitude, Lng: data.StartPoint.Longitude },
+                endPoint: { Lat: data.EndPoint.Latitude, Lng: data.EndPoint.Longitude },
+            },
+            status: 'pending'
+        }]);
+    }, []);
+    useNotificationStream(handleEvent);
 
     const handleAccept = async (requestId: string) => {
         setCards(prev => prev.map(c =>

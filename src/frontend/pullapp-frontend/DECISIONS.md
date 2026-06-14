@@ -61,3 +61,11 @@ Frontend zachowuje się poprawnie (pokazuje błąd), więc nic do naprawy po str
 - Komunikat w `data-testid="register-error"`.
 
 **Weryfikacja.** Playwright: underage (8 lat) → błąd + 0 POST `/api/auth/register` + zostaje na /register; dorosły (31 lat) → POST wywołany + redirect /login (register mockowany).
+
+## Iteracja 5 — jeden współdzielony transport SSE (spłata długu z it.1)
+
+**Problem.** Po it.1 były DWA połączenia SSE: globalny `NotificationListener` i panel kierowcy (własny `useEffect` z fetch+parsowaniem, ~65 linii duplikatu).
+
+**Decyzja.** `useNotificationStream` przepisany na singleton: moduł trzyma jedno połączenie + zbiór subskrybentów. Połączenie wstaje przy 1. subskrybencie, znika przy ostatnim, reconnect przy zmianie tokena. Panel kierowcy używa teraz `useNotificationStream(handleEvent)` (filtr `ride_requested` → karty); wskaźnik połączenia uproszczony do `!!token`. Usunięte ~65 linii zduplikowanego SSE.
+
+**Weryfikacja.** Playwright: mock `ride_requested` na `/trips/driver` → karta prośby + akcje + id pasażera. Regresja: toasty pasażera nadal działają (ten sam strumień).
