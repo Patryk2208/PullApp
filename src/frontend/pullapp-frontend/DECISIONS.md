@@ -222,3 +222,13 @@ Nowa struktura (poziomy C4 zamiast poprzednich numerowanych folderów):
 Usunięte (stale/redundant): `01-containers/`, `02-bounded-contexts/` (puste .gitkeep stuby + redundant), `03-flows/` (kryptyczne 02-1..4), `04-components/` (stuby), `06-observability/` (metrics/monitoring/grafana-dashboards = stare design/plan docs), `08-trip-planner-done-right/` (wchłonięte do ride-lifecycle).
 
 Realne nazwy metryk potwierdzone z kodu + deployed dashboardów: gateway MA custom metryki (`services/gateway/GatewayMetrics.cs`, nie w `/src`), unit-suffix w Prometheusie (`ride_active`→`ride_active_rides`, `ride_cancelled_total`→`ride_cancelled_rides_total`, `matching_result_total`→`matching_result_results_total`, `accounts.login.*`→`accounts_login_*_attempts_total`).
+
+## Makefile — naprawa 2 infra-bugów + make frontend + przegląd
+
+Dwa „infra bugi" z wcześniejszych iteracji to były błędy w samym Makefile:
+1. **Kontekst budowania trip-plannera** — `build`/`ci` budowały każdy serwis z `src/services/<svc>`, ale Dockerfile trip-plannera COPY-uje ścieżki cross-service (`services/trip-planner/...` + `schemas/...`), więc wymaga kontekstu `src/`. Generyczny target padał. Fix: `svc_ctx = $(if $(filter trip-planner,...),src,src/services/$(1))`, użyte w `build`, `build-%`, `_images`, `ci-%`.
+2. **Nienadpisywany obraz `:latest`** — `minikube image load` nie podmienia istniejącego taga `:latest`, a przy `imagePullPolicy: Never` pody trzymały stary obraz (stąd całosesyjny workaround `docker save|docker load`). Fix: budujemy wprost do dockera minikube (`eval $(minikube docker-env)` → `docker build`), bez `image load`. Nowy target `_images`; `ci`/`ci-%` z niego korzystają; martwy `_load-%` usunięty.
+
+**make run** — przyczyna długiego czekania na rollout: kolejność była `... cd ci`, czyli `cd` (apply + czekanie rollout 120s/serwis) szło PRZED zbudowaniem obrazów (`ci`). Na świeżym klastrze pody = ErrImageNeverPull, a `cd` przepalał ~12 min czekania zanim cokolwiek się zbudowało. Fix: `run: _cluster-ensure obs-install keda-install infra _images _tag-images cd` — build najpierw, deploy raz. Dodany brakujący `keda-install` (route-calc ScaledObject). Nie usuwam `run` — był tylko źle ułożony.
+
+**make frontend** (NOWE) — `frontend` (compose up --build → :5000, wymaga `make pf-gateway`), `frontend-dev` (pnpm dev), `frontend-down`, `frontend-logs`. Help zaktualizowany. Wszystko zweryfikowane `make -n`.
