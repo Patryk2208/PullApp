@@ -32,3 +32,11 @@ Backend traktowany jako nietykalny (fix+flag jeśli zepsuty). Weryfikacja: Playw
 2. **Dev server (`next dev`, :3000) nie hydratuje klienta w headless Chrome.** 0 logów klienta, brak rehydracji zustand, HMR WebSocket pada `ERR_INVALID_HTTP_RESPONSE`. Build produkcyjny (:5000) hydratuje poprawnie (zweryfikowane: Navbar pokazuje zalogowany stan, format tokena OK). **Decyzja: e2e wymagające hydracji testuję na buildzie, nie na dev.** Dev zostaje do szybkich sprawdzeń renderu/SSR. (Do zdiagnozowania osobno — prawdopodobnie konfiguracja HMR/origin Next 16.)
 
 3. Format zustand persist potwierdzony: klucz `pullapp-auth-storage`, wartość `{"state":{"token":"..."},"version":0}`.
+
+## Iteracja 2 — diagnoza flagi `/api/users/me`
+
+Z ważnym tokenem `GET /api/users/me` (i warianty ścieżki) → **404**. Gateway MA route
+`accounts-users-route: /api/users/{**catch-all}` → forward do accounts as-is. Czyli
+**accounts nie serwuje `GET /api/users/me`** — endpoint brakuje/ma inną ścieżkę.
+→ **Gap BACKENDU** (psuje stronę profilu: `UserRepository.me` → `useProfile`). NIE ruszam (backend).
+Frontend zachowuje się poprawnie (pokazuje błąd), więc nic do naprawy po stronie frontu bez endpointu.
