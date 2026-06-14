@@ -86,3 +86,14 @@ Czyli jedynym realnym bugiem kontraktu był `accessToken` (login) — już napra
 **🟡 Znalezisko (race przy aktywacji).** Geometria trasy liczy się **async** po publish (202). `activate` zwraca **409** dopóki status != `Created`. Front NIE ma dziś sygnału gotowości — user może kliknąć „Aktywuj" za wcześnie i dostać błąd. **Rekomendacja (przyszła iteracja):** polling statusu trasy lub event `route_created`, i gejtowanie przycisku activate do czasu gotowości.
 
 **Artefakt:** `apps/web/e2e/trip-flow-contract.mjs` — integracyjny regression guard całego flow (czysty fetch, bez przeglądarki, przeciw :8080).
+
+## Iteracja 7 — fix race aktywacji (gating na evencie route_ready)
+
+**Problem (znaleziony w it.6).** Geometria liczy się async po publish; `activate` zwraca 409 dopóki trasa nie jest `Created`. Front zawsze pokazywał aktywny przycisk „Aktywuj" → user mógł kliknąć za wcześnie i dostać błąd.
+
+**Odkrycie.** Backend emituje do kierowcy SSE `route_ready` gdy geometria gotowa:
+`{RouteId, DriverId, RoutePoints, DistanceMeters, DurationSeconds, EventType:"route_ready"}`.
+
+**Decyzja.** `publish/page.tsx` subskrybuje współdzielony strumień (`useNotificationStream`), zapisuje `readyRouteId` z `route_ready` (obsługa obu kolejności event↔result), i `routeReady = !!result && readyRouteId === result.routeId`. Przycisk activate jest **disabled** + „⏳ Czekam na gotowość trasy…" dopóki nie przyjdzie event; potem odblokowany + „🟢 Aktywuj…". Eliminuje race 409.
+
+**Weryfikacja.** Playwright (kliknięcia w Leaflet + mock publish/SSE): z `route_ready` → przycisk enabled + „Aktywuj"; bez → disabled + „Czekam…". Pełna suite bez regresji.

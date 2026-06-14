@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import React from "react";
-import { usePublishTrip, useAuthStore } from '@pullapp/features';
+import { usePublishTrip, useAuthStore, useNotificationStream, type SseEvent } from '@pullapp/features';
 
 const MapWithNoSSR = dynamic(
     () => import('./components/Map'),
@@ -20,7 +20,17 @@ export default function PublishTripPage() {
     const [capacity, setCapacity] = React.useState(3);
 	const [activateStatus, setActivateStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 	const [activateError, setActivateError] = React.useState<string | null>(null);
+	const [readyRouteId, setReadyRouteId] = React.useState<string | null>(null);
 	const token = useAuthStore(state => state.token);
+
+	// geometria liczy się async po publish; backend emituje `route_ready` gdy gotowa.
+	// Zapisujemy id (event może dojść przed albo po odpowiedzi publish) i dopiero wtedy
+	// odblokowujemy aktywację — eliminuje race 409 „activate za wcześnie".
+	const handleStream = React.useCallback((e: SseEvent) => {
+		if (e.type === 'route_ready' && e.data?.RouteId) setReadyRouteId(e.data.RouteId);
+	}, []);
+	useNotificationStream(handleStream);
+	const routeReady = !!result && readyRouteId === result.routeId;
 
 	const handleActivate = async () => {
 		if (!result || !coordinates.start) return;
@@ -155,7 +165,9 @@ export default function PublishTripPage() {
 					{activateStatus !== 'success' ? (
 						<>
 							<div style={{ fontSize: '0.85rem', color: '#6b7280', backgroundColor: '#ecfdf5', padding: '0.75rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
-								Trasa jest w trakcie obliczania geometrii. Gdy będzie gotowa, możesz ją aktywować aby rozpocząć przyjmowanie pasażerów.
+								{routeReady
+									? 'Geometria trasy gotowa — możesz aktywować, aby zacząć przyjmować pasażerów.'
+									: '⏳ Trwa obliczanie geometrii trasy… przycisk aktywacji odblokuje się automatycznie.'}
 							</div>
 							{activateError && (
 								<div style={{ marginBottom: '0.75rem', padding: '0.75rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#b91c1c', fontSize: '0.85rem' }}>
@@ -164,19 +176,22 @@ export default function PublishTripPage() {
 							)}
 							<button
 								onClick={handleActivate}
-								disabled={activateStatus === 'loading'}
+								data-testid="activate-button"
+								disabled={!routeReady || activateStatus === 'loading'}
 								style={{
 									width: '100%',
 									padding: '0.85rem',
-									backgroundColor: activateStatus === 'loading' ? '#93c5fd' : '#16a34a',
+									backgroundColor: (!routeReady || activateStatus === 'loading') ? '#93c5fd' : '#16a34a',
 									color: 'white',
 									border: 'none',
 									borderRadius: '8px',
 									fontSize: '1rem',
 									fontWeight: 500,
-									cursor: activateStatus === 'loading' ? 'not-allowed' : 'pointer',
+									cursor: (!routeReady || activateStatus === 'loading') ? 'not-allowed' : 'pointer',
 								}}>
-								{activateStatus === 'loading' ? 'Aktywowanie...' : '🟢 Aktywuj trasę — zaczynam jazdę'}
+								{activateStatus === 'loading'
+									? 'Aktywowanie...'
+									: !routeReady ? '⏳ Czekam na gotowość trasy…' : '🟢 Aktywuj trasę — zaczynam jazdę'}
 							</button>
 						</>
 					) : (
