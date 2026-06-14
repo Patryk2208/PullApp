@@ -2,7 +2,7 @@
 // oczekujemy toasta success. Uruchom: node apps/web/e2e/notification-toast.mjs
 import { chromium } from 'playwright-core';
 
-const BASE = process.env.BASE || 'http://127.0.0.1:3000';
+const BASE = process.env.BASE || 'http://127.0.0.1:3001';
 let failed = false;
 const ok = (c, m) => { console.log(`${c ? 'PASS' : 'FAIL'}: ${m}`); if (!c) failed = true; };
 

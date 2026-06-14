@@ -58,7 +58,6 @@ export default function DriverDashboardPage() {
                     if (done) break;
 
                     const chunk = decoder.decode(value, { stream: true });
-                    console.log("Driver SSE chunk:", chunk);
                     buffer += chunk;
                     const lines = buffer.split('\n');
                     buffer = lines.pop() ?? '';
@@ -71,7 +70,6 @@ export default function DriverDashboardPage() {
                             try {
                                 const data = JSON.parse(line.replace('data:', '').trim());
                                 if (eventType === 'ride_requested') {
-                                    console.log("Driver otrzymał ride_requested:", data);
                                     setCards(prev => [...prev, {
                                         request: {
                                             requestId: data.RequestId,

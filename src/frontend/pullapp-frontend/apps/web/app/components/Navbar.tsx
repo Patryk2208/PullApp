@@ -10,7 +10,6 @@ export function Navbar() {
 	const token = useAuthStore((state) => state.token);
 	const logout = useAuthStore((state) => state.logout);
 	const isLoggedIn = !!token;
-	console.log("Navbar sees token:", token, "isLoggedIn:", isLoggedIn); // TODO
 	
 	const pathname = usePathname();
 	if (pathname === '/login' || pathname === '/register') return null;

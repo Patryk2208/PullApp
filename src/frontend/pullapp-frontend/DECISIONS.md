@@ -40,3 +40,13 @@ Z ważnym tokenem `GET /api/users/me` (i warianty ścieżki) → **404**. Gatewa
 **accounts nie serwuje `GET /api/users/me`** — endpoint brakuje/ma inną ścieżkę.
 → **Gap BACKENDU** (psuje stronę profilu: `UserRepository.me` → `useProfile`). NIE ruszam (backend).
 Frontend zachowuje się poprawnie (pokazuje błąd), więc nic do naprawy po stronie frontu bez endpointu.
+
+## Iteracja 3 — hardening auth (401 auto-logout + czystość)
+
+**Problem.** `ApiInitializer` rejestrował no-op handler 401 (auto-logout zakomentowany) — wygasły/niepoprawny token zostawiał usera w martwym stanie. Dodatkowo ~12 debug `console.log` (tokeny w konsoli!) w Navbar, apiClient, ApiInitializer, UserRepository, useProfile, driver.
+
+**Decyzja.**
+- 401 z `authenticatedApiClient` → `useAuthStore.logout()` + redirect na `/login` (jeśli nie jesteśmy już tam).
+- Wycięte wszystkie debug `console.log` (zostaje tylko `console.warn` realnych błędów strumienia SSE).
+
+**Weryfikacja.** Playwright: token w storage, `/api/users/me` mock 401, wejście na `/profile` → redirect `/login` + token wyczyszczony.

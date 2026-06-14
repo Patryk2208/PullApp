@@ -9,10 +9,8 @@ export class UserRepository implements IUserRepository {
 	async me(): Promise<Result<GetUserResponse>> {
 		try {
 			const response = await authenticatedApiClient.get<GetUserResponse>('/api/users/me');
-			console.log("UserRepository received", response);
 			return ok(response.data);
 		} catch (error: any) {
-			console.log("UserRepository received", error);
 			if (error.response && error.response.data) {
 				return err(error.response.data.detail || 'Nie udało się pobrać profilu');
 			}
