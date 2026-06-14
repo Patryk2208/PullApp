@@ -193,3 +193,16 @@ Decyzja użytkownika: olać exportery DB/cache/queue — tylko metryki z kodu (O
 - **Request Flow**: auth panel `gateway_auth_failures_total` → `accounts_login_failed_attempts_total`.
 - **Ride Funnel**: nowy (Faza 1).
 Wszystkie queries zwalidowane w Prometheusie (`status=success`); zero zależności od exporterów infra. 3/3 dashboardy wczytane przez sidecar.
+
+## accounts /me + security hardening (kaskada 4 latentnych bugów)
+
+Cel: naprawić `/api/users/me` (404) + hardening accounts. Issue 1 (JWT zamiast X-User-Id w trip-plannerze) i issue 2 (role Driver/Passenger) — **olane** wg decyzji (trip-planner tylko przez gateway; role nie pasują do domeny dual-role).
+
+Diagnoza wykazała 4 ukryte bugi (latentne — serwisy nie były restartowane po zmianach):
+1. **accounts CrashLoop** — `db.Database.Migrate()` pada `42P07: relation "Users" already exists` (schemat jest, historia migracji pusta). Fix: `catch PostgresException(42P07)` → log + kontynuuj (restart-safe).
+2. **brak `UseAuthentication()`/`UseAuthorization()`** w pipeline accounts — usługi JWT zarejestrowane (`DependencyInjection`), middleware niewpięty → `/me` z `RequireAuthorization` nie działał. Fix: 2 linie w `Program.cs`.
+3. **gateway: przestarzały obraz** — `accounts-users-route` (`/api/users/{**catch-all}`) jest w `appsettings.json`, ale zapieczony obraz go nie miał → `/api/users/*` → 404. Fix: rebuild+redeploy gatewaya (bez zmiany source).
+4. **accounts: walidacja JWT bez `KeyId`** — token ma `kid=pullapp-key` (JwtProvider), klucz walidacji nie miał KeyId → resolver po kid zawodził → 401. Fix: `securityKey.KeyId="pullapp-key"` + `MapInboundClaims=false` (mirror gatewaya).
+5. **pole login `token` vs `accessToken`** — worktree accounts zwracał `Token`, front oczekuje `accessToken`. Fix: `LoginUserResponse.AccessToken`.
+
+Wynik (zweryfikowane przez gateway): login → `{accessToken}`, `GET /api/users/me` z tokenem → 200 (pełny profil), bez tokena → 401. accounts 0 restartów. Zmiana kodu **tylko w accounts**; gateway = redeploy stale image.
