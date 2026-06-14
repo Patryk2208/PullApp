@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRegister } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
-import { isUserOldEnough } from '@pullapp/domain';
+import { isUserOldEnough, isValidEmail } from '@pullapp/domain';
 import styles from './register.module.css';
 
 // const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -25,6 +25,18 @@ export default function RegisterPage() {
 		e.preventDefault();
 		setValidationError(null);
 
+		if (!name.trim() || !surname.trim() || !email.trim() || !password) {
+			setValidationError('Uzupełnij wszystkie pola.');
+			return;
+		}
+		if (!isValidEmail(email)) {
+			setValidationError('Nieprawidłowy adres e-mail.');
+			return;
+		}
+		if (password.length < 6) {
+			setValidationError('Hasło musi mieć co najmniej 6 znaków.');
+			return;
+		}
 		if (!birthDate) {
 			setValidationError('Podaj datę urodzenia.');
 			return;

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLogin } from '@pullapp/features';
 import { AuthRepository } from '@pullapp/api-client';
+import { isValidEmail } from '@pullapp/domain';
 import styles from './login.module.css';
 
 // const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
@@ -15,9 +16,21 @@ export default function LoginPage() {
 	
 	const [email,    setEmail]    = useState('');
 	const [password, setPassword] = useState('');
-	
+	const [validationError, setValidationError] = useState<string | null>(null);
+
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		setValidationError(null);
+
+		if (!email.trim() || !password) {
+			setValidationError('Podaj e-mail i hasło.');
+			return;
+		}
+		if (!isValidEmail(email)) {
+			setValidationError('Nieprawidłowy adres e-mail.');
+			return;
+		}
+
 		const isSuccess = await login({ email, password });
 		if (isSuccess) {
 			router.push('/');
@@ -51,7 +64,9 @@ export default function LoginPage() {
 					/>
 				</label>
 				
-				{error && <p className={styles.error}>{error}</p>}
+				{(validationError || error) && (
+					<p className={styles.error} data-testid="login-error">{validationError || error}</p>
+				)}
 				
 				<button
 					className={styles.button}

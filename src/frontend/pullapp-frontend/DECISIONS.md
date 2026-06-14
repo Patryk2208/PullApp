@@ -136,3 +136,22 @@ Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,R
 **🟡 Flaga (jak w #3):** driver pickup → 204 ale ride zostaje WaitingForDriver do czasu pickup pasażera; brak eventu → kierowca nie wie reaktywnie o przejściu w Started.
 
 **Weryfikacja.** Playwright: driver accept→pickup→end (status „Zakończony"); publish→Usuń trasę→potwierdzenie + wywołane DELETE.
+
+## Iteracja #5 — hardening: walidacja formularzy + favicon
+
+**Decyzja.**
+- `isValidEmail` w domenie (reużywalne). Login: blokada pustego submitu + format email (brak zbędnego POST). Register: required wszystkie pola + email + hasło min 6 znaków (przed checkiem 18+).
+- `app/icon.svg` (Next App Router) → emituje `<link rel="icon">`, zabija 404 na `/favicon.ico`.
+
+**Weryfikacja.** Playwright: login pusty/zły-email → błąd + 0 POST; register krótkie hasło → błąd + 0 POST; favicon link obecny.
+
+---
+
+## Podsumowanie sesji (5 iteracji wg planu)
+#1 ✅ weryfikacja rdzenia trip-flow (+ fix race activate, kontrakt accept/reject) — it.6/7/8
+#2 ✅ widok „Moje przejazdy" pasażera (store z SSE, persist)
+#3 ✅ cykl życia Ride pasażera (pickup/end/cancel)
+#4 ✅ strona kierowcy: lifecycle (driver pickup/end) + delete trasy
+#5 ✅ hardening: walidacja formularzy + favicon
+
+**Flagi backendu (do naprawy po stronie serwisów):** brak GET read-modelu rides/routes; brak eventów `driver_pickup_declared`/`ride_started`; `GET /api/users/me` 404 (profil). `next dev` nie hydratuje w headless (e2e na buildzie).
