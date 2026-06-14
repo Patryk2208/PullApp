@@ -250,3 +250,11 @@ Zgłoszenie: przycisk search nie działa + SSE wali CORS. Diagnoza Playwrightem 
 - Nowy e2e `apps/web/e2e/search-flow.mjs`: klik mapy → przycisk aktywny → POST przyjęty → SSE round-trip się domyka (matches/empty) → brak CORS. 5/5 PASS.
 
 Uwaga: CORS na gatewayu jest już LIVE (przebudowany+wdrożony, build potwierdził fix kontekstu trip-planner/Makefile). Front na :4000 ma stary build — zoom wejdzie po przebudowie (`make frontend` / `next build`).
+
+## Search: POST nie szedł, bo był zależny od SSE — reorder
+
+Bug (zgłoszony): przycisk „odpalał tylko SSE", `routeSearch` (POST) nie szedł wcale. Przyczyna: w `useSearchTrips` było `await fetch('/api/sse')` + early `if(!ok) throw` PRZED POST-em. Gdy SSE padał/wisiał (np. Firefox content-blocking „status: Blocked"), kod nigdy nie dochodził do POST-a.
+
+Fix (wg propozycji usera, minimalny): SSE odpalany „w tle" (`const ssePromise = fetch('/api/sse'…)` bez await + `.catch(()=>{})` na unhandled rejection), **POST leci pierwszy i bezwarunkowo**, error-check POST-a zaraz po nim (422 → „poza obszarem", 401 → „sesja wygasła"), a na SSE czekamy (`await ssePromise`) i czytamy wynik dopiero potem. Rozważany był wariant ze wspólnym strumieniem (`useNotificationStream`) — odrzucony na rzecz mniejszego diffa, per preferencja usera. Build + TS przechodzą.
+
+WAŻNE: to naprawia „POST zawsze leci", ale NIE odblokowuje samego SSE w Firefoksie. „status: Blocked" to client-side blok (Enhanced Tracking Protection / rozszerzenie), nie serwer — CORS i nagłówki SSE są poprawne (zweryfikowane 200 + Allow-Origin + Vary). Jeśli SSE dalej blokowany, wynik nie dopłynie (timeout 60s) dopóki user nie wyłączy ETP/adblocka dla localhost albo nie przemianujemy endpointu SSE na neutralny.
