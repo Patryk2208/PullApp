@@ -14,12 +14,11 @@ export function ApiInitializer() {
 		
 		// Wstrzykujemy akcję wylogowania dla błędu 401
 		registerUnauthorizedHandler(() => {
-			console.log("unauthorized handler (no-op for now)")
-			// TODO TODO
-			// useAuthStore.getState().logout();
-			// if (typeof window !== 'undefined') {
-			// 	window.location.href = '/login';
-			// }
+			console.log("unauthorized handler")
+			useAuthStore.getState().logout();
+			if (typeof window !== 'undefined') {
+				window.location.href = '/login';
+			}
 		});
 	}, []);
 	

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import styles from './page.module.css';
 import { Button } from '@pullapp/ui';
-1
+
 export default function HomePage() {
 	return (
 		<main className={styles.mainContainer}>
