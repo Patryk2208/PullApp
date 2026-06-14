@@ -17,11 +17,13 @@ interface RideRequest {
     endPoint: { Lat: number; Lng: number };
 }
 
-type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'error';
+type RequestStatus = 'pending' | 'accepting' | 'rejecting' | 'accepted' | 'rejected' | 'error'
+    | 'pickuping' | 'pickedup' | 'ending' | 'ended';
 
 interface RequestCard {
     request: RideRequest;
     status: RequestStatus;
+    rideId?: string;
     error?: string;
 }
 
@@ -61,8 +63,9 @@ export default function DriverDashboardPage() {
                 }
             });
             if (!response.ok) throw new Error(`Błąd: ${response.status}`);
+            const data = await response.json().catch(() => ({}));
             setCards(prev => prev.map(c =>
-                c.request.requestId === requestId ? { ...c, status: 'accepted' } : c
+                c.request.requestId === requestId ? { ...c, status: 'accepted', rideId: data.rideId } : c
             ));
         } catch (err: any) {
             setCards(prev => prev.map(c =>
@@ -70,6 +73,33 @@ export default function DriverDashboardPage() {
             ));
         }
     };
+
+    // flow 7/8 (strona kierowcy): driver pickup → end. Pickup MUSI być pierwszy
+    // (pasażer dostanie 403 dopóki kierowca nie zadeklaruje). End wymaga Started.
+    const driverRideAction = async (requestId: string, rideId: string, action: 'pickup' | 'end', busy: RequestStatus, done: RequestStatus) => {
+        setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: busy, error: undefined } : c));
+        try {
+            const res = await fetch(`/api/route/driver/rides/${rideId}/${action}`, {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+            });
+            if (!res.ok) {
+                let msg = `Błąd: ${res.status}`;
+                try {
+                    const j = await res.json();
+                    if (j?.Code === 'invalid_status') msg = 'Pasażer jeszcze nie potwierdził odbioru — nie można zakończyć.';
+                    else msg = j?.Message || msg;
+                } catch {}
+                throw new Error(msg);
+            }
+            setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: done } : c));
+        } catch (err: any) {
+            const revert: RequestStatus = action === 'pickup' ? 'accepted' : 'pickedup';
+            setCards(prev => prev.map(c => c.request.requestId === requestId ? { ...c, status: revert, error: err.message } : c));
+        }
+    };
+    const handleDriverPickup = (card: RequestCard) => { if (card.rideId) driverRideAction(card.request.requestId, card.rideId, 'pickup', 'pickuping', 'pickedup'); };
+    const handleDriverEnd = (card: RequestCard) => { if (card.rideId) driverRideAction(card.request.requestId, card.rideId, 'end', 'ending', 'ended'); };
 
     const handleReject = async (requestId: string) => {
         setCards(prev => prev.map(c =>
@@ -166,6 +196,10 @@ export default function DriverDashboardPage() {
                                      card.status === 'accepting' ? 'Akceptowanie...' :
                                      card.status === 'rejecting' ? 'Odrzucanie...' :
                                      card.status === 'accepted' ? 'Zaakceptowano' :
+                                     card.status === 'pickuping' ? 'Potwierdzanie...' :
+                                     card.status === 'pickedup' ? 'Odbiór potwierdzony' :
+                                     card.status === 'ending' ? 'Kończenie...' :
+                                     card.status === 'ended' ? 'Zakończony' :
                                      card.status === 'rejected' ? 'Odrzucono' : 'Błąd'}
                                 </div>
                             </div>
@@ -185,8 +219,8 @@ export default function DriverDashboardPage() {
                                 </div>
                             </div>
 
-                            {card.status === 'error' && (
-                                <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#fef2f2', borderRadius: '6px', color: '#b91c1c', fontSize: '0.82rem' }}>
+                            {card.error && (
+                                <div data-testid="driver-error" style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#fef2f2', borderRadius: '6px', color: '#b91c1c', fontSize: '0.82rem' }}>
                                     {card.error}
                                 </div>
                             )}
@@ -239,6 +273,24 @@ export default function DriverDashboardPage() {
                                         Akceptuj
                                     </button>
                                 </div>
+                            )}
+
+                            {card.status === 'accepted' && (
+                                <button
+                                    data-testid="driver-pickup"
+                                    onClick={() => handleDriverPickup(card)}
+                                    style={{ width: '100%', padding: '0.65rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500, cursor: 'pointer' }}>
+                                    Potwierdź odbiór pasażera
+                                </button>
+                            )}
+                            {(card.status === 'pickedup' || card.status === 'ending') && (
+                                <button
+                                    data-testid="driver-end"
+                                    onClick={() => handleDriverEnd(card)}
+                                    disabled={card.status === 'ending'}
+                                    style={{ width: '100%', padding: '0.65rem', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 500, cursor: card.status === 'ending' ? 'not-allowed' : 'pointer' }}>
+                                    {card.status === 'ending' ? 'Kończenie…' : 'Zakończ przejazd'}
+                                </button>
                             )}
                         </div>
                     ))}

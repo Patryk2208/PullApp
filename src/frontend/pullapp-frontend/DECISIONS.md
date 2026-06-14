@@ -124,3 +124,15 @@ Zweryfikowane: `reject` → 204, SSE `ride_rejected` do pasażera (`{RequestId,R
 **🟡 Flaga backendu (poważna dla UX flow 7).** Brak eventu gdy kierowca zadeklaruje odbiór ani gdy ride → Started. Pasażer nie wie, kiedy może deklarować swój pickup — może tylko próbować i dostawać 403. Również brak `ride_started` → druga strona nie widzi reaktywnie startu. Wymaga eventów `driver_pickup_declared` / `ride_started` po stronie backendu.
 
 **Weryfikacja.** Playwright (mock endpointów): pickup→Started+przycisk Zakończ; 403→przyjazny komunikat+status bez zmian; cancel→Anulowany.
+
+## Iteracja #4 — strona kierowcy: lifecycle + delete trasy
+
+**Kontrakty zweryfikowane:** driver pickup/end → 204; `DELETE /driver/routes/{id}` → 204 (świeża), 404 `route_not_found`, 403 `route_not_deletable` (aktywna z rides).
+
+**Decyzja.**
+- Panel kierowcy: po accept zapisujemy `rideId` z odpowiedzi; karta dostaje przyciski lifecycle — accepted → [Potwierdź odbiór pasażera] (driver pickup) → pickedup → [Zakończ przejazd] (driver end) → ended. Błąd 409 (end przed Started) → przyjazny komunikat „Pasażer jeszcze nie potwierdził odbioru".
+- Publish page: [🗑️ Usuń trasę] (DELETE), po sukcesie „Trasa została usunięta".
+
+**🟡 Flaga (jak w #3):** driver pickup → 204 ale ride zostaje WaitingForDriver do czasu pickup pasażera; brak eventu → kierowca nie wie reaktywnie o przejściu w Started.
+
+**Weryfikacja.** Playwright: driver accept→pickup→end (status „Zakończony"); publish→Usuń trasę→potwierdzenie + wywołane DELETE.

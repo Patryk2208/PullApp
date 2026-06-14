@@ -21,7 +21,29 @@ export default function PublishTripPage() {
 	const [activateStatus, setActivateStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 	const [activateError, setActivateError] = React.useState<string | null>(null);
 	const [readyRouteId, setReadyRouteId] = React.useState<string | null>(null);
+	const [deleted, setDeleted] = React.useState(false);
+	const [deleteError, setDeleteError] = React.useState<string | null>(null);
 	const token = useAuthStore(state => state.token);
+
+	// flow 1.5 — usunięcie trasy (DELETE → 204; 403 route_not_deletable jeśli aktywna z rides)
+	const handleDelete = async () => {
+		if (!result) return;
+		setDeleteError(null);
+		try {
+			const res = await fetch(`/api/route/driver/routes/${result.routeId}`, {
+				method: 'DELETE',
+				headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+			});
+			if (!res.ok) {
+				let msg = `Błąd: ${res.status}`;
+				try { const j = await res.json(); msg = j?.Message || msg; } catch {}
+				throw new Error(msg);
+			}
+			setDeleted(true);
+		} catch (err: any) {
+			setDeleteError(err.message);
+		}
+	};
 
 	// geometria liczy się async po publish; backend emituje `route_ready` gdy gotowa.
 	// Zapisujemy id (event może dojść przed albo po odpowiedzi publish) i dopiero wtedy
@@ -153,7 +175,12 @@ export default function PublishTripPage() {
                 </div>
             )}
 
-            {result && (
+            {result && deleted && (
+				<div data-testid="route-deleted" style={{ marginTop: '1.5rem', padding: '1.25rem', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '12px', textAlign: 'center', color: '#6b7280' }}>
+					🗑️ Trasa została usunięta.
+				</div>
+			)}
+			{result && !deleted && (
 				<div style={{ marginTop: '1.5rem', padding: '1.25rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px' }}>
 					<div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.5rem', fontSize: '1rem' }}>
 						Trasa opublikowana!
@@ -192,6 +219,15 @@ export default function PublishTripPage() {
 								{activateStatus === 'loading'
 									? 'Aktywowanie...'
 									: !routeReady ? '⏳ Czekam na gotowość trasy…' : '🟢 Aktywuj trasę — zaczynam jazdę'}
+							</button>
+							{deleteError && (
+								<div style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.82rem' }}>{deleteError}</div>
+							)}
+							<button
+								data-testid="delete-route-button"
+								onClick={handleDelete}
+								style={{ width: '100%', marginTop: '0.5rem', padding: '0.6rem', backgroundColor: 'transparent', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer' }}>
+								🗑️ Usuń trasę
 							</button>
 						</>
 					) : (
