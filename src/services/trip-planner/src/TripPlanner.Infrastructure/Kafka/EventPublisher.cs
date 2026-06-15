@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TripPlanner.Application.Services;
 using TripPlanner.Domain.Events;
@@ -9,9 +10,11 @@ namespace TripPlanner.Infrastructure.Kafka;
 public class EventPublisher : IEventPublisher, IDisposable
 {
     private readonly IProducer<Null, string> _producer;
+    private readonly ILogger<EventPublisher> _logger;
 
-    public EventPublisher(IOptions<KafkaOptions> options)
+    public EventPublisher(IOptions<KafkaOptions> options, ILogger<EventPublisher> logger)
     {
+        _logger = logger;
         var kafkaOptions = options.Value;
         
         var config = new ProducerConfig
@@ -41,6 +44,8 @@ public class EventPublisher : IEventPublisher, IDisposable
             payload);
 
         var json = JsonSerializer.Serialize(envelope);
+
+        _logger.LogInformation("Kafka publishing event type={EventType} topic={Topic}", payload.EventType, topic);
 
         await _producer.ProduceAsync(topic, new Message<Null, string> { Value = json }, ct);
     }
