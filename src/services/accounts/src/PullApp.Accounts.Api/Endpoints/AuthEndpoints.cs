@@ -24,11 +24,11 @@ public class AuthEndpoints : IEndpoint
 	}
 
 	private static async Task<IResult> Login(
-		LoginUserCommand command, 
+		LoginUserCommand command,
 		ISender sender, 
 		CancellationToken ct)
 	{
 		var token = await sender.Send(command, ct);
-		return Results.Ok(new { AccessToken = token });
+		return Results.Ok(token);
 	}
 }

@@ -23,7 +23,8 @@ public class GlobalExceptionHandler : IExceptionHandler
 		var (statusCode, title) = exception switch
 		{
 			ValidationException => (StatusCodes.Status400BadRequest, "Błąd walidacji"),
-			UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Brak dostępu"), // To dodajemy
+			UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Brak dostępu"),
+			KeyNotFoundException => (StatusCodes.Status404NotFound, "Nie znaleziono"),
 			_ => (StatusCodes.Status500InternalServerError, "Błąd serwera"),
 		};
 

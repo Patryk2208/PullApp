@@ -132,7 +132,8 @@ public class PassengerHandlerIntegrationTests(PostgresFixture db) : IAsyncLifeti
         await new PostgresRideRepository(seedSess).UpdateAsync(ride, default);
 
         var session = db.NewSession();
-        var handler = new DeclarePassengerPickupHandler(new PostgresRideRepository(session), session, NullLogger<DeclarePassengerPickupHandler>.Instance);
+        var events  = Substitute.For<IEventPublisher>();
+        var handler = new DeclarePassengerPickupHandler(new PostgresRideRepository(session), events, new KafkaTopics(), session, NullLogger<DeclarePassengerPickupHandler>.Instance);
 
         await handler.HandleAsync(new(passengerId, ride.Id), default);
 

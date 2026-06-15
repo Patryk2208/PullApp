@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -13,11 +14,16 @@ using OpenTelemetry.Trace;
 using Yarp.ReverseProxy.Model;
 
 var builder = WebApplication.CreateBuilder(args);
+IdentityModelEventSource.ShowPII = true; // apparently violates RODO, development only
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {
+	    var securityKey = new SymmetricSecurityKey(
+		    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!));
+	    securityKey.KeyId = "pullapp-key";
+	    
         o.MapInboundClaims = false;
         o.TokenValidationParameters = new TokenValidationParameters
         {
@@ -26,9 +32,9 @@ builder.Services
             ValidateAudience         = true,
             ValidAudience            = builder.Configuration["Jwt:Audience"],
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey         = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            IssuerSigningKey         = securityKey,
             ValidateLifetime         = true,
+            ValidateSignatureLast = false
         };
     });
 
@@ -40,6 +46,24 @@ builder.Services.AddAuthorization(o =>
 builder.Services
     .AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+// CORS — the web frontend runs on a different origin/port and the browser blocks
+// cross-origin fetch / XHR / EventSource (incl. the SSE stream) unless the gateway
+// echoes Access-Control-* headers. Origins come from config (Cors:AllowedOrigins)
+// with local-dev defaults. AllowCredentials so a direct EventSource(withCredentials)
+// or cookie-based auth also works.
+const string CorsPolicy = "frontend";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[]
+    {
+        "http://localhost:3000", "http://localhost:4000", "http://localhost:5000",
+        "http://127.0.0.1:3000", "http://127.0.0.1:4000", "http://127.0.0.1:5000",
+    };
+builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
+    .WithOrigins(allowedOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
 
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<GatewayMetrics>();
@@ -81,6 +105,10 @@ Task WriteHealthJson(HttpContext ctx, HealthReport report)
 app.MapHealthChecks("/health",       new HealthCheckOptions { ResponseWriter = WriteHealthJson });
 app.MapHealthChecks("/health/live",  new HealthCheckOptions { Predicate = _ => false, ResponseWriter = WriteHealthJson });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = _ => false, ResponseWriter = WriteHealthJson });
+
+// CORS before auth so preflight OPTIONS (which carry no token) are answered and
+// not rejected by the default RequireAuthenticatedUser policy.
+app.UseCors(CorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();

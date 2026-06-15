@@ -15,6 +15,9 @@ const (
 	EventRouteSearchCompleted = "route_search_completed"
 	EventRideEnded            = "ride_ended"
 	EventRouteDeleted         = "route_deleted"
+	EventDriverDeclaredPickup    = "driver_declared_pickup"
+	EventPassengerDeclaredPickup = "passenger_declared_pickup"
+	EventRideStarted             = "ride_started"
 	// ride-completions topic
 	EventRideCompleted = "ride_completed"
 	EventRideCancelled = "ride_cancelled"
@@ -94,6 +97,20 @@ type RouteDeletedPayload struct {
 	RouteId              string   `json:"RouteId"`
 	DriverId             string   `json:"DriverId"`
 	AffectedPassengerIds []string `json:"AffectedPassengerIds"`
+}
+
+type PickupPayload struct {
+	RideId      string `json:"RideId"`
+	RouteId     string `json:"RouteId"`
+	DriverId    string `json:"DriverId"`
+	PassengerId string `json:"PassengerId"`
+}
+
+type RideStartedPayload struct {
+	RideId      string `json:"RideId"`
+	RouteId     string `json:"RouteId"`
+	DriverId    string `json:"DriverId"`
+	PassengerId string `json:"PassengerId"`
 }
 
 // ── ride-completions ──────────────────────────────────────────────────────────

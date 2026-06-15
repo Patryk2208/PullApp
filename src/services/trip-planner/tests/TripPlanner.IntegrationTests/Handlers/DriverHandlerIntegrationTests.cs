@@ -197,7 +197,8 @@ public class DriverHandlerIntegrationTests(PostgresFixture db) : IAsyncLifetime
         await new PostgresRideRepository(seedSess).AddAsync(ride, default);
 
         var session = db.NewSession();
-        var handler = new DeclareDriverPickupHandler(new PostgresRideRepository(session), session, NullLogger<DeclareDriverPickupHandler>.Instance);
+        var events  = Substitute.For<IEventPublisher>();
+        var handler = new DeclareDriverPickupHandler(new PostgresRideRepository(session), events, new KafkaTopics(), session, NullLogger<DeclareDriverPickupHandler>.Instance);
 
         await handler.HandleAsync(new(driverId, ride.Id), default);
 

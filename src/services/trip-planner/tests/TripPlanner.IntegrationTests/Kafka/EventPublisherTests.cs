@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TripPlanner.Domain.Compute;
 using TripPlanner.Domain.Events;
@@ -16,7 +17,7 @@ public class EventPublisherTests(KafkaFixture kafka)
     {
         BootstrapServers = kafka.BootstrapServers,
         ConsumerGroupId  = "test-group",
-    }));
+    }), NullLogger<EventPublisher>.Instance);
 
     private async Task EnsureTopicAsync(string topic)
     {

@@ -1,0 +1,30 @@
+/* apps/web/app/register/register.module.css */
+.container { max-width: 400px; margin: 10vh auto; padding: 0 24px; }
+.title     { font-size: 28px; font-weight: 600; margin-bottom: 24px; }
+.form      { display: flex; flex-direction: column; gap: 16px; }
+.label     { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.input     {
+    border: 1px solid #ccc; border-radius: 8px;
+    padding: 10px 12px; font-size: 16px;
+}
+.input:focus { outline: none; border-color: #111; }
+.error     { color: #c0392b; font-size: 13px; margin: 0; }
+.button    {
+    background: #111; color: #fff; border: none;
+    border-radius: 8px; padding: 12px; font-size: 16px;
+    font-weight: 500; cursor: pointer;
+}
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.link {
+    color: #111;
+    text-decoration: underline;
+    font-weight: 500;
+}

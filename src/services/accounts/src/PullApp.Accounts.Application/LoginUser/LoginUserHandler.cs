@@ -12,9 +12,9 @@ public class LoginUserHandler(
 	IJwtProvider jwtProvider,
 	AccountsMetrics metrics,
 	ILogger<LoginUserHandler> logger)
-	: IRequestHandler<LoginUserCommand, string>
+	: IRequestHandler<LoginUserCommand, LoginUserResponse>
 {
-	public async Task<string> Handle(LoginUserCommand request, CancellationToken ct)
+	public async Task<LoginUserResponse> Handle(LoginUserCommand request, CancellationToken ct)
 	{
 		logger.LogDebug("Login attempt for email={Email}", request.Email);
 
@@ -31,12 +31,12 @@ public class LoginUserHandler(
 			throw new UnauthorizedAccessException("Błędne dane logowania");
 		}
 
-		var token = jwtProvider.Generate(user);
-
 		metrics.LoginSucceeded();
 		metrics.RecordLoginDuration(sw.Elapsed.TotalSeconds, success: true);
 		logger.LogInformation("Login succeeded userId={UserId} email={Email}", user.Id, request.Email);
-
-		return token;
+		
+		return new LoginUserResponse(
+			AccessToken: jwtProvider.Generate(user)
+		);
 	}
 }

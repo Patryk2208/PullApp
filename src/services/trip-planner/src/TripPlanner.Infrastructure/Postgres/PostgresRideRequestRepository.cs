@@ -57,6 +57,31 @@ public class PostgresRideRequestRepository(DbSession db) : IRideRequestRepositor
         return await ReadListAsync(cmd, ct);
     }
 
+    public async Task<IReadOnlyList<RideRequest>> GetByPassengerIdAsync(Guid passengerId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = """
+            SELECT * FROM ride_requests
+            WHERE passenger_id = @passenger_id
+            ORDER BY created_at DESC
+            """;
+        cmd.Parameters.AddWithValue("passenger_id", passengerId);
+        return await ReadListAsync(cmd, ct);
+    }
+
+    public async Task<IReadOnlyList<RideRequest>> GetPendingByDriverIdAsync(Guid driverId, CancellationToken ct)
+    {
+        await using var cmd = await db.CreateCommandAsync(ct);
+        cmd.CommandText = """
+            SELECT rr.* FROM ride_requests rr
+            JOIN routes r ON rr.route_id = r.id
+            WHERE r.driver_id = @driver_id AND rr.status = 'Pending'
+            ORDER BY rr.created_at DESC
+            """;
+        cmd.Parameters.AddWithValue("driver_id", driverId);
+        return await ReadListAsync(cmd, ct);
+    }
+
     public async Task UpdateAsync(RideRequest request, CancellationToken ct)
     {
         await using var cmd = await db.CreateCommandAsync(ct);

@@ -18,7 +18,7 @@ public class ValidationBehavior<TRequest, TResponse>(
 		CancellationToken ct)
 	{
 		if (!validators.Any())
-			return await next();
+			return await next(ct);
 
 		logger.LogDebug("Validating {RequestType}", typeof(TRequest).Name);
 
@@ -41,6 +41,6 @@ public class ValidationBehavior<TRequest, TResponse>(
 			throw new ValidationException(failures);
 		}
 
-		return await next();
+		return await next(ct);
 	}
 }

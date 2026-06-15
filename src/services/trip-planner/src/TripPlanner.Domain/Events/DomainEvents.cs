@@ -69,6 +69,36 @@ public record RideEndedEvent(
     public string EventType => "ride_ended";
 }
 
+// Flow 7: driver declared pickup → notify passenger.
+public record DriverDeclaredPickupEvent(
+    Guid RideId,
+    Guid RouteId,
+    Guid DriverId,
+    Guid PassengerId) : IDomainEvent
+{
+    public string EventType => "driver_declared_pickup";
+}
+
+// Flow 7: passenger declared pickup → notify driver.
+public record PassengerDeclaredPickupEvent(
+    Guid RideId,
+    Guid RouteId,
+    Guid DriverId,
+    Guid PassengerId) : IDomainEvent
+{
+    public string EventType => "passenger_declared_pickup";
+}
+
+// Flow 7: both declared pickup → notify both.
+public record RideStartedEvent(
+    Guid RideId,
+    Guid RouteId,
+    Guid DriverId,
+    Guid PassengerId) : IDomainEvent
+{
+    public string EventType => "ride_started";
+}
+
 // Flow 0 completion: route geometry computed → notify driver their route is ready.
 public record RouteReadyEvent(
     Guid RouteId,

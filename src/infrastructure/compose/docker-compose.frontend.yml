@@ -1,0 +1,21 @@
+# Frontend (Next.js web app).
+#
+# The backend gateway runs in the k8s cluster and is exposed on the host at
+# :8080 (`make pf-gateway`). The app proxies /api/* and /sse/* to 127.0.0.1:8080
+# (see apps/web/next.config.js and apps/web/app/api/sse/route.ts), so the
+# container uses host networking — that makes 127.0.0.1:8080 inside the
+# container resolve to the host-forwarded gateway, with no rewrites needed.
+# The app then serves on the host at :5000.
+services:
+  frontend-web:
+    build:
+      context: ../../frontend/pullapp-frontend
+      dockerfile: apps/web/Dockerfile
+    network_mode: host
+    environment:
+      - PORT=5000
+      - HOSTNAME=0.0.0.0
+      # host networking makes Docker inject HOSTNAME=<host>, which Next's
+      # standalone server would bind to; force all interfaces so 127.0.0.1 works
+      - HOSTNAME=0.0.0.0
+    restart: unless-stopped
