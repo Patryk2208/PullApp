@@ -16,3 +16,10 @@ set_target_properties(route_calc_algorithms PROPERTIES
 
 target_include_directories(route_calc_algorithms PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(route_calc_algorithms PRIVATE CURL::libcurl)
+
+option(ROUTE_CALC_BUILD_GEOMETRY_TEST "Build offline geometry parse test" ON)
+if(ROUTE_CALC_BUILD_GEOMETRY_TEST)
+    add_executable(geometry_parse_test tests/geometry_parse_test.cpp)
+    target_link_libraries(geometry_parse_test PRIVATE route_calc_algorithms)
+    target_include_directories(geometry_parse_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+endif()

@@ -161,4 +161,10 @@ PYBIND11_MODULE(route_calc_algorithms_module, m) {
     },
           py::arg("point"), py::arg("num_routes") = 3, py::arg("osrm_url") = "http://router.project-osrm.org",
           "Get closest routes using OSRM");
+
+    m.def("parse_geometry_from_json", [](const std::string& json) {
+        return osrm::parse_geometry_from_json(json);
+    },
+          py::arg("json"),
+          "Parse GeoJSON LineString coordinates from an OSRM route JSON fragment");
 }

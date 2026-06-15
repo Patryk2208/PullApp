@@ -7,6 +7,9 @@
 
 namespace osrm {
 
+/** Parse GeoJSON LineString coordinates from an OSRM route JSON fragment. */
+std::vector<Point> parse_geometry_from_json(const std::string& json);
+
 struct RouteResponse {
     std::vector<Point> waypoints;
     double distance_meters;
